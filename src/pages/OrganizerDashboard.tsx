@@ -199,10 +199,19 @@ const OrganizerDashboard = () => {
 
   const openEditDialog = (training: any) => {
     setEditingTraining(training);
+    
+    // Converter datetime do formato ISO para datetime-local
+    let formattedDatetime = "";
+    if (training.datetime) {
+      const date = new Date(training.datetime);
+      // Formato: YYYY-MM-DDTHH:mm
+      formattedDatetime = date.toISOString().slice(0, 16);
+    }
+
     setTrainingForm({
       name: training.name,
       banner_url: training.banner_url || "",
-      datetime: training.datetime,
+      datetime: formattedDatetime,
       rounds: training.rounds,
       points_per_kill: training.points_per_kill,
       points_per_position: JSON.stringify(training.points_per_position || []),
@@ -601,6 +610,12 @@ const OrganizerDashboard = () => {
                       AO VIVO
                     </Badge>
                   )}
+                  <Badge
+                    className="absolute top-2 left-2"
+                    variant={training.status === "ABERTO" ? "default" : "destructive"}
+                  >
+                    {training.status || "ABERTO"}
+                  </Badge>
                 </div>
 
                 <div className="p-4 space-y-3">

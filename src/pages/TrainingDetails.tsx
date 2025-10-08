@@ -127,6 +127,31 @@ const TrainingDetails = () => {
       return;
     }
 
+    // Validar número mínimo de membros baseado no modo
+    const { data: members } = await supabase
+      .from("team_members")
+      .select("*")
+      .eq("team_id", myTeam.id);
+
+    const minMembers: { [key: string]: number } = {
+      Solo: 1,
+      Duo: 2,
+      Squad: 4,
+    };
+
+    const required = minMembers[training.mode] || 1;
+    if (!members || members.length < required) {
+      toast.error(
+        `Sua equipe precisa ter pelo menos ${required} jogador(es) para o modo ${training.mode}!`
+      );
+      return;
+    }
+
+    if (training.status === "FECHADO") {
+      toast.error("As inscrições para este treino estão fechadas!");
+      return;
+    }
+
     if (registeredTeams.length >= training.max_slots) {
       toast.error("Este treino já está lotado!");
       return;
@@ -301,14 +326,39 @@ const TrainingDetails = () => {
                 <p className="text-sm text-muted-foreground">
                   Abates: {training.points_per_kill} ponto(s)
                 </p>
-                {training.points_per_position &&
-                  Array.isArray(training.points_per_position) &&
-                  training.points_per_position.length > 0 && (
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Por colocação: Configurado
-                    </p>
-                  )}
+                {training.points_per_position_text && (
+                  <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
+                    <p className="font-semibold mb-1">Pontos por Colocação:</p>
+                    {training.points_per_position_text}
+                  </div>
+                )}
               </div>
+
+              {training.important_info && (
+                <>
+                  <Separator className="my-6" />
+                  <div>
+                    <h3 className="font-semibold mb-3 text-primary">⚠️ Informações Importantes</h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap bg-primary/5 p-4 rounded-lg border border-primary/20">
+                      {training.important_info}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {training.table_image_url && (
+                <>
+                  <Separator className="my-6" />
+                  <div>
+                    <h3 className="font-semibold mb-3">📊 Tabela de Resultados</h3>
+                    <img 
+                      src={training.table_image_url} 
+                      alt="Tabela de resultados"
+                      className="w-full rounded-lg border border-border"
+                    />
+                  </div>
+                </>
+              )}
 
               {training.rules && (
                 <>
@@ -423,7 +473,8 @@ const TrainingDetails = () => {
                       onClick={handleRegister}
                       disabled={
                         actionLoading ||
-                        registeredTeams.length >= training.max_slots
+                        registeredTeams.length >= training.max_slots ||
+                        training.status === "FECHADO"
                       }
                       className="w-full bg-gradient-primary hover:shadow-glow-strong"
                     >
@@ -432,7 +483,9 @@ const TrainingDetails = () => {
                       ) : (
                         <CheckCircle className="w-4 h-4 mr-2" />
                       )}
-                      {registeredTeams.length >= training.max_slots
+                      {training.status === "FECHADO"
+                        ? "Inscrições Fechadas"
+                        : registeredTeams.length >= training.max_slots
                         ? "Treino Lotado"
                         : "Inscrever Minha Equipe"}
                     </Button>
@@ -463,6 +516,14 @@ const TrainingDetails = () => {
               <Separator className="my-6" />
 
               <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Inscrições:</span>
+                  <Badge
+                    variant={training.status === "ABERTO" ? "default" : "destructive"}
+                  >
+                    {training.status || "ABERTO"}
+                  </Badge>
+                </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Status:</span>
                   <Badge
