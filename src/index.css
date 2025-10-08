@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Deep dark theme with purple/lilac gradients - inspired by LEOZIN DEV IA */
+    --background: 240 10% 3.9%; /* #0a0a0f - deep dark */
+    --foreground: 0 0% 98%; /* #fafafa - almost white */
+
+    --card: 240 8% 8%; /* #13131a - dark card */
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 5%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Purple gradient colors */
+    --primary: 270 91% 65%; /* #8b5cf6 - vibrant purple */
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 280 85% 75%; /* #c084fc - lilac for glow */
+
+    --secondary: 240 8% 15%; /* darker card variant */
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 6% 12%;
+    --muted-foreground: 240 5% 65%;
+
+    --accent: 280 85% 75%; /* lilac accent */
+    --accent-foreground: 240 10% 3.9%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 6% 16%; /* subtle borders */
+    --input: 240 6% 12%;
+    --ring: 270 91% 65%;
+
+    --radius: 0.75rem; /* more rounded for modern look */
+
+    /* Gradient definitions */
+    --gradient-primary: linear-gradient(135deg, hsl(270 91% 65%), hsl(280 85% 75%));
+    --gradient-radial: radial-gradient(circle at 50% 0%, hsl(270 91% 65% / 0.2), transparent 50%);
+    
+    /* Glow effects */
+    --glow-primary: 0 0 20px hsl(270 91% 65% / 0.5);
+    --glow-strong: 0 0 30px hsl(270 91% 65% / 0.8), 0 0 60px hsl(280 85% 75% / 0.4);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Poppins', sans-serif;
+  }
+
+  /* Gradient text utility */
+  .gradient-text {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glow effect utility */
+  .glow {
+    box-shadow: var(--glow-primary);
+  }
+
+  .glow-strong {
+    box-shadow: var(--glow-strong);
+  }
+
+  /* Smooth animations */
+  * {
+    @apply transition-colors duration-200;
+  }
+}
