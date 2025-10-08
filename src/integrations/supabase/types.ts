@@ -14,7 +14,222 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      team_members: {
+        Row: {
+          created_at: string
+          discord: string
+          function: Database["public"]["Enums"]["player_function"]
+          game_id: string
+          id: string
+          player_name: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          discord: string
+          function: Database["public"]["Enums"]["player_function"]
+          game_id: string
+          id?: string
+          player_name: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          discord?: string
+          function?: Database["public"]["Enums"]["player_function"]
+          game_id?: string
+          id?: string
+          player_name?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_members_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      teams: {
+        Row: {
+          created_at: string
+          id: string
+          logo_url: string | null
+          name: string
+          owner_id: string
+          tag: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          tag: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          tag?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "teams_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_registrations: {
+        Row: {
+          id: string
+          registered_at: string
+          team_id: string
+          training_id: string
+        }
+        Insert: {
+          id?: string
+          registered_at?: string
+          team_id: string
+          training_id: string
+        }
+        Update: {
+          id?: string
+          registered_at?: string
+          team_id?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_registrations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_registrations_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trainings: {
+        Row: {
+          banner_url: string | null
+          created_at: string
+          datetime: string
+          discord_link: string | null
+          id: string
+          important_info: string | null
+          is_live: boolean
+          live_link: string | null
+          max_slots: number
+          mode: Database["public"]["Enums"]["mode_type"]
+          name: string
+          organizer_id: string
+          platform: Database["public"]["Enums"]["platform_type"]
+          points_per_kill: number
+          points_per_position: Json
+          points_per_position_text: string | null
+          rounds: number
+          rules: string | null
+          status: string | null
+          table_image_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string
+          datetime: string
+          discord_link?: string | null
+          id?: string
+          important_info?: string | null
+          is_live?: boolean
+          live_link?: string | null
+          max_slots?: number
+          mode: Database["public"]["Enums"]["mode_type"]
+          name: string
+          organizer_id: string
+          platform: Database["public"]["Enums"]["platform_type"]
+          points_per_kill?: number
+          points_per_position?: Json
+          points_per_position_text?: string | null
+          rounds?: number
+          rules?: string | null
+          status?: string | null
+          table_image_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string
+          datetime?: string
+          discord_link?: string | null
+          id?: string
+          important_info?: string | null
+          is_live?: boolean
+          live_link?: string | null
+          max_slots?: number
+          mode?: Database["public"]["Enums"]["mode_type"]
+          name?: string
+          organizer_id?: string
+          platform?: Database["public"]["Enums"]["platform_type"]
+          points_per_kill?: number
+          points_per_position?: Json
+          points_per_position_text?: string | null
+          rounds?: number
+          rules?: string | null
+          status?: string | null
+          table_image_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trainings_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +238,10 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      mode_type: "Solo" | "Duo" | "Squad"
+      platform_type: "PC" | "Mobile" | "Misto"
+      player_function: "RUSH" | "SUPORTE" | "CAPITÃO"
+      user_role: "player" | "organizer"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +368,11 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      mode_type: ["Solo", "Duo", "Squad"],
+      platform_type: ["PC", "Mobile", "Misto"],
+      player_function: ["RUSH", "SUPORTE", "CAPITÃO"],
+      user_role: ["player", "organizer"],
+    },
   },
 } as const
