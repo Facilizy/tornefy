@@ -24,6 +24,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import { TrainingChat } from "@/components/TrainingChat";
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -91,7 +92,15 @@ const TrainingDetails = () => {
             id,
             name,
             tag,
-            logo_url
+            logo_url,
+            owner_id,
+            team_members (
+              id,
+              player_name,
+              game_id,
+              discord,
+              function
+            )
           )
         `
           )
@@ -178,6 +187,11 @@ const TrainingDetails = () => {
   };
 
   const handleUnregister = async () => {
+    if (!myTeam) {
+      toast.error("Equipe não encontrada!");
+      return;
+    }
+
     try {
       setActionLoading(true);
       const { error } = await supabase
@@ -186,11 +200,15 @@ const TrainingDetails = () => {
         .eq("training_id", id)
         .eq("team_id", myTeam.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error unregistering:", error);
+        throw error;
+      }
       toast.success("Inscrição cancelada!");
       fetchTrainingDetails();
     } catch (error: any) {
-      toast.error("Erro ao cancelar inscrição");
+      console.error("Unregister error:", error);
+      toast.error(error.message || "Erro ao cancelar inscrição");
     } finally {
       setActionLoading(false);
     }
@@ -434,14 +452,26 @@ const TrainingDetails = () => {
                             [{registration.teams.tag}]
                           </p>
                           
-                          <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
-                            <p className="text-sm text-muted-foreground">
-                              🔒 Informações da equipe são privadas
-                            </p>
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Para proteger a privacidade dos jogadores, os detalhes da equipe não são exibidos publicamente.
-                            </p>
-                          </div>
+                          {registration.teams.team_members && registration.teams.team_members.length > 0 ? (
+                            <div className="space-y-2">
+                              {registration.teams.team_members.map((member: any) => (
+                                <div key={member.id} className="bg-background/50 p-2 rounded-lg border border-border/50">
+                                  <div className="flex justify-between items-start">
+                                    <div>
+                                      <p className="font-medium text-sm">{member.player_name}</p>
+                                      <p className="text-xs text-muted-foreground">{member.function}</p>
+                                    </div>
+                                    <div className="text-right">
+                                      <p className="text-xs text-muted-foreground">ID: {member.game_id}</p>
+                                      <p className="text-xs text-muted-foreground">Discord: {member.discord}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground">Nenhum membro cadastrado</p>
+                          )}
                         </div>
                       </div>
                     </Card>
@@ -504,6 +534,18 @@ const TrainingDetails = () => {
               )}
 
               <Separator className="my-6" />
+
+              {/* Chat Section */}
+              {(profile?.role === "organizer" && training.organizer_id === user?.id) || isRegistered ? (
+                <TrainingChat 
+                  trainingId={id!} 
+                  isOrganizer={profile?.role === "organizer" && training.organizer_id === user?.id}
+                />
+              ) : null}
+
+              {(profile?.role === "organizer" && training.organizer_id === user?.id) || isRegistered ? (
+                <Separator className="my-6" />
+              ) : null}
 
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">

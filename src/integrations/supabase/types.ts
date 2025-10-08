@@ -114,6 +114,35 @@ export type Database = {
           },
         ]
       }
+      training_messages: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_messages_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_registrations: {
         Row: {
           id: string
