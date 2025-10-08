@@ -88,8 +88,10 @@ const TrainingDetails = () => {
             `
           *,
           teams (
-            *,
-            team_members (*)
+            id,
+            name,
+            tag,
+            logo_url
           )
         `
           )
@@ -431,27 +433,14 @@ const TrainingDetails = () => {
                           <p className="text-sm text-muted-foreground mb-3">
                             [{registration.teams.tag}]
                           </p>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {registration.teams.team_members?.map(
-                              (member: any) => (
-                                <div
-                                  key={member.id}
-                                  className="flex items-center gap-2 text-sm"
-                                >
-                                  <Badge
-                                    variant="outline"
-                                    className="text-xs"
-                                  >
-                                    {member.function}
-                                  </Badge>
-                                  <span>{member.player_name}</span>
-                                  <span className="text-muted-foreground">
-                                    ({member.game_id})
-                                  </span>
-                                </div>
-                              )
-                            )}
+                          
+                          <div className="bg-muted/30 rounded-lg p-3 border border-border/50">
+                            <p className="text-sm text-muted-foreground">
+                              🔒 Informações da equipe são privadas
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Para proteger a privacidade dos jogadores, os detalhes da equipe não são exibidos publicamente.
+                            </p>
                           </div>
                         </div>
                       </div>
