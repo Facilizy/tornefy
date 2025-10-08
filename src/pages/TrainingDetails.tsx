@@ -419,30 +419,6 @@ const TrainingDetails = () => {
                 </>
               )}
 
-              <Separator className="my-6" />
-
-              <div className="flex flex-wrap gap-3">
-                {training.discord_link && (
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(training.discord_link, "_blank")}
-                    className="flex items-center gap-2 border-primary/50 hover:bg-primary/10"
-                  >
-                    <MessageCircle className="w-4 h-4" />
-                    Discord
-                  </Button>
-                )}
-
-                {training.is_live && training.live_link && (
-                  <Button
-                    onClick={() => window.open(training.live_link, "_blank")}
-                    className="flex items-center gap-2 bg-destructive hover:bg-destructive/90 animate-glow-pulse"
-                  >
-                    <Video className="w-4 h-4" />
-                    Assistir à Live
-                  </Button>
-                )}
-              </div>
             </Card>
 
             {/* Registered Teams */}
@@ -570,14 +546,38 @@ const TrainingDetails = () => {
 
               {/* Chat Section */}
               {(profile?.role === "organizer" && training.organizer_id === user?.id) || isRegistered ? (
-                <TrainingChat 
-                  trainingId={id!} 
-                  isOrganizer={profile?.role === "organizer" && training.organizer_id === user?.id}
-                />
-              ) : null}
+                <>
+                  <TrainingChat 
+                    trainingId={id!} 
+                    isOrganizer={profile?.role === "organizer" && training.organizer_id === user?.id}
+                  />
+                  
+                  {/* Quick Actions */}
+                  <div className="flex flex-col gap-2 mt-4">
+                    {training.discord_link && (
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(training.discord_link, "_blank")}
+                        className="w-full flex items-center justify-center gap-2 border-primary/50 hover:bg-primary/10"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Entrar no Discord
+                      </Button>
+                    )}
 
-              {(profile?.role === "organizer" && training.organizer_id === user?.id) || isRegistered ? (
-                <Separator className="my-6" />
+                    {training.is_live && training.live_link && (
+                      <Button
+                        onClick={() => window.open(training.live_link, "_blank")}
+                        className="w-full flex items-center justify-center gap-2 bg-destructive hover:bg-destructive/90 animate-glow-pulse"
+                      >
+                        <Video className="w-4 h-4" />
+                        🔴 Assistir à Live
+                      </Button>
+                    )}
+                  </div>
+
+                  <Separator className="my-6" />
+                </>
               ) : null}
 
               <div className="space-y-2 text-sm">

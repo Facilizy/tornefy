@@ -183,7 +183,7 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
     <Card className="p-4 backdrop-blur-sm bg-card/80 border-border">
       <h3 className="font-semibold mb-3">💬 Chat do Treino</h3>
       
-      <ScrollArea className="h-64 mb-3 pr-4" ref={scrollRef}>
+      <div className="h-64 mb-3 overflow-y-auto" ref={scrollRef}>
         <div className="space-y-3">
           {messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
@@ -257,7 +257,7 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
             ))
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {isOrganizer && (
         <div className="space-y-2">
