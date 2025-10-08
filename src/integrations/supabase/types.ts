@@ -119,18 +119,21 @@ export type Database = {
           created_at: string
           id: string
           message: string
+          sender_id: string
           training_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           message: string
+          sender_id: string
           training_id: string
         }
         Update: {
           created_at?: string
           id?: string
           message?: string
+          sender_id?: string
           training_id?: string
         }
         Relationships: [
@@ -147,18 +150,21 @@ export type Database = {
         Row: {
           id: string
           registered_at: string
+          slot_number: number | null
           team_id: string
           training_id: string
         }
         Insert: {
           id?: string
           registered_at?: string
+          slot_number?: number | null
           team_id: string
           training_id: string
         }
         Update: {
           id?: string
           registered_at?: string
+          slot_number?: number | null
           team_id?: string
           training_id?: string
         }

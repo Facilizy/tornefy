@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -13,6 +13,7 @@ interface Message {
   id: string;
   message: string;
   created_at: string;
+  sender_id: string;
 }
 
 interface TrainingChatProps {
@@ -24,10 +25,14 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState("");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchMessages();
+    getCurrentUser();
     
     // Subscribe to new messages
     const channel = supabase
@@ -44,6 +49,32 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
           setMessages(prev => [...prev, payload.new as Message]);
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'training_messages',
+          filter: `training_id=eq.${trainingId}`
+        },
+        (payload) => {
+          setMessages(prev => prev.map(msg => 
+            msg.id === payload.new.id ? payload.new as Message : msg
+          ));
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'training_messages',
+          filter: `training_id=eq.${trainingId}`
+        },
+        (payload) => {
+          setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        }
+      )
       .subscribe();
 
     return () => {
@@ -58,6 +89,13 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  };
+
+  const getCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      setCurrentUserId(user.id);
     }
   };
 
@@ -78,12 +116,15 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
 
     try {
       setLoading(true);
+      const { data: { user } } = await supabase.auth.getUser();
+      
       const { error } = await supabase
         .from("training_messages")
-        .insert({
+        .insert([{
           training_id: trainingId,
-          message: newMessage.trim()
-        });
+          message: newMessage.trim(),
+          sender_id: user?.id
+        }]);
 
       if (error) throw error;
       
@@ -95,6 +136,47 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleEditMessage = async (messageId: string) => {
+    if (!editText.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from("training_messages")
+        .update({ message: editText.trim() })
+        .eq("id", messageId);
+
+      if (error) throw error;
+      
+      setEditingId(null);
+      setEditText("");
+      toast.success("Mensagem editada!");
+    } catch (error: any) {
+      toast.error("Erro ao editar mensagem");
+      console.error(error);
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    try {
+      const { error } = await supabase
+        .from("training_messages")
+        .delete()
+        .eq("id", messageId);
+
+      if (error) throw error;
+      
+      toast.success("Mensagem deletada!");
+    } catch (error: any) {
+      toast.error("Erro ao deletar mensagem");
+      console.error(error);
+    }
+  };
+
+  const startEditing = (message: Message) => {
+    setEditingId(message.id);
+    setEditText(message.message);
   };
 
   return (
@@ -110,10 +192,67 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
           ) : (
             messages.map((msg) => (
               <div key={msg.id} className="bg-background/50 p-3 rounded-lg">
-                <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                </p>
+                {editingId === msg.id ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                      className="resize-none text-sm"
+                      rows={2}
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleEditMessage(msg.id)}
+                        className="text-xs"
+                      >
+                        Salvar
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setEditingId(null);
+                          setEditText("");
+                        }}
+                        className="text-xs"
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </p>
+                      {isOrganizer && currentUserId === msg.sender_id && (
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditing(msg)}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <Edit className="w-3 h-3 mr-1" />
+                            Editar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteMessage(msg.id)}
+                            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />
+                            Deletar
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             ))
           )}

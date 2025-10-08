@@ -171,13 +171,39 @@ const TrainingDetails = () => {
 
     try {
       setActionLoading(true);
+      
+      // Find the next available slot number
+      const { data: existingRegistrations } = await supabase
+        .from("training_registrations")
+        .select("slot_number")
+        .eq("training_id", id!)
+        .order("slot_number", { ascending: true });
+
+      let nextSlot = 1;
+      if (existingRegistrations && existingRegistrations.length > 0) {
+        // Find gaps in slot numbers or get the next number
+        const usedSlots = existingRegistrations
+          .map(r => r.slot_number)
+          .filter(s => s !== null)
+          .sort((a, b) => a - b);
+        
+        // Find first gap
+        for (let i = 1; i <= training.max_slots; i++) {
+          if (!usedSlots.includes(i)) {
+            nextSlot = i;
+            break;
+          }
+        }
+      }
+      
       const { error } = await supabase.from("training_registrations").insert({
         training_id: id,
         team_id: myTeam.id,
+        slot_number: nextSlot
       });
 
       if (error) throw error;
-      toast.success("Equipe inscrita com sucesso!");
+      toast.success(`Equipe inscrita com sucesso! Slot ${nextSlot}`);
       fetchTrainingDetails();
     } catch (error: any) {
       toast.error(error.message || "Erro ao inscrever equipe");
@@ -445,9 +471,16 @@ const TrainingDetails = () => {
                           />
                         )}
                         <div className="flex-1">
-                          <h3 className="font-semibold text-lg">
-                            {registration.teams.name}
-                          </h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-semibold text-lg">
+                              {registration.teams.name}
+                            </h3>
+                            {registration.slot_number && (
+                              <Badge variant="secondary" className="text-xs">
+                                Slot {registration.slot_number}
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-sm text-muted-foreground mb-3">
                             [{registration.teams.tag}]
                           </p>
