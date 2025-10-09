@@ -57,6 +57,7 @@ const OrganizerDashboard = () => {
     points_per_position_text: "",
     platform: "PC" as "PC" | "Mobile" | "Misto",
     mode: "Squad" as "Solo" | "Duo" | "Squad",
+    game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84",
     rules: "",
     discord_link: "",
     live_link: "",
@@ -66,6 +67,10 @@ const OrganizerDashboard = () => {
     table_image_url: "",
     important_info: "",
   });
+
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [tableFile, setTableFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -132,13 +137,47 @@ const OrganizerDashboard = () => {
     }
   };
 
+  const uploadFile = async (file: File, bucket: string, path: string) => {
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+    
+    if (error) throw error;
+    
+    const { data: { publicUrl } } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(path);
+    
+    return publicUrl;
+  };
+
   const handleSaveTraining = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      setUploading(true);
+      
+      let bannerUrl = trainingForm.banner_url;
+      let tableImageUrl = trainingForm.table_image_url;
+
+      // Upload banner if file selected
+      if (bannerFile) {
+        const fileName = `${user.id}/${Date.now()}_${bannerFile.name}`;
+        bannerUrl = await uploadFile(bannerFile, 'training-banners', fileName);
+      }
+
+      // Upload table image if file selected
+      if (tableFile) {
+        const fileName = `${user.id}/${Date.now()}_${tableFile.name}`;
+        tableImageUrl = await uploadFile(tableFile, 'training-tables', fileName);
+      }
+
       const trainingData: any = {
         name: trainingForm.name,
-        banner_url: trainingForm.banner_url || null,
+        banner_url: bannerUrl || null,
         datetime: trainingForm.datetime,
         rounds: trainingForm.rounds,
         points_per_kill: trainingForm.points_per_kill,
@@ -146,13 +185,14 @@ const OrganizerDashboard = () => {
         points_per_position_text: trainingForm.points_per_position_text || null,
         platform: trainingForm.platform,
         mode: trainingForm.mode,
+        game: trainingForm.game,
         rules: trainingForm.rules || null,
         discord_link: trainingForm.discord_link || null,
         live_link: trainingForm.live_link || null,
         max_slots: trainingForm.max_slots,
         is_live: trainingForm.is_live,
         status: trainingForm.status,
-        table_image_url: trainingForm.table_image_url || null,
+        table_image_url: tableImageUrl || null,
         important_info: trainingForm.important_info || null,
         organizer_id: user.id,
       };
@@ -178,6 +218,8 @@ const OrganizerDashboard = () => {
       fetchTrainings();
     } catch (error: any) {
       toast.error(error.message || "Erro ao salvar treino");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -219,6 +261,7 @@ const OrganizerDashboard = () => {
       points_per_position_text: training.points_per_position_text || "",
       platform: training.platform as "PC" | "Mobile" | "Misto",
       mode: training.mode as "Solo" | "Duo" | "Squad",
+      game: training.game as "free_fire" | "blood_strike" | "farlight_84",
       rules: training.rules || "",
       discord_link: training.discord_link || "",
       live_link: training.live_link || "",
@@ -228,6 +271,8 @@ const OrganizerDashboard = () => {
       table_image_url: training.table_image_url || "",
       important_info: training.important_info || "",
     });
+    setBannerFile(null);
+    setTableFile(null);
     setDialogOpen(true);
   };
 
@@ -242,6 +287,7 @@ const OrganizerDashboard = () => {
       points_per_position_text: "",
       platform: "PC" as "PC" | "Mobile" | "Misto",
       mode: "Squad" as "Solo" | "Duo" | "Squad",
+      game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84",
       rules: "",
       discord_link: "",
       live_link: "",
@@ -251,6 +297,8 @@ const OrganizerDashboard = () => {
       table_image_url: "",
       important_info: "",
     });
+    setBannerFile(null);
+    setTableFile(null);
   };
 
   if (loading) {
@@ -312,19 +360,37 @@ const OrganizerDashboard = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="banner_url">URL do Banner</Label>
-                  <Input
-                    id="banner_url"
-                    type="url"
-                    placeholder="https://..."
-                    value={trainingForm.banner_url}
-                    onChange={(e) =>
-                      setTrainingForm({
-                        ...trainingForm,
-                        banner_url: e.target.value,
-                      })
+                  <Label htmlFor="game">Jogo</Label>
+                  <Select
+                    value={trainingForm.game}
+                    onValueChange={(value: "free_fire" | "blood_strike" | "farlight_84") =>
+                      setTrainingForm({ ...trainingForm, game: value })
                     }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="free_fire">Free Fire</SelectItem>
+                      <SelectItem value="blood_strike">Blood Strike</SelectItem>
+                      <SelectItem value="farlight_84">Farlight 84</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="banner">Banner do Treino</Label>
+                  <Input
+                    id="banner"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setBannerFile(e.target.files?.[0] || null)}
                   />
+                  {trainingForm.banner_url && !bannerFile && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Banner atual carregado
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -506,21 +572,20 @@ const OrganizerDashboard = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="table_image_url">
-                    URL da Imagem da Tabela (opcional)
+                  <Label htmlFor="table_image">
+                    Tabela de Resultados (opcional)
                   </Label>
                   <Input
-                    id="table_image_url"
-                    type="url"
-                    placeholder="https://..."
-                    value={trainingForm.table_image_url}
-                    onChange={(e) =>
-                      setTrainingForm({
-                        ...trainingForm,
-                        table_image_url: e.target.value,
-                      })
-                    }
+                    id="table_image"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setTableFile(e.target.files?.[0] || null)}
                   />
+                  {trainingForm.table_image_url && !tableFile && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Tabela atual carregada
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -569,8 +634,16 @@ const OrganizerDashboard = () => {
                 <Button
                   type="submit"
                   className="w-full bg-gradient-primary"
+                  disabled={uploading}
                 >
-                  {editingTraining ? "Salvar Alterações" : "Criar Treino"}
+                  {uploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Fazendo upload...
+                    </>
+                  ) : (
+                    editingTraining ? "Salvar Alterações" : "Criar Treino"
+                  )}
                 </Button>
               </form>
             </DialogContent>

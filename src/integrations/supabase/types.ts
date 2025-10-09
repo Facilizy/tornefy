@@ -191,6 +191,7 @@ export type Database = {
           created_at: string
           datetime: string
           discord_link: string | null
+          game: Database["public"]["Enums"]["game_type"]
           id: string
           important_info: string | null
           is_live: boolean
@@ -214,6 +215,7 @@ export type Database = {
           created_at?: string
           datetime: string
           discord_link?: string | null
+          game?: Database["public"]["Enums"]["game_type"]
           id?: string
           important_info?: string | null
           is_live?: boolean
@@ -237,6 +239,7 @@ export type Database = {
           created_at?: string
           datetime?: string
           discord_link?: string | null
+          game?: Database["public"]["Enums"]["game_type"]
           id?: string
           important_info?: string | null
           is_live?: boolean
@@ -273,6 +276,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
+      game_type: "free_fire" | "blood_strike" | "farlight_84"
       mode_type: "Solo" | "Duo" | "Squad"
       platform_type: "PC" | "Mobile" | "Misto"
       player_function: "RUSH" | "SUPORTE" | "CAPITÃO"
@@ -404,6 +408,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      game_type: ["free_fire", "blood_strike", "farlight_84"],
       mode_type: ["Solo", "Duo", "Squad"],
       platform_type: ["PC", "Mobile", "Misto"],
       player_function: ["RUSH", "SUPORTE", "CAPITÃO"],

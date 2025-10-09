@@ -568,7 +568,7 @@ const TrainingDetails = () => {
                     {training.is_live && training.live_link && (
                       <Button
                         onClick={() => window.open(training.live_link, "_blank")}
-                        className="w-full flex items-center justify-center gap-2 bg-destructive hover:bg-destructive/90 animate-glow-pulse"
+                        className="w-full flex items-center justify-center gap-2 bg-destructive hover:bg-destructive/90"
                       >
                         <Video className="w-4 h-4" />
                         🔴 Assistir à Live

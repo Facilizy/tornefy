@@ -21,11 +21,13 @@ const PlayerDashboard = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [trainings, setTrainings] = useState<any[]>([]);
+  const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
   const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [platformFilter, setPlatformFilter] = useState<string>("all");
   const [modeFilter, setModeFilter] = useState<string>("all");
+  const [gameFilter, setGameFilter] = useState<string>("all");
 
   useEffect(() => {
     checkUser();
@@ -51,7 +53,7 @@ const PlayerDashboard = () => {
 
   useEffect(() => {
     filterTrainings();
-  }, [trainings, searchTerm, platformFilter, modeFilter]);
+  }, [trainings, searchTerm, platformFilter, modeFilter, gameFilter]);
 
   const checkUser = async () => {
     const {
@@ -100,6 +102,7 @@ const PlayerDashboard = () => {
       }));
 
       setTrainings(trainingsWithCount || []);
+      setLiveTrainings(trainingsWithCount?.filter(t => t.is_live) || []);
     } catch (error: any) {
       toast.error("Erro ao carregar treinos");
     } finally {
@@ -126,7 +129,20 @@ const PlayerDashboard = () => {
       filtered = filtered.filter((training) => training.mode === modeFilter);
     }
 
+    if (gameFilter !== "all") {
+      filtered = filtered.filter((training) => training.game === gameFilter);
+    }
+
     setFilteredTrainings(filtered);
+  };
+
+  const getGameLogo = (game: string) => {
+    const logos: Record<string, string> = {
+      free_fire: "/game-logos/free-fire.png",
+      blood_strike: "/game-logos/blood-strike.png",
+      farlight_84: "/game-logos/farlight-84.png",
+    };
+    return logos[game] || "";
   };
 
   if (loading) {
@@ -159,7 +175,7 @@ const PlayerDashboard = () => {
             <h3 className="font-semibold">Filtros</h3>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -169,6 +185,18 @@ const PlayerDashboard = () => {
                 className="pl-10 bg-background/50"
               />
             </div>
+
+            <Select value={gameFilter} onValueChange={setGameFilter}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder="Jogo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Jogos</SelectItem>
+                <SelectItem value="free_fire">Free Fire</SelectItem>
+                <SelectItem value="blood_strike">Blood Strike</SelectItem>
+                <SelectItem value="farlight_84">Farlight 84</SelectItem>
+              </SelectContent>
+            </Select>
 
             <Select value={platformFilter} onValueChange={setPlatformFilter}>
               <SelectTrigger className="bg-background/50">
@@ -195,7 +223,7 @@ const PlayerDashboard = () => {
             </Select>
           </div>
 
-          {(searchTerm || platformFilter !== "all" || modeFilter !== "all") && (
+          {(searchTerm || platformFilter !== "all" || modeFilter !== "all" || gameFilter !== "all") && (
             <Button
               variant="ghost"
               size="sm"
@@ -203,6 +231,7 @@ const PlayerDashboard = () => {
                 setSearchTerm("");
                 setPlatformFilter("all");
                 setModeFilter("all");
+                setGameFilter("all");
               }}
               className="mt-4 text-primary hover:text-primary-glow"
             >
@@ -210,6 +239,21 @@ const PlayerDashboard = () => {
             </Button>
           )}
         </div>
+
+        {/* Live Trainings Section */}
+        {liveTrainings.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-3 h-3 rounded-full bg-destructive animate-pulse"></div>
+              <h3 className="text-2xl font-bold gradient-text">Treinos Ao Vivo</h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {liveTrainings.map((training) => (
+                <TrainingCard key={training.id} training={training} />
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Trainings Grid */}
         {filteredTrainings.length === 0 ? (
@@ -219,11 +263,14 @@ const PlayerDashboard = () => {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredTrainings.map((training) => (
-              <TrainingCard key={training.id} training={training} />
-            ))}
-          </div>
+          <>
+            <h3 className="text-2xl font-bold mb-4">Próximos Treinos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTrainings.map((training) => (
+                <TrainingCard key={training.id} training={training} />
+              ))}
+            </div>
+          </>
         )}
       </main>
     </div>

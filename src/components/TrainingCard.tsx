@@ -13,8 +13,10 @@ interface TrainingCardProps {
     datetime: string;
     platform: string;
     mode: string;
+    game?: string;
     max_slots: number;
     registrations?: number;
+    is_live?: boolean;
   };
 }
 
@@ -32,6 +34,15 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
       default:
         return <Monitor className="w-4 h-4" />;
     }
+  };
+
+  const getGameLogo = (game?: string) => {
+    const logos: Record<string, string> = {
+      free_fire: "/game-logos/free-fire.png",
+      blood_strike: "/game-logos/blood-strike.png",
+      farlight_84: "/game-logos/farlight-84.png",
+    };
+    return game ? logos[game] : "";
   };
 
   return (
@@ -53,6 +64,22 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        
+        {/* Game Logo */}
+        {training.game && getGameLogo(training.game) && (
+          <img
+            src={getGameLogo(training.game)}
+            alt="Game logo"
+            className="absolute top-2 left-2 w-12 h-12 object-contain"
+          />
+        )}
+        
+        {/* Live Badge */}
+        {training.is_live && (
+          <Badge className="absolute top-2 right-2 bg-destructive animate-pulse">
+            🔴 AO VIVO
+          </Badge>
+        )}
       </div>
 
       {/* Content */}
