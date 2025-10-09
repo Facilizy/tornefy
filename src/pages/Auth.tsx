@@ -75,7 +75,7 @@ const Auth = () => {
         </div>
 
         {/* Auth Form */}
-        <div className="backdrop-blur-xl bg-card/50 border border-border rounded-2xl p-8 shadow-glow animate-slide-up">
+        <div className="backdrop-blur-xl bg-card/50 border border-border rounded-2xl p-8 animate-slide-up">
           <h2 className="text-2xl font-semibold mb-6 text-center">
             {isLogin ? "Entrar" : "Criar Conta"}
           </h2>
@@ -156,7 +156,7 @@ const Auth = () => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-primary hover:shadow-glow-strong transition-all duration-300"
+              className="w-full bg-gradient-primary transition-all duration-300"
               disabled={loading}
             >
               {loading ? "Processando..." : isLogin ? "Entrar" : "Criar Conta"}
