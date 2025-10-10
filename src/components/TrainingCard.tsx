@@ -70,13 +70,13 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
           <img
             src={getGameLogo(training.game)}
             alt="Game logo"
-            className="absolute top-2 left-2 w-12 h-12 object-contain"
+            className="absolute top-2 left-2 w-12 h-12 object-contain rounded-xl"
           />
         )}
         
         {/* Live Badge */}
         {training.is_live && (
-          <Badge className="absolute top-2 right-2 bg-destructive animate-pulse">
+          <Badge className="absolute top-2 right-2 bg-destructive">
             🔴 AO VIVO
           </Badge>
         )}

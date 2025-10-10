@@ -159,8 +159,8 @@ const TrainingDetails = () => {
       return;
     }
 
-    if (training.status === "FECHADO") {
-      toast.error("As inscrições para este treino estão fechadas!");
+    if (training.status === "INSCRIÇÕES ENCERRADAS" || training.status === "EM ANDAMENTO" || training.status === "FINALIZADO") {
+      toast.error("As inscrições para este treino estão encerradas!");
       return;
     }
 
@@ -285,7 +285,7 @@ const TrainingDetails = () => {
         </Button>
 
         {/* Banner */}
-        <div className="relative h-64 md:h-96 rounded-2xl overflow-hidden mb-8 animate-fade-in">
+        <div className="relative h-48 sm:h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 animate-fade-in">
           {training.banner_url ? (
             <img
               src={training.banner_url}
@@ -294,12 +294,12 @@ const TrainingDetails = () => {
             />
           ) : (
             <div className="w-full h-full bg-gradient-primary flex items-center justify-center">
-              <Trophy className="w-32 h-32 text-white/20" />
+              <Trophy className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 text-white/20" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-          <div className="absolute bottom-6 left-6">
-            <h1 className="text-4xl md:text-5xl font-bold text-white mb-2">
+          <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2">
               {training.name}
             </h1>
           </div>
@@ -313,12 +313,12 @@ const TrainingDetails = () => {
                 Informações do Treino
               </h2>
 
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                 <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-primary" />
+                  <Calendar className="w-5 h-5 text-primary flex-shrink-0" />
                   <div>
                     <p className="text-sm text-muted-foreground">Data e Hora</p>
-                    <p className="font-semibold">
+                    <p className="font-semibold text-sm sm:text-base">
                       {format(
                         new Date(training.datetime),
                         "dd/MM/yyyy 'às' HH:mm",
@@ -329,10 +329,10 @@ const TrainingDetails = () => {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-primary" />
+                  <Users className="w-5 h-5 text-primary flex-shrink-0" />
                   <div>
                     <p className="text-sm text-muted-foreground">Vagas</p>
-                    <p className="font-semibold">
+                    <p className="font-semibold text-sm sm:text-base">
                       {registeredTeams.length}/{training.max_slots}
                     </p>
                   </div>
@@ -342,23 +342,23 @@ const TrainingDetails = () => {
                   {getPlatformIcon(training.platform)}
                   <div>
                     <p className="text-sm text-muted-foreground">Plataforma</p>
-                    <Badge variant="secondary">{training.platform}</Badge>
+                    <Badge variant="secondary" className="text-xs sm:text-sm">{training.platform}</Badge>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Target className="w-5 h-5 text-primary" />
+                  <Target className="w-5 h-5 text-primary flex-shrink-0" />
                   <div>
                     <p className="text-sm text-muted-foreground">Modo</p>
-                    <Badge variant="outline">{training.mode}</Badge>
+                    <Badge variant="outline" className="text-xs sm:text-sm">{training.mode}</Badge>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <Trophy className="w-5 h-5 text-primary" />
+                  <Trophy className="w-5 h-5 text-primary flex-shrink-0" />
                   <div>
                     <p className="text-sm text-muted-foreground">Quedas</p>
-                    <p className="font-semibold">{training.rounds}</p>
+                    <p className="font-semibold text-sm sm:text-base">{training.rounds}</p>
                   </div>
                 </div>
               </div>
@@ -367,8 +367,8 @@ const TrainingDetails = () => {
 
               <div>
                 <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary" />
-                  Pontuação
+                  <Target className="w-5 h-5 text-primary flex-shrink-0" />
+                  <span className="text-sm sm:text-base">Pontuação</span>
                 </h3>
                 <p className="text-sm text-muted-foreground">
                   Abates: {training.points_per_kill} ponto(s)
@@ -385,9 +385,21 @@ const TrainingDetails = () => {
                 <>
                   <Separator className="my-6" />
                   <div>
-                    <h3 className="font-semibold mb-3 text-primary">⚠️ Informações Importantes</h3>
-                    <p className="text-muted-foreground whitespace-pre-wrap bg-primary/5 p-4 rounded-lg border border-primary/20">
+                    <h3 className="font-semibold mb-3 text-primary text-sm sm:text-base">⚠️ Informações Importantes</h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap bg-primary/5 p-3 sm:p-4 rounded-lg border border-primary/20 text-sm">
                       {training.important_info}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              {training.rules && (
+                <>
+                  <Separator className="my-6" />
+                  <div>
+                    <h3 className="font-semibold mb-3 text-sm sm:text-base">Regras do Treino</h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap text-sm">
+                      {training.rules}
                     </p>
                   </div>
                 </>
@@ -397,7 +409,7 @@ const TrainingDetails = () => {
                 <>
                   <Separator className="my-6" />
                   <div>
-                    <h3 className="font-semibold mb-3">📊 Tabela de Resultados</h3>
+                    <h3 className="font-semibold mb-3 text-sm sm:text-base">📊 Tabela de Resultados</h3>
                     <img 
                       src={training.table_image_url} 
                       alt="Tabela de resultados"
@@ -407,28 +419,16 @@ const TrainingDetails = () => {
                 </>
               )}
 
-              {training.rules && (
-                <>
-                  <Separator className="my-6" />
-                  <div>
-                    <h3 className="font-semibold mb-3">Regras do Treino</h3>
-                    <p className="text-muted-foreground whitespace-pre-wrap">
-                      {training.rules}
-                    </p>
-                  </div>
-                </>
-              )}
-
             </Card>
 
             {/* Registered Teams */}
-            <Card className="p-6 backdrop-blur-sm bg-card/80 border-border">
-              <h2 className="text-2xl font-bold mb-4 gradient-text">
+            <Card className="p-4 sm:p-6 backdrop-blur-sm bg-card/80 border-border">
+              <h2 className="text-xl sm:text-2xl font-bold mb-4 gradient-text">
                 Equipes Confirmadas ({registeredTeams.length})
               </h2>
 
               {registeredTeams.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8">
+                <p className="text-muted-foreground text-center py-8 text-sm">
                   Nenhuma equipe inscrita ainda
                 </p>
               ) : (
@@ -436,19 +436,19 @@ const TrainingDetails = () => {
                   {registeredTeams.map((registration: any) => (
                     <Card
                       key={registration.id}
-                      className="p-4 bg-background/50"
+                      className="p-3 sm:p-4 bg-background/50"
                     >
-                      <div className="flex items-start gap-4">
+                      <div className="flex items-start gap-3 sm:gap-4">
                         {registration.teams.logo_url && (
                           <img
                             src={registration.teams.logo_url}
                             alt={registration.teams.name}
-                            className="w-16 h-16 rounded-lg object-cover"
+                            className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
                           />
                         )}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <h3 className="font-semibold text-base sm:text-lg">
                               {registration.teams.name}
                             </h3>
                             {registration.slot_number && (
@@ -457,7 +457,7 @@ const TrainingDetails = () => {
                               </Badge>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground mb-3">
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-3">
                             [{registration.teams.tag}]
                           </p>
                           
@@ -465,12 +465,12 @@ const TrainingDetails = () => {
                             <div className="space-y-2">
                               {registration.teams.team_members.map((member: any) => (
                                 <div key={member.id} className="bg-background/50 p-2 rounded-lg border border-border/50">
-                                  <div className="flex justify-between items-start">
+                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-0">
                                     <div>
-                                      <p className="font-medium text-sm">{member.player_name}</p>
+                                      <p className="font-medium text-xs sm:text-sm">{member.player_name}</p>
                                       <p className="text-xs text-muted-foreground">{member.function}</p>
                                     </div>
-                                    <div className="text-right">
+                                    <div className="sm:text-right">
                                       <p className="text-xs text-muted-foreground">ID: {member.game_id}</p>
                                       <p className="text-xs text-muted-foreground">Discord: {member.discord}</p>
                                     </div>
@@ -479,7 +479,7 @@ const TrainingDetails = () => {
                               ))}
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground">Nenhum membro cadastrado</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground">Nenhum membro cadastrado</p>
                           )}
                         </div>
                       </div>
@@ -498,26 +498,26 @@ const TrainingDetails = () => {
               {profile?.role === "player" && (
                 <div className="space-y-3">
                   {!isRegistered ? (
-                    <Button
-                      onClick={handleRegister}
-                      disabled={
-                        actionLoading ||
-                        registeredTeams.length >= training.max_slots ||
-                        training.status === "FECHADO"
-                      }
-                      className="w-full bg-gradient-primary hover:shadow-glow-strong"
-                    >
-                      {actionLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                      )}
-                      {training.status === "FECHADO"
-                        ? "Inscrições Fechadas"
-                        : registeredTeams.length >= training.max_slots
-                        ? "Treino Lotado"
-                        : "Inscrever Minha Equipe"}
-                    </Button>
+                  <Button
+                    onClick={handleRegister}
+                    disabled={
+                      actionLoading ||
+                      registeredTeams.length >= training.max_slots ||
+                      training.status !== "INSCRIÇÕES ABERTAS"
+                    }
+                    className="w-full bg-gradient-primary hover:shadow-glow-strong"
+                  >
+                    {actionLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    ) : (
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                    )}
+                    {training.status !== "INSCRIÇÕES ABERTAS"
+                      ? "Inscrições Encerradas"
+                      : registeredTeams.length >= training.max_slots
+                      ? "Treino Lotado"
+                      : "Inscrever Minha Equipe"}
+                  </Button>
                   ) : (
                     <Button
                       onClick={handleUnregister}
@@ -581,23 +581,31 @@ const TrainingDetails = () => {
               ) : null}
 
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Inscrições:</span>
-                  <Badge
-                    variant={training.status === "ABERTO" ? "default" : "destructive"}
-                  >
-                    {training.status || "ABERTO"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center gap-2">
                   <span className="text-muted-foreground">Status:</span>
                   <Badge
-                    variant={training.is_live ? "destructive" : "secondary"}
+                    variant={
+                      training.status === "INSCRIÇÕES ABERTAS" 
+                        ? "default" 
+                        : training.status === "EM ANDAMENTO" 
+                        ? "secondary" 
+                        : "destructive"
+                    }
+                    className="text-xs"
                   >
-                    {training.is_live ? "AO VIVO" : "Aguardando"}
+                    {training.status || "INSCRIÇÕES ABERTAS"}
                   </Badge>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center gap-2">
+                  <span className="text-muted-foreground">Transmissão:</span>
+                  <Badge
+                    variant={training.is_live ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {training.is_live ? "AO VIVO" : "Offline"}
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center gap-2">
                   <span className="text-muted-foreground">
                     Vagas Restantes:
                   </span>

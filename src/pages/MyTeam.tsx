@@ -55,6 +55,10 @@ const MyTeam = () => {
     logo_url: "",
   });
 
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [pastTrainings, setPastTrainings] = useState<any[]>([]);
+
   const [memberForm, setMemberForm] = useState({
     player_name: "",
     game_id: "",
@@ -76,6 +80,7 @@ const MyTeam = () => {
     if (team) {
       fetchMembers();
       fetchUpcomingTrainings();
+      fetchPastTrainings();
     }
   }, [team]);
 
@@ -160,14 +165,72 @@ const MyTeam = () => {
     setUpcomingTrainings(upcoming || []);
   };
 
+  const fetchPastTrainings = async () => {
+    const { data } = await supabase
+      .from("training_registrations")
+      .select(
+        `
+        *,
+        trainings (*)
+      `
+      )
+      .eq("team_id", team.id);
+
+    const past = data
+      ?.filter(
+        (reg: any) => new Date(reg.trainings.datetime) <= new Date()
+      )
+      .sort(
+        (a: any, b: any) =>
+          new Date(b.trainings.datetime).getTime() -
+          new Date(a.trainings.datetime).getTime()
+      );
+
+    setPastTrainings(past || []);
+  };
+
   const handleSaveTeam = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      setUploading(true);
+
+      // Validar tamanho do arquivo (máximo 5MB)
+      if (logoFile && logoFile.size > 5 * 1024 * 1024) {
+        toast.error("A logo deve ter no máximo 5MB");
+        return;
+      }
+
+      let logoUrl = teamForm.logo_url;
+
+      // Upload logo if file selected
+      if (logoFile) {
+        const fileName = `${user.id}/${Date.now()}_${logoFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('team-logos')
+          .upload(fileName, logoFile, {
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('team-logos')
+          .getPublicUrl(fileName);
+        
+        logoUrl = publicUrl;
+      }
+
+      const teamData = {
+        ...teamForm,
+        logo_url: logoUrl || null,
+      };
+
       if (team) {
         const { error } = await supabase
           .from("teams")
-          .update(teamForm)
+          .update(teamData)
           .eq("id", team.id);
 
         if (error) throw error;
@@ -176,7 +239,7 @@ const MyTeam = () => {
         const { data, error } = await supabase
           .from("teams")
           .insert({
-            ...teamForm,
+            ...teamData,
             owner_id: user.id,
           })
           .select()
@@ -188,9 +251,12 @@ const MyTeam = () => {
       }
 
       setDialogOpen(false);
+      setLogoFile(null);
       fetchTeam();
     } catch (error: any) {
       toast.error(error.message || "Erro ao salvar equipe");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -322,22 +388,28 @@ const MyTeam = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="logo_url">URL da Logo</Label>
+                    <Label htmlFor="logo">Logo da Equipe</Label>
                     <Input
-                      id="logo_url"
-                      type="url"
-                      placeholder="https://..."
-                      value={teamForm.logo_url}
-                      onChange={(e) =>
-                        setTeamForm({ ...teamForm, logo_url: e.target.value })
-                      }
+                      id="logo"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
                     />
+                    {teamForm.logo_url && !logoFile && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Logo atual carregada
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Tamanho máximo: 5MB
+                    </p>
                   </div>
                   <Button
                     type="submit"
                     className="w-full bg-gradient-primary"
+                    disabled={uploading}
                   >
-                    Criar
+                    {uploading ? "Fazendo upload..." : "Criar"}
                   </Button>
                 </form>
               </DialogContent>
@@ -397,25 +469,28 @@ const MyTeam = () => {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="logo_url">URL da Logo</Label>
+                          <Label htmlFor="logo">Logo da Equipe</Label>
                           <Input
-                            id="logo_url"
-                            type="url"
-                            placeholder="https://..."
-                            value={teamForm.logo_url}
-                            onChange={(e) =>
-                              setTeamForm({
-                                ...teamForm,
-                                logo_url: e.target.value,
-                              })
-                            }
+                            id="logo"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
                           />
+                          {teamForm.logo_url && !logoFile && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Logo atual carregada
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Tamanho máximo: 5MB
+                          </p>
                         </div>
                         <Button
                           type="submit"
                           className="w-full bg-gradient-primary"
+                          disabled={uploading}
                         >
-                          Salvar
+                          {uploading ? "Fazendo upload..." : "Salvar"}
                         </Button>
                       </form>
                     </DialogContent>
@@ -637,6 +712,55 @@ const MyTeam = () => {
                   Ver Todos os Treinos
                 </Button>
               </Card>
+
+              {/* Histórico de Torneios */}
+              {pastTrainings.length > 0 && (
+                <Card className="p-6 backdrop-blur-sm bg-card/80 border-border mt-4">
+                  <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <Trophy className="w-5 h-5 text-primary" />
+                    Histórico de X-Treinos
+                  </h3>
+
+                  <div className="space-y-3">
+                    {pastTrainings.map((registration: any) => (
+                      <Card
+                        key={registration.id}
+                        className="p-4 bg-background/50 cursor-pointer hover:border-primary/50 transition-colors"
+                        onClick={() =>
+                          navigate(`/training/${registration.trainings.id}`)
+                        }
+                      >
+                        <div className="flex items-start gap-3">
+                          <Trophy className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-1" />
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-semibold text-sm line-clamp-1">
+                              {registration.trainings.name}
+                            </h4>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {format(
+                                new Date(registration.trainings.datetime),
+                                "dd/MM/yyyy 'às' HH:mm",
+                                { locale: ptBR }
+                              )}
+                            </p>
+                            <div className="flex gap-2 mt-2">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {registration.trainings.platform}
+                              </Badge>
+                              <Badge variant="outline" className="text-xs">
+                                {registration.trainings.mode}
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </Card>
+              )}
             </div>
           </div>
         )}

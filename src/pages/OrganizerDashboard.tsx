@@ -63,7 +63,7 @@ const OrganizerDashboard = () => {
     live_link: "",
     max_slots: 20,
     is_live: false,
-    status: "ABERTO" as "ABERTO" | "FECHADO",
+    status: "INSCRIÇÕES ABERTAS" as "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO",
     table_image_url: "",
     important_info: "",
   });
@@ -138,6 +138,11 @@ const OrganizerDashboard = () => {
   };
 
   const uploadFile = async (file: File, bucket: string, path: string) => {
+    // Validar tamanho do arquivo (máximo 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error("O arquivo deve ter no máximo 5MB");
+    }
+
     const { data, error } = await supabase.storage
       .from(bucket)
       .upload(path, file, {
@@ -293,7 +298,7 @@ const OrganizerDashboard = () => {
       live_link: "",
       max_slots: 20,
       is_live: false,
-      status: "ABERTO" as "ABERTO" | "FECHADO",
+      status: "INSCRIÇÕES ABERTAS" as "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO",
       table_image_url: "",
       important_info: "",
     });
@@ -391,6 +396,9 @@ const OrganizerDashboard = () => {
                       Banner atual carregado
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Recomendado: 1920x400px (16:3.3) | Máximo: 5MB
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -473,7 +481,7 @@ const OrganizerDashboard = () => {
                     <Label htmlFor="status">Status do Treino</Label>
                     <Select
                       value={trainingForm.status}
-                      onValueChange={(value: "ABERTO" | "FECHADO") =>
+                      onValueChange={(value: "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO") =>
                         setTrainingForm({ ...trainingForm, status: value })
                       }
                     >
@@ -481,8 +489,10 @@ const OrganizerDashboard = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="ABERTO">ABERTO</SelectItem>
-                        <SelectItem value="FECHADO">FECHADO</SelectItem>
+                        <SelectItem value="INSCRIÇÕES ABERTAS">INSCRIÇÕES ABERTAS</SelectItem>
+                        <SelectItem value="INSCRIÇÕES ENCERRADAS">INSCRIÇÕES ENCERRADAS</SelectItem>
+                        <SelectItem value="EM ANDAMENTO">EM ANDAMENTO</SelectItem>
+                        <SelectItem value="FINALIZADO">FINALIZADO</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -586,6 +596,9 @@ const OrganizerDashboard = () => {
                       Tabela atual carregada
                     </p>
                   )}
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Máximo: 5MB
+                  </p>
                 </div>
 
                 <div>
