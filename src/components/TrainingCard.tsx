@@ -153,17 +153,6 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
         >
           Ver Detalhes
         </Button>
-
-        {/* Game Logo at bottom */}
-        {training.game && getGameLogo(training.game) && (
-          <div className="flex justify-center pt-2 border-t border-border/50">
-            <img
-              src={getGameLogo(training.game)}
-              alt="Game logo"
-              className="w-10 h-10 object-contain opacity-70"
-            />
-          </div>
-        )}
       </div>
     </Card>
   );
