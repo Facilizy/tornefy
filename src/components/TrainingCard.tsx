@@ -1,5 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Calendar, Users, Monitor, Gamepad2 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -17,6 +18,7 @@ interface TrainingCardProps {
     max_slots: number;
     registrations?: number;
     is_live?: boolean;
+    status?: string;
   };
 }
 
@@ -45,13 +47,25 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
     return game ? logos[game] : "";
   };
 
+  const getStatusVariant = (status?: string) => {
+    switch (status) {
+      case "INSCRIÇÕES ABERTAS":
+        return "default";
+      case "INSCRIÇÕES ENCERRADAS":
+        return "secondary";
+      case "EM ANDAMENTO":
+        return "outline";
+      case "FINALIZADO":
+        return "destructive";
+      default:
+        return "default";
+    }
+  };
+
   return (
-    <Card
-      onClick={() => navigate(`/training/${training.id}`)}
-      className="group cursor-pointer overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-glow"
-    >
+    <Card className="group overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-glow">
       {/* Banner */}
-      <div className="relative h-40 bg-gradient-primary overflow-hidden">
+      <div className="relative h-48 bg-gradient-primary overflow-hidden">
         {training.banner_url ? (
           <img
             src={training.banner_url}
@@ -63,65 +77,93 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
             <Users className="w-16 h-16 text-white/20" />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         
-        {/* Game Logo */}
-        {training.game && getGameLogo(training.game) && (
-          <img
-            src={getGameLogo(training.game)}
-            alt="Game logo"
-            className="absolute top-2 left-2 w-12 h-12 object-contain rounded-xl"
-          />
-        )}
-        
-        {/* Live Badge */}
-        {training.is_live && (
-          <Badge className="absolute top-2 right-2 bg-destructive">
-            🔴 AO VIVO
-          </Badge>
-        )}
+        {/* Status and Live Badges */}
+        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
+          {training.status && (
+            <Badge 
+              variant={getStatusVariant(training.status)}
+              className="font-bold text-xs"
+            >
+              {training.status}
+            </Badge>
+          )}
+          {training.is_live && (
+            <Badge className="bg-destructive/90 backdrop-blur-sm font-bold">
+              AO VIVO
+            </Badge>
+          )}
+        </div>
+
+        {/* Title overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-4">
+          <h3 className="font-bold text-xl text-white line-clamp-2 drop-shadow-lg">
+            {training.name}
+          </h3>
+        </div>
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-3">
-        <h3 className="font-semibold text-lg line-clamp-1 group-hover:text-primary transition-colors">
-          {training.name}
-        </h3>
-
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Calendar className="w-4 h-4" />
-          <span>
-            {format(new Date(training.datetime), "dd 'de' MMMM 'às' HH:mm", {
-              locale: ptBR,
-            })}
-          </span>
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="flex gap-2">
-            <Badge
-              variant="secondary"
-              className="flex items-center gap-1 bg-secondary/50"
-            >
-              {getPlatformIcon(training.platform)}
-              {training.platform}
-            </Badge>
-            <Badge variant="outline" className="border-primary/30">
-              {training.mode}
-            </Badge>
-          </div>
-
-          <div className="text-sm">
-            <span
-              className={`font-semibold ${
-                availableSlots > 5 ? "text-primary" : "text-destructive"
-              }`}
-            >
-              {registrationsCount}/{training.max_slots}
+      <div className="p-4 space-y-4">
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Calendar className="w-4 h-4" />
+            <span>
+              {format(new Date(training.datetime), "dd/MM/yyyy 'às' HH:mm", {
+                locale: ptBR,
+              })}
             </span>
-            <span className="text-muted-foreground ml-1">vagas</span>
+          </div>
+
+          <div className="flex items-center gap-2 text-sm">
+            <Users className="w-4 h-4 text-muted-foreground" />
+            <span className="text-muted-foreground">
+              <span
+                className={`font-semibold ${
+                  availableSlots > 5 ? "text-primary" : "text-destructive"
+                }`}
+              >
+                {registrationsCount}/{training.max_slots}
+              </span>
+              {" "}equipes inscritas
+            </span>
           </div>
         </div>
+
+        {/* Mode and Platform Badges */}
+        <div className="flex gap-2 flex-wrap">
+          <Badge
+            variant="secondary"
+            className="flex items-center gap-1"
+          >
+            {getPlatformIcon(training.platform)}
+            {training.platform}
+          </Badge>
+          <Badge variant="outline" className="border-primary/30">
+            {training.mode}
+          </Badge>
+        </div>
+
+        {/* CTA Button */}
+        <Button
+          onClick={() => navigate(`/training/${training.id}`)}
+          className="w-full"
+          size="lg"
+        >
+          Ver Detalhes
+        </Button>
+
+        {/* Game Logo at bottom */}
+        {training.game && getGameLogo(training.game) && (
+          <div className="flex justify-center pt-2 border-t border-border/50">
+            <img
+              src={getGameLogo(training.game)}
+              alt="Game logo"
+              className="w-10 h-10 object-contain opacity-70"
+            />
+          </div>
+        )}
       </div>
     </Card>
   );
