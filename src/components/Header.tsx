@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, User, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { NotificationBell } from "@/components/NotificationBell";
 
 interface HeaderProps {
   user?: any;
@@ -41,6 +42,8 @@ const Header = ({ user, profile }: HeaderProps) => {
                 ({profile?.role})
               </span>
             </div>
+
+            <NotificationBell userId={user?.id} />
             
             {profile?.role === "player" && (
               <Button
