@@ -78,12 +78,15 @@ const OrganizerDashboard = () => {
   }, []);
 
   useEffect(() => {
+    console.log('[OrganizerDashboard] user:', user?.id, 'role:', role, 'roleLoading:', roleLoading);
     if (user && !roleLoading) {
       if (role !== "organizer") {
+        console.log('[OrganizerDashboard] Access denied - role:', role);
         toast.error("Acesso negado. Apenas organizadores podem acessar esta página.");
         navigate("/");
         return;
       }
+      console.log('[OrganizerDashboard] Access granted, fetching trainings');
       fetchTrainings();
     }
   }, [user, role, roleLoading]);
