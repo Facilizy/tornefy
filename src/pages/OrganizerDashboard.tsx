@@ -37,13 +37,14 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { useUserRole } from "@/hooks/useUserRole";
 
 const OrganizerDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { role, loading: roleLoading } = useUserRole(user?.id);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<any>(null);
 
@@ -77,15 +78,15 @@ const OrganizerDashboard = () => {
   }, []);
 
   useEffect(() => {
-    if (user && profile) {
-      if (profile.role !== "organizer") {
+    if (user && !roleLoading) {
+      if (role !== "organizer") {
         toast.error("Acesso negado. Apenas organizadores podem acessar esta página.");
         navigate("/");
         return;
       }
       fetchTrainings();
     }
-  }, [user, profile]);
+  }, [user, role, roleLoading]);
 
   const checkUser = async () => {
     const {
@@ -93,19 +94,9 @@ const OrganizerDashboard = () => {
     } = await supabase.auth.getSession();
     if (session?.user) {
       setUser(session.user);
-      await fetchProfile(session.user.id);
     } else {
       navigate("/auth");
     }
-  };
-
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
-    setProfile(data);
   };
 
   const fetchTrainings = async () => {
@@ -316,7 +307,7 @@ const OrganizerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} profile={profile} />
+      <Header user={user} />
 
       <main className="container mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-8 animate-fade-in">

@@ -4,14 +4,33 @@ import { LogOut, User, Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/NotificationBell";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useState, useEffect } from "react";
 
 interface HeaderProps {
   user?: any;
-  profile?: any;
 }
 
-const Header = ({ user, profile }: HeaderProps) => {
+const Header = ({ user }: HeaderProps) => {
   const navigate = useNavigate();
+  const { role } = useUserRole(user?.id);
+  const [profile, setProfile] = useState<any>(null);
+
+  useEffect(() => {
+    if (user?.id) {
+      fetchProfile(user.id);
+    }
+  }, [user?.id]);
+
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
+      .from("profiles")
+      .select("full_name")
+      .eq("id", userId)
+      .maybeSingle();
+    
+    setProfile(data);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -39,13 +58,13 @@ const Header = ({ user, profile }: HeaderProps) => {
               <User className="w-4 h-4 text-muted-foreground" />
               <span className="text-foreground">{profile?.full_name}</span>
               <span className="text-xs text-muted-foreground capitalize">
-                ({profile?.role})
+                ({role})
               </span>
             </div>
 
             <NotificationBell userId={user?.id} />
             
-            {profile?.role === "player" && (
+            {role === "player" && (
               <Button
                 variant="outline"
                 size="sm"
@@ -57,7 +76,7 @@ const Header = ({ user, profile }: HeaderProps) => {
               </Button>
             )}
 
-            {profile?.role === "organizer" && (
+            {role === "organizer" && (
               <Button
                 variant="outline"
                 size="sm"

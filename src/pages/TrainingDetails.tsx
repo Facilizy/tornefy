@@ -251,7 +251,7 @@ const TrainingDetails = () => {
   if (!training) {
     return (
       <div className="min-h-screen bg-background">
-        <Header user={user} profile={profile} />
+        <Header user={user} />
         <div className="container mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Treino não encontrado</p>
           <Button onClick={() => navigate("/")} className="mt-4">
@@ -272,7 +272,7 @@ const TrainingDetails = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header user={user} profile={profile} />
+      <Header user={user} />
 
       <main className="container mx-auto px-4 py-8">
         <Button
