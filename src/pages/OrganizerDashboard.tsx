@@ -79,15 +79,27 @@ const OrganizerDashboard = () => {
 
   useEffect(() => {
     console.log('[OrganizerDashboard] user:', user?.id, 'role:', role, 'roleLoading:', roleLoading);
-    if (user && !roleLoading) {
-      if (role !== "organizer") {
+    
+    // Aguardar o carregamento do role antes de fazer qualquer verificação
+    if (roleLoading) {
+      console.log('[OrganizerDashboard] Still loading role...');
+      return;
+    }
+    
+    if (user) {
+      // Se o role foi carregado e não é organizer, bloquear acesso
+      if (role && role !== "organizer") {
         console.log('[OrganizerDashboard] Access denied - role:', role);
         toast.error("Acesso negado. Apenas organizadores podem acessar esta página.");
         navigate("/");
         return;
       }
-      console.log('[OrganizerDashboard] Access granted, fetching trainings');
-      fetchTrainings();
+      
+      // Se o role é organizer, permitir acesso
+      if (role === "organizer") {
+        console.log('[OrganizerDashboard] Access granted, fetching trainings');
+        fetchTrainings();
+      }
     }
   }, [user, role, roleLoading]);
 
