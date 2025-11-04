@@ -131,7 +131,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
           </div>
         </div>
 
-        {/* Mode and Platform Badges */}
+        {/* Mode, Platform and Game Badges */}
         <div className="flex gap-2 flex-wrap">
           <Badge
             variant="secondary"
@@ -143,6 +143,13 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
           <Badge variant="outline" className="border-primary/30">
             {training.mode}
           </Badge>
+          {training.game && (
+            <Badge variant="default" className="bg-gradient-primary">
+              {training.game === 'free_fire' && 'Free Fire'}
+              {training.game === 'blood_strike' && 'Blood Strike'}
+              {training.game === 'farlight_84' && 'Farlight 84'}
+            </Badge>
+          )}
         </div>
 
         {/* CTA Button */}

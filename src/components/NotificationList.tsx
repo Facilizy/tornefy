@@ -43,7 +43,7 @@ export function NotificationList({
 
     // Navigate based on notification type
     if (notification.related_id) {
-      if (notification.type === 'new_training' || notification.type === 'status_change' || notification.type === 'chat_message') {
+      if (notification.type === 'new_training' || notification.type === 'status_change' || notification.type === 'live_status' || notification.type === 'team_registration' || notification.type === 'team_unregistration') {
         navigate(`/training/${notification.related_id}`);
         onClose();
       }
@@ -58,6 +58,12 @@ export function NotificationList({
         return '📢';
       case 'chat_message':
         return '💬';
+      case 'live_status':
+        return '🔴';
+      case 'team_registration':
+        return '✅';
+      case 'team_unregistration':
+        return '❌';
       default:
         return '🔔';
     }

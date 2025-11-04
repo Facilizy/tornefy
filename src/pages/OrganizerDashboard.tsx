@@ -34,6 +34,7 @@ import {
   Users,
   Trophy,
 } from "lucide-react";
+import { RegisteredTeamsDialog } from "@/components/RegisteredTeamsDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -742,6 +743,13 @@ const OrganizerDashboard = () => {
                   </div>
 
                   <Separator />
+
+                  <div className="flex gap-2 mb-2">
+                    <RegisteredTeamsDialog 
+                      trainingId={training.id}
+                      trainingName={training.name}
+                    />
+                  </div>
 
                   <div className="flex gap-2">
                     <Button
