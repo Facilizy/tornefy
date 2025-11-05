@@ -237,6 +237,7 @@ export type Database = {
           points_per_kill: number
           points_per_position: Json
           points_per_position_text: string | null
+          prize: string | null
           rounds: number
           rules: string | null
           status: string | null
@@ -261,6 +262,7 @@ export type Database = {
           points_per_kill?: number
           points_per_position?: Json
           points_per_position_text?: string | null
+          prize?: string | null
           rounds?: number
           rules?: string | null
           status?: string | null
@@ -285,6 +287,7 @@ export type Database = {
           points_per_kill?: number
           points_per_position?: Json
           points_per_position_text?: string | null
+          prize?: string | null
           rounds?: number
           rules?: string | null
           status?: string | null

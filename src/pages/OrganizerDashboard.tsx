@@ -68,6 +68,7 @@ const OrganizerDashboard = () => {
     status: "INSCRIÇÕES ABERTAS" as "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO",
     table_image_url: "",
     important_info: "",
+    prize: "",
   });
 
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -206,6 +207,7 @@ const OrganizerDashboard = () => {
         status: trainingForm.status,
         table_image_url: tableImageUrl || null,
         important_info: trainingForm.important_info || null,
+        prize: trainingForm.prize || null,
         organizer_id: user.id,
       };
 
@@ -282,6 +284,7 @@ const OrganizerDashboard = () => {
       status: training.status || "ABERTO",
       table_image_url: training.table_image_url || "",
       important_info: training.important_info || "",
+      prize: training.prize || "",
     });
     setBannerFile(null);
     setTableFile(null);
@@ -308,6 +311,7 @@ const OrganizerDashboard = () => {
       status: "INSCRIÇÕES ABERTAS" as "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO",
       table_image_url: "",
       important_info: "",
+      prize: "",
     });
     setBannerFile(null);
     setTableFile(null);
@@ -404,7 +408,7 @@ const OrganizerDashboard = () => {
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">
-                    Recomendado: 1920x400px (16:3.3) | Máximo: 5MB
+                    Recomendado: 1920x400px (4.8:1) | Máximo: 5MB
                   </p>
                 </div>
 
@@ -583,6 +587,21 @@ const OrganizerDashboard = () => {
                       setTrainingForm({
                         ...trainingForm,
                         important_info: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="prize">Premiação (opcional)</Label>
+                  <Textarea
+                    id="prize"
+                    placeholder="Ex: 1º Lugar - R$ 500, 2º Lugar - R$ 300..."
+                    value={trainingForm.prize}
+                    onChange={(e) =>
+                      setTrainingForm({
+                        ...trainingForm,
+                        prize: e.target.value,
                       })
                     }
                   />

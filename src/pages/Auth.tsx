@@ -17,13 +17,25 @@ const Auth = () => {
     fullName: "",
     role: "player" as "player" | "organizer",
   });
+  const [forgotPassword, setForgotPassword] = useState(false);
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      if (isLogin) {
+      if (forgotPassword) {
+        const { error } = await supabase.auth.resetPasswordForEmail(
+          formData.email,
+          {
+            redirectTo: `${window.location.origin}/auth`,
+          }
+        );
+
+        if (error) throw error;
+        toast.success("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
+        setForgotPassword(false);
+      } else if (isLogin) {
         const { error } = await supabase.auth.signInWithPassword({
           email: formData.email,
           password: formData.password,
@@ -77,11 +89,11 @@ const Auth = () => {
         {/* Auth Form */}
         <div className="backdrop-blur-xl bg-card/50 border border-border rounded-2xl p-8 animate-slide-up">
           <h2 className="text-2xl font-semibold mb-6 text-center">
-            {isLogin ? "Entrar" : "Criar Conta"}
+            {forgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
           </h2>
 
           <form onSubmit={handleAuth} className="space-y-4">
-            {!isLogin && (
+            {!isLogin && !forgotPassword && (
               <div className="space-y-2">
                 <Label htmlFor="fullName">Nome Completo</Label>
                 <Input
@@ -113,22 +125,24 @@ const Auth = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Sua senha"
-                value={formData.password}
-                onChange={(e) =>
-                  setFormData({ ...formData, password: e.target.value })
-                }
-                required
-                className="bg-background/50 border-border"
-              />
-            </div>
+            {!forgotPassword && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Senha</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Sua senha"
+                  value={formData.password}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  required
+                  className="bg-background/50 border-border"
+                />
+              </div>
+            )}
 
-            {!isLogin && (
+            {!isLogin && !forgotPassword && (
               <div className="space-y-3">
                 <Label>Tipo de Conta</Label>
                 <RadioGroup
@@ -159,19 +173,45 @@ const Auth = () => {
               className="w-full bg-gradient-primary transition-all duration-300"
               disabled={loading}
             >
-              {loading ? "Processando..." : isLogin ? "Entrar" : "Criar Conta"}
+              {loading 
+                ? "Processando..." 
+                : forgotPassword 
+                ? "Enviar E-mail de Recuperação"
+                : isLogin 
+                ? "Entrar" 
+                : "Criar Conta"}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-primary hover:text-primary-glow transition-colors"
-            >
-              {isLogin
-                ? "Não tem conta? Criar conta"
-                : "Já tem conta? Fazer login"}
-            </button>
+          <div className="mt-6 space-y-3 text-center">
+            {isLogin && !forgotPassword && (
+              <button
+                onClick={() => setForgotPassword(true)}
+                className="text-sm text-primary hover:text-primary-glow transition-colors block w-full"
+              >
+                Esqueci minha senha
+              </button>
+            )}
+            
+            {!forgotPassword && (
+              <button
+                onClick={() => setIsLogin(!isLogin)}
+                className="text-sm text-primary hover:text-primary-glow transition-colors block w-full"
+              >
+                {isLogin
+                  ? "Não tem conta? Criar conta"
+                  : "Já tem conta? Fazer login"}
+              </button>
+            )}
+
+            {forgotPassword && (
+              <button
+                onClick={() => setForgotPassword(false)}
+                className="text-sm text-primary hover:text-primary-glow transition-colors block w-full"
+              >
+                Voltar ao login
+              </button>
+            )}
           </div>
         </div>
       </div>

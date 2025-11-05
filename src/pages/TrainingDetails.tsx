@@ -25,6 +25,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { TrainingChat } from "@/components/TrainingChat";
+import { RegistrationConfirmDialog } from "@/components/RegistrationConfirmDialog";
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -37,6 +38,7 @@ const TrainingDetails = () => {
   const [isRegistered, setIsRegistered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -132,7 +134,7 @@ const TrainingDetails = () => {
     setMyTeam(data);
   };
 
-  const handleRegister = async () => {
+  const handleRegisterClick = async () => {
     if (!myTeam) {
       toast.error("Você precisa criar uma equipe primeiro!");
       navigate("/my-team");
@@ -169,6 +171,11 @@ const TrainingDetails = () => {
       return;
     }
 
+    // Show confirmation dialog
+    setShowConfirmDialog(true);
+  };
+
+  const handleRegisterConfirm = async () => {
     try {
       setActionLoading(true);
       
@@ -204,6 +211,7 @@ const TrainingDetails = () => {
 
       if (error) throw error;
       toast.success(`Equipe inscrita com sucesso! Slot ${nextSlot}`);
+      setShowConfirmDialog(false);
       fetchTrainingDetails();
     } catch (error: any) {
       toast.error(error.message || "Erro ao inscrever equipe");
@@ -381,6 +389,21 @@ const TrainingDetails = () => {
                 )}
               </div>
 
+              {training.prize && (
+                <>
+                  <Separator className="my-6" />
+                  <div>
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-primary flex-shrink-0" />
+                      <span className="text-sm sm:text-base">Premiação</span>
+                    </h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap bg-gradient-primary/5 p-3 sm:p-4 rounded-lg border border-primary/20 text-sm">
+                      {training.prize}
+                    </p>
+                  </div>
+                </>
+              )}
+
               {training.important_info && (
                 <>
                   <Separator className="my-6" />
@@ -499,7 +522,7 @@ const TrainingDetails = () => {
                 <div className="space-y-3">
                   {!isRegistered ? (
                   <Button
-                    onClick={handleRegister}
+                    onClick={handleRegisterClick}
                     disabled={
                       actionLoading ||
                       registeredTeams.length >= training.max_slots ||
@@ -618,6 +641,16 @@ const TrainingDetails = () => {
           </div>
         </div>
       </main>
+
+      {/* Registration Confirmation Dialog */}
+      <RegistrationConfirmDialog
+        open={showConfirmDialog}
+        onOpenChange={setShowConfirmDialog}
+        onConfirm={handleRegisterConfirm}
+        training={training}
+        teamName={myTeam?.name || ""}
+        loading={actionLoading}
+      />
     </div>
   );
 };
