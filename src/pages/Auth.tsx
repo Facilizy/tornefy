@@ -19,6 +19,30 @@ const Auth = () => {
   });
   const [forgotPassword, setForgotPassword] = useState(false);
 
+  const validatePassword = (password: string): boolean => {
+    if (password.length < 8) {
+      toast.error("A senha deve ter no mínimo 8 caracteres");
+      return false;
+    }
+    if (!/[A-Z]/.test(password)) {
+      toast.error("A senha deve conter pelo menos uma letra maiúscula");
+      return false;
+    }
+    if (!/[a-z]/.test(password)) {
+      toast.error("A senha deve conter pelo menos uma letra minúscula");
+      return false;
+    }
+    if (!/[0-9]/.test(password)) {
+      toast.error("A senha deve conter pelo menos um número");
+      return false;
+    }
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+      toast.error("A senha deve conter pelo menos um caractere especial");
+      return false;
+    }
+    return true;
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -45,6 +69,12 @@ const Auth = () => {
         toast.success("Login realizado com sucesso!");
         navigate("/");
       } else {
+        // Validar senha forte
+        if (!validatePassword(formData.password)) {
+          setLoading(false);
+          return;
+        }
+
         const { error } = await supabase.auth.signUp({
           email: formData.email,
           password: formData.password,

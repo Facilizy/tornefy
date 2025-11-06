@@ -47,6 +47,30 @@ export type Database = {
         }
         Relationships: []
       }
+      organizer_blacklist: {
+        Row: {
+          created_at: string
+          id: string
+          organizer_id: string
+          reason: string | null
+          team_tag: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organizer_id: string
+          reason?: string | null
+          team_tag: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organizer_id?: string
+          reason?: string | null
+          team_tag?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -109,6 +133,51 @@ export type Database = {
           },
         ]
       }
+      team_reports: {
+        Row: {
+          created_at: string
+          id: string
+          organizer_id: string
+          reason: string
+          team_id: string
+          team_tag: string
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organizer_id: string
+          reason: string
+          team_id: string
+          team_tag: string
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organizer_id?: string
+          reason?: string
+          team_id?: string
+          team_tag?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_reports_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_reports_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       teams: {
         Row: {
           created_at: string
@@ -143,6 +212,51 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_event_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          team_id: string
+          team_name: string
+          team_tag: string
+          training_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          team_id: string
+          team_name: string
+          team_tag: string
+          training_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          team_id?: string
+          team_name?: string
+          team_tag?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_event_logs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_event_logs_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
             referencedColumns: ["id"]
           },
         ]
@@ -227,7 +341,9 @@ export type Database = {
           game: Database["public"]["Enums"]["game_type"]
           id: string
           important_info: string | null
+          invited_tags: string[] | null
           is_live: boolean
+          is_private: boolean
           live_link: string | null
           max_slots: number
           mode: Database["public"]["Enums"]["mode_type"]
@@ -252,7 +368,9 @@ export type Database = {
           game?: Database["public"]["Enums"]["game_type"]
           id?: string
           important_info?: string | null
+          invited_tags?: string[] | null
           is_live?: boolean
+          is_private?: boolean
           live_link?: string | null
           max_slots?: number
           mode: Database["public"]["Enums"]["mode_type"]
@@ -277,7 +395,9 @@ export type Database = {
           game?: Database["public"]["Enums"]["game_type"]
           id?: string
           important_info?: string | null
+          invited_tags?: string[] | null
           is_live?: boolean
+          is_private?: boolean
           live_link?: string | null
           max_slots?: number
           mode?: Database["public"]["Enums"]["mode_type"]

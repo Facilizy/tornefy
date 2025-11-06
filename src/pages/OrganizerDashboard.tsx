@@ -35,6 +35,8 @@ import {
   Trophy,
 } from "lucide-react";
 import { RegisteredTeamsDialog } from "@/components/RegisteredTeamsDialog";
+import { EventLogsDialog } from "@/components/EventLogsDialog";
+import { BlacklistDialog } from "@/components/BlacklistDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -69,6 +71,8 @@ const OrganizerDashboard = () => {
     table_image_url: "",
     important_info: "",
     prize: "",
+    is_private: false,
+    invited_tags: [] as string[],
   });
 
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -208,6 +212,8 @@ const OrganizerDashboard = () => {
         table_image_url: tableImageUrl || null,
         important_info: trainingForm.important_info || null,
         prize: trainingForm.prize || null,
+        is_private: trainingForm.is_private,
+        invited_tags: trainingForm.invited_tags,
         organizer_id: user.id,
       };
 
@@ -285,6 +291,8 @@ const OrganizerDashboard = () => {
       table_image_url: training.table_image_url || "",
       important_info: training.important_info || "",
       prize: training.prize || "",
+      is_private: training.is_private || false,
+      invited_tags: training.invited_tags || [],
     });
     setBannerFile(null);
     setTableFile(null);
@@ -312,6 +320,8 @@ const OrganizerDashboard = () => {
       table_image_url: "",
       important_info: "",
       prize: "",
+      is_private: false,
+      invited_tags: [],
     });
     setBannerFile(null);
     setTableFile(null);
@@ -340,23 +350,24 @@ const OrganizerDashboard = () => {
             </p>
           </div>
 
-          <Dialog
-            open={dialogOpen}
-            onOpenChange={(open) => {
-              setDialogOpen(open);
-              if (!open) {
-                setEditingTraining(null);
-                resetForm();
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button className="bg-gradient-primary hover:shadow-glow-strong">
-                <Plus className="w-4 h-4 mr-2" />
-                Criar Treino
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex gap-3">
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(open) => {
+                setDialogOpen(open);
+                if (!open) {
+                  setEditingTraining(null);
+                  resetForm();
+                }
+              }}
+            >
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-primary hover:shadow-glow-strong">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Criar Treino
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
                   {editingTraining ? "Editar Treino" : "Criar Treino"}
@@ -670,6 +681,64 @@ const OrganizerDashboard = () => {
                   />
                 </div>
 
+                <div className="space-y-3 p-4 border rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label htmlFor="is_private">Treino Privado (somente convidados)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Se ativado, apenas equipes convidadas poderão se inscrever
+                      </p>
+                    </div>
+                    <Switch
+                      id="is_private"
+                      checked={trainingForm.is_private}
+                      onCheckedChange={(checked) =>
+                        setTrainingForm({ ...trainingForm, is_private: checked })
+                      }
+                    />
+                  </div>
+
+                  {trainingForm.is_private && (
+                    <div>
+                      <Label htmlFor="invited_tags">TAGs das Equipes Convidadas</Label>
+                      <Input
+                        id="invited_tags"
+                        placeholder="Ex: ABC, DEF, GHI (separadas por vírgula)"
+                        value={trainingForm.invited_tags.join(", ")}
+                        onChange={(e) => {
+                          const tags = e.target.value
+                            .split(",")
+                            .map(tag => tag.trim().toUpperCase())
+                            .filter(tag => tag.length > 0);
+                          setTrainingForm({
+                            ...trainingForm,
+                            invited_tags: tags,
+                          });
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Digite as TAGs separadas por vírgula
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {trainingForm.table_image_url && (
+                  <div className="flex items-center gap-2">
+                    <Label>Tabela de Resultados Atual</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        setTrainingForm({ ...trainingForm, table_image_url: "" })
+                      }
+                    >
+                      Remover Tabela
+                    </Button>
+                  </div>
+                )}
+
                 <Button
                   type="submit"
                   className="w-full bg-gradient-primary"
@@ -687,6 +756,8 @@ const OrganizerDashboard = () => {
               </form>
             </DialogContent>
           </Dialog>
+          <BlacklistDialog />
+        </div>
         </div>
 
         {trainings.length === 0 ? (
@@ -763,11 +834,17 @@ const OrganizerDashboard = () => {
 
                   <Separator />
 
-                  <div className="flex gap-2 mb-2">
-                    <RegisteredTeamsDialog 
-                      trainingId={training.id}
-                      trainingName={training.name}
-                    />
+                  <div className="flex flex-col gap-2 mb-2">
+                    <div className="flex gap-2">
+                      <RegisteredTeamsDialog 
+                        trainingId={training.id}
+                        trainingName={training.name}
+                      />
+                      <EventLogsDialog
+                        trainingId={training.id}
+                        trainingName={training.name}
+                      />
+                    </div>
                   </div>
 
                   <div className="flex gap-2">

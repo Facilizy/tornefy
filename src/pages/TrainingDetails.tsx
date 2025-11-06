@@ -161,6 +161,25 @@ const TrainingDetails = () => {
       return;
     }
 
+    // Check blacklist
+    const { data: blacklisted } = await supabase
+      .from("organizer_blacklist")
+      .select("*")
+      .eq("organizer_id", training.organizer_id)
+      .eq("team_tag", myTeam.tag)
+      .single();
+
+    if (blacklisted) {
+      toast.error("Sua equipe está na blacklist deste organizador!");
+      return;
+    }
+
+    // Check private training
+    if (training.is_private && !training.invited_tags.includes(myTeam.tag)) {
+      toast.error("Treino privado. Sua equipe não está na lista de convidados!");
+      return;
+    }
+
     if (training.status === "INSCRIÇÕES ENCERRADAS" || training.status === "EM ANDAMENTO" || training.status === "FINALIZADO") {
       toast.error("As inscrições para este treino estão encerradas!");
       return;
@@ -171,7 +190,6 @@ const TrainingDetails = () => {
       return;
     }
 
-    // Show confirmation dialog
     setShowConfirmDialog(true);
   };
 
