@@ -50,6 +50,7 @@ export type Database = {
       organizer_blacklist: {
         Row: {
           created_at: string
+          expires_at: string | null
           id: string
           organizer_id: string
           reason: string | null
@@ -57,6 +58,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           organizer_id: string
           reason?: string | null
@@ -64,6 +66,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          expires_at?: string | null
           id?: string
           organizer_id?: string
           reason?: string | null
@@ -92,6 +95,30 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
+        }
+        Relationships: []
+      }
+      team_bans: {
+        Row: {
+          banned_until: string
+          created_at: string
+          id: string
+          reason: string | null
+          team_tag: string
+        }
+        Insert: {
+          banned_until: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          team_tag: string
+        }
+        Update: {
+          banned_until?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          team_tag?: string
         }
         Relationships: []
       }
@@ -450,6 +477,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      count_active_blacklists_from_different_organizers: {
+        Args: { _team_tag: string }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["user_role"]

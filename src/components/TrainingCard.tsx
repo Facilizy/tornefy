@@ -19,6 +19,8 @@ interface TrainingCardProps {
     registrations?: number;
     is_live?: boolean;
     status?: string;
+    is_private?: boolean;
+    invited_tags?: string[];
   };
 }
 
@@ -80,18 +82,30 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         
         {/* Status and Live Badges */}
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start">
-          {training.status && (
-            <Badge 
-              variant={getStatusVariant(training.status)}
-              className="font-bold text-xs"
-            >
-              {training.status}
-            </Badge>
-          )}
+        <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2">
+          <div className="flex flex-col gap-1">
+            {training.status && (
+              <Badge 
+                variant={getStatusVariant(training.status)}
+                className="font-bold text-xs"
+              >
+                {training.status}
+              </Badge>
+            )}
+            {training.is_private && (
+              <Badge 
+                variant="outline"
+                className="font-bold text-xs border-yellow-500 text-yellow-600 bg-yellow-500/10"
+              >
+                {training.invited_tags && training.invited_tags.length > 0 
+                  ? "Somente Convidados" 
+                  : "Treino Privado"}
+              </Badge>
+            )}
+          </div>
           {training.is_live && (
             <Badge className="bg-destructive/90 backdrop-blur-sm font-bold">
-              AO VIVO
+              ● AO VIVO
             </Badge>
           )}
         </div>

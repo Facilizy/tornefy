@@ -703,17 +703,24 @@ const OrganizerDashboard = () => {
                       <Label htmlFor="invited_tags">TAGs das Equipes Convidadas</Label>
                       <Input
                         id="invited_tags"
-                        placeholder="Ex: ABC, DEF, GHI (separadas por vírgula)"
+                        placeholder="Ex: ABC DEF GHI ou ABC, DEF, GHI"
                         value={trainingForm.invited_tags.join(", ")}
                         onChange={(e) => {
                           const tags = e.target.value
-                            .split(",")
+                            .split(/[\s,]+/)
                             .map(tag => tag.trim().toUpperCase())
                             .filter(tag => tag.length > 0);
                           setTrainingForm({
                             ...trainingForm,
                             invited_tags: tags,
                           });
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Separe as TAGs por vírgula ou espaço
+                      </p>
+                    </div>
+                  )}
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-1">

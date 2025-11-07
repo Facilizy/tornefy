@@ -141,6 +141,32 @@ const TrainingDetails = () => {
       return;
     }
 
+    // Check if team is banned (temporary ban)
+    const { data: banCheck } = await supabase
+      .from("team_bans")
+      .select("*")
+      .eq("team_tag", myTeam.tag)
+      .gt("banned_until", new Date().toISOString())
+      .maybeSingle();
+
+    if (banCheck) {
+      const banUntil = new Date(banCheck.banned_until).toLocaleDateString("pt-BR");
+      toast.error(`Sua equipe está banida até ${banUntil}. Motivo: ${banCheck.reason || "Denúncias múltiplas"}`);
+      return;
+    }
+
+    // Check if team has 3+ blacklists from different organizers
+    const { data: blacklistCount, error: countError } = await supabase
+      .rpc("count_active_blacklists_from_different_organizers", {
+        _team_tag: myTeam.tag
+      });
+
+    if (!countError && blacklistCount && blacklistCount >= 3) {
+      toast.error("⚠️ ATENÇÃO: Sua equipe possui 3 ou mais blacklists de organizadores diferentes. Isso pode afetar futuras inscrições.", {
+        duration: 6000,
+      });
+    }
+
     // Validar número mínimo de membros baseado no modo
     const { data: members } = await supabase
       .from("team_members")
@@ -161,16 +187,20 @@ const TrainingDetails = () => {
       return;
     }
 
-    // Check blacklist
+    // Check blacklist from this organizer
     const { data: blacklisted } = await supabase
       .from("organizer_blacklist")
       .select("*")
       .eq("organizer_id", training.organizer_id)
       .eq("team_tag", myTeam.tag)
-      .single();
+      .or("expires_at.is.null,expires_at.gt." + new Date().toISOString())
+      .maybeSingle();
 
     if (blacklisted) {
-      toast.error("Sua equipe está na blacklist deste organizador!");
+      const expiresAt = blacklisted.expires_at 
+        ? ` (expira em ${new Date(blacklisted.expires_at).toLocaleDateString("pt-BR")})`
+        : "";
+      toast.error(`Sua equipe está na blacklist deste organizador${expiresAt}!`);
       return;
     }
 
