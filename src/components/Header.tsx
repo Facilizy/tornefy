@@ -69,7 +69,7 @@ const Header = ({ user }: HeaderProps) => {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("/my-team")}
-                className="border-primary/50 hover:bg-primary/10 text-xs sm:text-sm px-2 sm:px-4"
+                className="border-primary/50 hover:bg-primary/10 hover:text-white text-xs sm:text-sm px-2 sm:px-4"
               >
                 <span className="hidden sm:inline">Minha Equipe</span>
                 <span className="sm:hidden">Equipe</span>
@@ -81,7 +81,7 @@ const Header = ({ user }: HeaderProps) => {
                 variant="outline"
                 size="sm"
                 onClick={() => navigate("/organizer")}
-                className="border-primary/50 hover:bg-primary/10 text-xs sm:text-sm px-2 sm:px-4"
+                className="border-primary/50 hover:bg-primary/10 hover:text-white text-xs sm:text-sm px-2 sm:px-4"
               >
                 <span className="hidden sm:inline">Painel Organizador</span>
                 <span className="sm:hidden">Painel</span>

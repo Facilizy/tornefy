@@ -165,11 +165,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
                   </Badge>
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>
-                    {training.invited_tags && training.invited_tags.length > 0 
-                      ? "Treino Privado - Somente Convidados" 
-                      : "Treino Privado"}
-                  </p>
+                  <p>Somente Convidados</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

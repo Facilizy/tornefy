@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
@@ -20,6 +21,12 @@ const Auth = () => {
   });
   const [forgotPassword, setForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+  // Reset accepted terms when switching between login/signup
+  useEffect(() => {
+    setAcceptedTerms(false);
+  }, [isLogin, forgotPassword]);
 
   const validatePassword = (password: string): boolean => {
     if (password.length < 8) {
@@ -73,6 +80,13 @@ const Auth = () => {
       } else {
         // Validar senha forte
         if (!validatePassword(formData.password)) {
+          setLoading(false);
+          return;
+        }
+
+        // Validar termos
+        if (!acceptedTerms) {
+          toast.error("Você precisa aceitar os termos e diretrizes da plataforma");
           setLoading(false);
           return;
         }
@@ -210,6 +224,23 @@ const Auth = () => {
                     </Label>
                   </div>
                 </RadioGroup>
+              </div>
+            )}
+
+            {!isLogin && !forgotPassword && (
+              <div className="flex items-start space-x-2 pt-2">
+                <Checkbox 
+                  id="terms" 
+                  checked={acceptedTerms}
+                  onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label 
+                  htmlFor="terms" 
+                  className="text-sm text-muted-foreground cursor-pointer leading-tight"
+                >
+                  Ao criar uma conta, você concorda com os termos e diretrizes da plataforma
+                </Label>
               </div>
             )}
 
