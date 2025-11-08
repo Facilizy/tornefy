@@ -1,6 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Calendar, Users, Monitor, Gamepad2, Handshake } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -92,7 +93,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
             </Badge>
           )}
           {training.is_live && (
-            <Badge className="bg-destructive/90 backdrop-blur-sm font-bold">
+            <Badge className="bg-destructive/90 backdrop-blur-sm font-bold pointer-events-none">
               ● AO VIVO
             </Badge>
           )}
@@ -153,12 +154,25 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
             </Badge>
           )}
           {training.is_private && (
-            <Badge 
-              variant="outline"
-              className="border-white/50 text-white"
-            >
-              <Handshake className="w-3 h-3" />
-            </Badge>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline"
+                    className="border-white/50 text-white cursor-help"
+                  >
+                    <Handshake className="w-3 h-3" />
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    {training.invited_tags && training.invited_tags.length > 0 
+                      ? "Treino Privado - Somente Convidados" 
+                      : "Treino Privado"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
         </div>
 
