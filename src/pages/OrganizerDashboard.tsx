@@ -721,13 +721,6 @@ const OrganizerDashboard = () => {
                       </p>
                     </div>
                   )}
-                        }}
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Digite as TAGs separadas por vírgula
-                      </p>
-                    </div>
-                  )}
                 </div>
 
                 {trainingForm.table_image_url && (
