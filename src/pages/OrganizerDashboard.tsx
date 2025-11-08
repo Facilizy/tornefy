@@ -23,6 +23,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -33,6 +42,7 @@ import {
   Calendar,
   Users,
   Trophy,
+  Award,
 } from "lucide-react";
 import { RegisteredTeamsDialog } from "@/components/RegisteredTeamsDialog";
 import { EventLogsDialog } from "@/components/EventLogsDialog";
@@ -78,6 +88,7 @@ const OrganizerDashboard = () => {
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [tableFile, setTableFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showScoringComingSoon, setShowScoringComingSoon] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -803,7 +814,7 @@ const OrganizerDashboard = () => {
                 </div>
 
                 <div className="p-4 space-y-3">
-                  <h3 className="font-semibold text-lg line-clamp-1">
+                  <h3 className="font-semibold text-lg line-clamp-1 uppercase">
                     {training.name}
                   </h3>
 
@@ -844,6 +855,15 @@ const OrganizerDashboard = () => {
                         trainingId={training.id}
                         trainingName={training.name}
                       />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setShowScoringComingSoon(true)}
+                        className="flex-1 gap-2"
+                      >
+                        <Award className="w-4 h-4" />
+                        Pontuação
+                      </Button>
                     </div>
                   </div>
 
@@ -878,6 +898,22 @@ const OrganizerDashboard = () => {
           </div>
         )}
       </main>
+
+      {/* Dialog para Pontuação em Desenvolvimento */}
+      <AlertDialog open={showScoringComingSoon} onOpenChange={setShowScoringComingSoon}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚙️ Funcionalidade em Desenvolvimento</AlertDialogTitle>
+            <AlertDialogDescription>
+              O sistema de pontuação está sendo desenvolvido e estará disponível em breve. 
+              Em breve você poderá gerenciar as pontuações das equipes de forma automática!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

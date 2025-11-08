@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Users, Monitor, Gamepad2 } from "lucide-react";
+import { Calendar, Users, Monitor, Gamepad2, Handshake } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
@@ -95,8 +95,9 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
             {training.is_private && (
               <Badge 
                 variant="outline"
-                className="font-bold text-xs border-yellow-500 text-yellow-600 bg-yellow-500/10"
+                className="font-bold text-xs border-yellow-500 text-yellow-600 bg-yellow-500/10 flex items-center gap-1"
               >
+                <Handshake className="w-3 h-3" />
                 {training.invited_tags && training.invited_tags.length > 0 
                   ? "Somente Convidados" 
                   : "Treino Privado"}
@@ -112,7 +113,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
 
         {/* Title overlay */}
         <div className="absolute bottom-0 left-0 right-0 p-4">
-          <h3 className="font-bold text-xl text-white line-clamp-2 drop-shadow-lg">
+          <h3 className="font-bold text-xl text-white line-clamp-2 drop-shadow-lg uppercase">
             {training.name}
           </h3>
         </div>

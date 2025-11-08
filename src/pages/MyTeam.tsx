@@ -430,8 +430,8 @@ const MyTeam = () => {
                       />
                     )}
                     <div>
-                      <h2 className="text-3xl font-bold">{team.name}</h2>
-                      <p className="text-muted-foreground">[{team.tag}]</p>
+                      <h2 className="text-3xl font-bold uppercase">{team.name}</h2>
+                      <p className="text-muted-foreground uppercase">[{team.tag}]</p>
                     </div>
                   </div>
                   <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

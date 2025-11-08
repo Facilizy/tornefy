@@ -254,7 +254,7 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                           )}
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <CardTitle className="text-lg">
+                              <CardTitle className="text-lg uppercase">
                                 {team.name}
                               </CardTitle>
                               {team.blacklist_count && team.blacklist_count >= 3 && (
@@ -270,7 +270,7 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                                 </Badge>
                               )}
                             </div>
-                            <Badge variant="secondary" className="mt-1">
+                            <Badge variant="secondary" className="mt-1 uppercase">
                               {team.tag}
                             </Badge>
                           </div>
