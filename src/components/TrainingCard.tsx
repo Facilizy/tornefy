@@ -83,27 +83,14 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
         
         {/* Status and Live Badges */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2">
-          <div className="flex flex-col gap-1">
-            {training.status && (
-              <Badge 
-                variant={getStatusVariant(training.status)}
-                className="font-bold text-xs"
-              >
-                {training.status}
-              </Badge>
-            )}
-            {training.is_private && (
-              <Badge 
-                variant="outline"
-                className="font-bold text-xs border-yellow-500 text-yellow-600 bg-yellow-500/10 flex items-center gap-1"
-              >
-                <Handshake className="w-3 h-3" />
-                {training.invited_tags && training.invited_tags.length > 0 
-                  ? "Somente Convidados" 
-                  : "Treino Privado"}
-              </Badge>
-            )}
-          </div>
+          {training.status && (
+            <Badge 
+              variant={getStatusVariant(training.status)}
+              className="font-bold text-xs"
+            >
+              {training.status}
+            </Badge>
+          )}
           {training.is_live && (
             <Badge className="bg-destructive/90 backdrop-blur-sm font-bold">
               ● AO VIVO
@@ -163,6 +150,14 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
               {training.game === 'free_fire' && 'Free Fire'}
               {training.game === 'blood_strike' && 'Blood Strike'}
               {training.game === 'farlight_84' && 'Farlight 84'}
+            </Badge>
+          )}
+          {training.is_private && (
+            <Badge 
+              variant="outline"
+              className="border-white/50 text-white"
+            >
+              <Handshake className="w-3 h-3" />
             </Badge>
           )}
         </div>
