@@ -324,6 +324,25 @@ const MyTeam = () => {
     setMemberDialogOpen(true);
   };
 
+  const handleDeleteTeam = async () => {
+    if (!confirm("Deseja realmente excluir sua equipe? Esta ação não pode ser desfeita e você será removido de todos os treinos!")) return;
+
+    try {
+      // Delete team (cascade will delete members and registrations)
+      const { error } = await supabase
+        .from("teams")
+        .delete()
+        .eq("id", team.id);
+
+      if (error) throw error;
+      toast.success("Equipe excluída!");
+      setTeam(null);
+      setMembers([]);
+    } catch (error: any) {
+      toast.error("Erro ao excluir equipe");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -434,67 +453,77 @@ const MyTeam = () => {
                       <p className="text-muted-foreground uppercase">[{team.tag}]</p>
                     </div>
                   </div>
-                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Edit className="w-4 h-4 mr-2" />
-                        Editar
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="bg-card border-border">
-                      <DialogHeader>
-                        <DialogTitle>Editar Equipe</DialogTitle>
-                      </DialogHeader>
-                      <form onSubmit={handleSaveTeam} className="space-y-4">
-                        <div>
-                          <Label htmlFor="name">Nome da Equipe</Label>
-                          <Input
-                            id="name"
-                            value={teamForm.name}
-                            onChange={(e) =>
-                              setTeamForm({ ...teamForm, name: e.target.value })
-                            }
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="tag">Tag</Label>
-                          <Input
-                            id="tag"
-                            value={teamForm.tag}
-                            onChange={(e) =>
-                              setTeamForm({ ...teamForm, tag: e.target.value })
-                            }
-                            required
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="logo">Logo da Equipe</Label>
-                          <Input
-                            id="logo"
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                          />
-                          {teamForm.logo_url && !logoFile && (
-                            <p className="text-xs text-muted-foreground mt-1">
-                              Logo atual carregada
-                            </p>
-                          )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Tamanho máximo: 5MB
-                          </p>
-                        </div>
-                        <Button
-                          type="submit"
-                          className="w-full bg-gradient-primary"
-                          disabled={uploading}
-                        >
-                          {uploading ? "Fazendo upload..." : "Salvar"}
+                  <div className="flex gap-2">
+                    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm">
+                          <Edit className="w-4 h-4 mr-2" />
+                          Editar
                         </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+                      </DialogTrigger>
+                      <DialogContent className="bg-card border-border">
+                        <DialogHeader>
+                          <DialogTitle>Editar Equipe</DialogTitle>
+                        </DialogHeader>
+                        <form onSubmit={handleSaveTeam} className="space-y-4">
+                          <div>
+                            <Label htmlFor="name">Nome da Equipe</Label>
+                            <Input
+                              id="name"
+                              value={teamForm.name}
+                              onChange={(e) =>
+                                setTeamForm({ ...teamForm, name: e.target.value })
+                              }
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="tag">Tag</Label>
+                            <Input
+                              id="tag"
+                              value={teamForm.tag}
+                              onChange={(e) =>
+                                setTeamForm({ ...teamForm, tag: e.target.value })
+                              }
+                              required
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="logo">Logo da Equipe</Label>
+                            <Input
+                              id="logo"
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                            />
+                            {teamForm.logo_url && !logoFile && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Logo atual carregada
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Tamanho máximo: 5MB
+                            </p>
+                          </div>
+                          <Button
+                            type="submit"
+                            className="w-full bg-gradient-primary"
+                            disabled={uploading}
+                          >
+                            {uploading ? "Fazendo upload..." : "Salvar"}
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={handleDeleteTeam}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Excluir
+                    </Button>
+                  </div>
                 </div>
 
                 <Separator className="my-6" />

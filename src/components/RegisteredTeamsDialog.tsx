@@ -12,7 +12,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Users, Download, Copy, Loader2, AlertTriangle, Flag } from 'lucide-react';
+import { Users, Download, Copy, Loader2, AlertTriangle, Flag, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReportTeamDialog } from './ReportTeamDialog';
 
@@ -183,6 +183,26 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
     toast.success('Informações baixadas!');
   };
 
+  const handleRemoveTeam = async (teamId: string) => {
+    if (!confirm("Deseja realmente remover esta equipe do treino?")) return;
+
+    try {
+      const { error } = await supabase
+        .from('training_registrations')
+        .delete()
+        .eq('training_id', trainingId)
+        .eq('team_id', teamId);
+
+      if (error) throw error;
+      
+      toast.success('Equipe removida do treino!');
+      fetchTeams();
+    } catch (error) {
+      console.error('Error removing team:', error);
+      toast.error('Erro ao remover equipe');
+    }
+  };
+
   const getFunctionBadgeVariant = (func: string) => {
     switch (func) {
       case 'Suporte':
@@ -275,7 +295,15 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                             </Badge>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                         <div className="flex gap-2">
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRemoveTeam(team.id)}
+                            title="Remover equipe do treino"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"
