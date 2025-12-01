@@ -488,6 +488,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      notify_blacklist_expired: { Args: never; Returns: undefined }
     }
     Enums: {
       game_type: "free_fire" | "blood_strike" | "farlight_84"
