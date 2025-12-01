@@ -9,13 +9,13 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Deep dark theme with purple/lilac gradients - inspired by LEOZIN DEV IA */
-    --background: 240 10% 3.9%; /* #0a0a0f - deep dark */
+    --background: 240 10% 6%; /* Slightly lighter to prevent pure black */
     --foreground: 0 0% 98%; /* #fafafa - almost white */
 
-    --card: 240 8% 8%; /* #13131a - dark card */
+    --card: 240 8% 10%; /* Lighter card background */
     --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 5%;
+    --popover: 240 10% 8%;
     --popover-foreground: 0 0% 98%;
 
     /* Purple gradient colors */
@@ -26,24 +26,24 @@ All colors MUST be HSL.
     --secondary: 240 8% 15%; /* darker card variant */
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 6% 12%;
+    --muted: 240 6% 14%;
     --muted-foreground: 240 5% 65%;
 
     --accent: 280 85% 75%; /* lilac accent */
-    --accent-foreground: 240 10% 3.9%;
+    --accent-foreground: 240 10% 6%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 6% 16%; /* subtle borders */
-    --input: 240 6% 12%;
+    --border: 240 6% 18%; /* More visible borders */
+    --input: 240 6% 14%;
     --ring: 270 91% 65%;
 
     --radius: 0.75rem; /* more rounded for modern look */
 
     /* Gradient definitions */
     --gradient-primary: linear-gradient(135deg, hsl(270 91% 65%), hsl(280 85% 75%));
-    --gradient-radial: radial-gradient(circle at 50% 0%, hsl(270 91% 65% / 0.2), transparent 50%);
+    --gradient-radial: radial-gradient(circle at 50% 0%, hsl(270 91% 65% / 0.15), transparent 60%);
     
     /* Glow effects */
     --glow-primary: 0 0 20px hsl(270 91% 65% / 0.5);
@@ -59,6 +59,7 @@ All colors MUST be HSL.
   body {
     @apply bg-background text-foreground;
     font-family: 'Poppins', sans-serif;
+    min-height: 100vh;
   }
 
   /* Gradient text utility */
@@ -76,10 +77,5 @@ All colors MUST be HSL.
 
   .glow-strong {
     box-shadow: var(--glow-strong);
-  }
-
-  /* Smooth animations */
-  * {
-    @apply transition-colors duration-200;
   }
 }
