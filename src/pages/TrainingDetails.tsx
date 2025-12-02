@@ -26,6 +26,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { TrainingChat } from "@/components/TrainingChat";
 import { RegistrationConfirmDialog } from "@/components/RegistrationConfirmDialog";
+import { ExternalTeamDialog } from "@/components/ExternalTeamDialog";
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -611,6 +612,15 @@ const TrainingDetails = () => {
                     </p>
                   )}
                 </div>
+              )}
+
+              {/* External Team Button for Organizer */}
+              {profile?.role === "organizer" && training.organizer_id === user?.id && (
+                <ExternalTeamDialog 
+                  trainingId={id!}
+                  organizerId={user.id}
+                  onTeamCreated={fetchTrainingDetails}
+                />
               )}
 
               <Separator className="my-6" />

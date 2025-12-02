@@ -8,15 +8,15 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Deep dark theme with purple/lilac gradients - inspired by LEOZIN DEV IA */
-    --background: 240 10% 6%; /* Slightly lighter to prevent pure black */
-    --foreground: 0 0% 98%; /* #fafafa - almost white */
+  /* Deep dark theme with purple/lilac gradients */
+  --background: 240 10% 8%; /* Darker for better contrast */
+  --foreground: 0 0% 98%; /* #fafafa - almost white */
 
-    --card: 240 8% 10%; /* Lighter card background */
-    --card-foreground: 0 0% 98%;
+  --card: 240 8% 12%; /* Lighter card background */
+  --card-foreground: 0 0% 98%;
 
-    --popover: 240 10% 8%;
-    --popover-foreground: 0 0% 98%;
+  --popover: 240 10% 10%;
+  --popover-foreground: 0 0% 98%;
 
     /* Purple gradient colors */
     --primary: 270 91% 65%; /* #8b5cf6 - vibrant purple */
