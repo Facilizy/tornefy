@@ -9,6 +9,7 @@ import PlayerDashboard from "./pages/PlayerDashboard";
 import TrainingDetails from "./pages/TrainingDetails";
 import MyTeam from "./pages/MyTeam";
 import OrganizerDashboard from "./pages/OrganizerDashboard";
+import ExternalTeams from "./pages/ExternalTeams";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/training/:id" element={<TrainingDetails />} />
           <Route path="/my-team" element={<MyTeam />} />
           <Route path="/organizer" element={<OrganizerDashboard />} />
+          <Route path="/external-teams" element={<ExternalTeams />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
