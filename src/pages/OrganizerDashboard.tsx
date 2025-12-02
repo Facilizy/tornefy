@@ -362,6 +362,13 @@ const OrganizerDashboard = () => {
           </div>
 
           <div className="flex gap-3">
+            <Button 
+              variant="outline"
+              onClick={() => navigate("/external-teams")}
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Equipes Externas
+            </Button>
             <Dialog
               open={dialogOpen}
               onOpenChange={(open) => {
