@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 interface ExternalTeam {
   id: string;
   name: string;
+  tag: string;
   members: { player_name: string }[];
 }
 
@@ -51,6 +52,7 @@ export function AddExistingExternalTeamDialog({
         .select(`
           id,
           name,
+          tag,
           team_members (player_name)
         `)
         .eq('owner_id', organizerId)
@@ -62,6 +64,7 @@ export function AddExistingExternalTeamDialog({
       const formattedTeams = data?.map((team) => ({
         id: team.id,
         name: team.name,
+        tag: team.tag,
         members: team.team_members || [],
       })) || [];
 
@@ -164,9 +167,11 @@ export function AddExistingExternalTeamDialog({
                 >
                   <div>
                     <p className="font-medium uppercase">{team.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {team.members.length} membro(s)
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span className="uppercase">[{team.tag || 'CONVIDADO'}]</span>
+                      <span>•</span>
+                      <span>{team.members.length} membro(s)</span>
+                    </div>
                   </div>
                   <Button
                     size="sm"

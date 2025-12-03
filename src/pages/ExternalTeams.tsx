@@ -46,6 +46,7 @@ interface TeamMember {
 interface ExternalTeam {
   id: string;
   name: string;
+  tag: string;
   created_at: string;
   members: TeamMember[];
   training?: {
@@ -68,6 +69,7 @@ const ExternalTeams = () => {
 
   const [teamForm, setTeamForm] = useState({
     name: "",
+    tag: "",
   });
 
   const [memberForm, setMemberForm] = useState({
@@ -164,7 +166,7 @@ const ExternalTeams = () => {
 
   const openEditTeam = (team: ExternalTeam) => {
     setSelectedTeam(team);
-    setTeamForm({ name: team.name });
+    setTeamForm({ name: team.name, tag: team.tag || '' });
     setEditDialogOpen(true);
   };
 
@@ -176,7 +178,7 @@ const ExternalTeams = () => {
     try {
       const { error } = await supabase
         .from("teams")
-        .update({ name: teamForm.name })
+        .update({ name: teamForm.name, tag: teamForm.tag.toUpperCase() || 'CONVIDADO' })
         .eq("id", selectedTeam.id);
 
       if (error) throw error;
@@ -332,16 +334,21 @@ const ExternalTeams = () => {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
-                      <CardTitle className="text-xl uppercase">
-                        {team.name}
-                      </CardTitle>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-xl uppercase">
+                          {team.name}
+                        </CardTitle>
+                        <Badge variant="secondary" className="uppercase">
+                          [{team.tag || 'CONVIDADO'}]
+                        </Badge>
+                      </div>
                       {team.training && (
                         <p className="text-sm text-muted-foreground mt-1">
                           Treino: {team.training.name}
                         </p>
                       )}
-                      <Badge variant="outline" className="mt-2">
-                        Equipe Externa
+                      <Badge variant="outline" className="mt-2 border-primary text-primary">
+                        Convidado
                       </Badge>
                     </div>
                     <div className="flex gap-2">
@@ -432,14 +439,26 @@ const ExternalTeams = () => {
               <DialogTitle>Editar Equipe Externa</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSaveTeam} className="space-y-4">
-              <div>
-                <Label htmlFor="teamName">Nome da Equipe</Label>
-                <Input
-                  id="teamName"
-                  value={teamForm.name}
-                  onChange={(e) => setTeamForm({ name: e.target.value })}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="teamName">Nome da Equipe</Label>
+                  <Input
+                    id="teamName"
+                    value={teamForm.name}
+                    onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="teamTag">TAG (Fictícia)</Label>
+                  <Input
+                    id="teamTag"
+                    value={teamForm.tag}
+                    onChange={(e) => setTeamForm({ ...teamForm, tag: e.target.value.toUpperCase() })}
+                    maxLength={10}
+                    placeholder="Ex: GUEST"
+                  />
+                </div>
               </div>
               <div className="flex gap-3">
                 <Button
