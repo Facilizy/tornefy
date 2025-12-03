@@ -96,16 +96,39 @@ export function AddExistingExternalTeamDialog({
     try {
       setAddingTeamId(teamId);
 
+      // Find the next available slot number
+      const { data: existingRegistrations } = await supabase
+        .from("training_registrations")
+        .select("slot_number")
+        .eq("training_id", trainingId)
+        .order("slot_number", { ascending: true });
+
+      let nextSlot = 1;
+      if (existingRegistrations && existingRegistrations.length > 0) {
+        const usedSlots = existingRegistrations
+          .map(r => r.slot_number)
+          .filter(s => s !== null)
+          .sort((a, b) => (a || 0) - (b || 0));
+        
+        for (let i = 1; i <= 100; i++) {
+          if (!usedSlots.includes(i)) {
+            nextSlot = i;
+            break;
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('training_registrations')
         .insert({
           training_id: trainingId,
           team_id: teamId,
+          slot_number: nextSlot,
         });
 
       if (error) throw error;
 
-      toast.success('Equipe adicionada ao treino!');
+      toast.success(`Equipe adicionada ao treino! Slot ${nextSlot}`);
       setRegisteredTeamIds([...registeredTeamIds, teamId]);
       onTeamAdded();
     } catch (error: any) {

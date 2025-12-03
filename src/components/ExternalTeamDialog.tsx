@@ -93,12 +93,35 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
 
       if (membersError) throw membersError;
 
-      // Registrar equipe no treino
+      // Find the next available slot number
+      const { data: existingRegistrations } = await supabase
+        .from("training_registrations")
+        .select("slot_number")
+        .eq("training_id", trainingId)
+        .order("slot_number", { ascending: true });
+
+      let nextSlot = 1;
+      if (existingRegistrations && existingRegistrations.length > 0) {
+        const usedSlots = existingRegistrations
+          .map(r => r.slot_number)
+          .filter(s => s !== null)
+          .sort((a, b) => (a || 0) - (b || 0));
+        
+        for (let i = 1; i <= 100; i++) {
+          if (!usedSlots.includes(i)) {
+            nextSlot = i;
+            break;
+          }
+        }
+      }
+
+      // Registrar equipe no treino com slot
       const { error: regError } = await supabase
         .from('training_registrations')
         .insert({
           training_id: trainingId,
           team_id: team.id,
+          slot_number: nextSlot,
         });
 
       if (regError) throw regError;
