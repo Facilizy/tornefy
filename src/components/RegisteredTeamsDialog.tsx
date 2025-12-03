@@ -31,6 +31,7 @@ interface Team {
   members: TeamMember[];
   blacklist_count?: number;
   report_count?: number;
+  is_external?: boolean;
 }
 
 interface RegisteredTeamsDialogProps {
@@ -66,6 +67,7 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
             name,
             tag,
             logo_url,
+            is_external,
             team_members (
               player_name,
               game_id,
@@ -104,6 +106,7 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
             members: reg.teams.team_members || [],
             blacklist_count: blacklistCount || 0,
             report_count: reports?.length || 0,
+            is_external: reg.teams.is_external || false,
           };
         })
       );
@@ -277,6 +280,12 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                               <CardTitle className="text-lg uppercase">
                                 {team.name}
                               </CardTitle>
+                              {team.is_external && (
+                                <Badge variant="outline" className="gap-1 border-primary text-primary">
+                                  <Users className="w-3 h-3" />
+                                  Convidado
+                                </Badge>
+                              )}
                               {team.blacklist_count && team.blacklist_count >= 3 && (
                                 <Badge variant="destructive" className="gap-1">
                                   <AlertTriangle className="w-3 h-3" />
@@ -291,7 +300,7 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                               )}
                             </div>
                             <Badge variant="secondary" className="mt-1 uppercase">
-                              {team.tag}
+                              {team.tag || 'CONVIDADO'}
                             </Badge>
                           </div>
                         </div>

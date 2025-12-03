@@ -30,6 +30,7 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [teamName, setTeamName] = useState('');
+  const [teamTag, setTeamTag] = useState('');
   const [members, setMembers] = useState([
     { player_name: '', game_id: '', discord: '', function: 'RUSH' as 'RUSH' | 'SUPORTE' | 'CAPITÃO' },
   ]);
@@ -61,13 +62,13 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
     try {
       setLoading(true);
 
-      // Criar equipe externa (sem owner_id)
+      // Criar equipe externa
       const { data: team, error: teamError } = await supabase
         .from('teams')
         .insert({
           name: teamName,
-          tag: '', // Sem TAG para times externos
-          owner_id: organizerId, // temporariamente usar organizer como owner
+          tag: teamTag.toUpperCase() || 'CONVIDADO',
+          owner_id: organizerId,
           is_external: true,
         })
         .select()
@@ -105,6 +106,7 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
       toast.success('Equipe externa criada e inscrita!');
       setOpen(false);
       setTeamName('');
+      setTeamTag('');
       setMembers([{ player_name: '', game_id: '', discord: '', function: 'RUSH' }]);
       onTeamCreated();
     } catch (error: any) {
@@ -128,18 +130,30 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
           <DialogTitle>Criar Equipe Externa</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleCreate} className="space-y-4">
-          <div>
-            <Label htmlFor="teamName">Nome da Equipe</Label>
-            <Input
-              id="teamName"
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              placeholder="Nome da equipe externa"
-              required
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Esta equipe não terá TAG e só existirá neste treino
-            </p>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="teamName">Nome da Equipe</Label>
+              <Input
+                id="teamName"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                placeholder="Nome da equipe"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="teamTag">TAG (Fictícia)</Label>
+              <Input
+                id="teamTag"
+                value={teamTag}
+                onChange={(e) => setTeamTag(e.target.value.toUpperCase())}
+                placeholder="Ex: GUEST"
+                maxLength={10}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Deixe vazio para usar "CONVIDADO"
+              </p>
+            </div>
           </div>
 
           <div className="space-y-3">
