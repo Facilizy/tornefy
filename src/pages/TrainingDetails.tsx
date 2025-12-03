@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { TrainingChat } from "@/components/TrainingChat";
 import { RegistrationConfirmDialog } from "@/components/RegistrationConfirmDialog";
 import { ExternalTeamDialog } from "@/components/ExternalTeamDialog";
+import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalTeamDialog";
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -614,13 +615,20 @@ const TrainingDetails = () => {
                 </div>
               )}
 
-              {/* External Team Button for Organizer */}
+              {/* External Team Buttons for Organizer */}
               {profile?.role === "organizer" && training.organizer_id === user?.id && (
-                <ExternalTeamDialog 
-                  trainingId={id!}
-                  organizerId={user.id}
-                  onTeamCreated={fetchTrainingDetails}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <ExternalTeamDialog 
+                    trainingId={id!}
+                    organizerId={user.id}
+                    onTeamCreated={fetchTrainingDetails}
+                  />
+                  <AddExistingExternalTeamDialog
+                    trainingId={id!}
+                    organizerId={user.id}
+                    onTeamAdded={fetchTrainingDetails}
+                  />
+                </div>
               )}
 
               <Separator className="my-6" />

@@ -30,6 +30,7 @@ import {
   Plus,
   ArrowLeft,
   UserPlus,
+  Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -63,6 +64,7 @@ const ExternalTeams = () => {
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<ExternalTeam | null>(null);
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   const [teamForm, setTeamForm] = useState({
     name: "",
@@ -289,6 +291,19 @@ const ExternalTeams = () => {
           </p>
         </div>
 
+        {/* Search Filter */}
+        <div className="mb-6">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar equipe por nome..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
+
         {teams.length === 0 ? (
           <Card className="p-12 text-center backdrop-blur-sm bg-card/80 border-border">
             <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -305,7 +320,11 @@ const ExternalTeams = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 gap-6">
-            {teams.map((team) => (
+            {teams
+              .filter((team) =>
+                team.name.toLowerCase().includes(searchTerm.toLowerCase())
+              )
+              .map((team) => (
               <Card
                 key={team.id}
                 className="backdrop-blur-sm bg-card/80 border-border"
