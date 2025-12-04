@@ -47,6 +47,7 @@ import {
 import { RegisteredTeamsDialog } from "@/components/RegisteredTeamsDialog";
 import { EventLogsDialog } from "@/components/EventLogsDialog";
 import { BlacklistDialog } from "@/components/BlacklistDialog";
+import { ScoringConfigDialog } from "@/components/ScoringConfigDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -862,15 +863,12 @@ const OrganizerDashboard = () => {
                         trainingId={training.id}
                         trainingName={training.name}
                       />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setShowScoringComingSoon(true)}
-                        className="flex-1 gap-2"
-                      >
-                        <Award className="w-4 h-4" />
-                        Pontuação
-                      </Button>
+                      <ScoringConfigDialog
+                        trainingId={training.id}
+                        currentPointsPerKill={training.points_per_kill}
+                        currentPointsPerPosition={training.points_per_position || []}
+                        onConfigUpdated={fetchTrainings}
+                      />
                     </div>
                   </div>
 

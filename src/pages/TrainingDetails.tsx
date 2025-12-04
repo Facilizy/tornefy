@@ -30,6 +30,7 @@ import { ExternalTeamDialog } from "@/components/ExternalTeamDialog";
 import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalTeamDialog";
 import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
 import { Scoreboard } from "@/components/Scoreboard";
+import { SlotReorderDialog } from "@/components/SlotReorderDialog";
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -100,6 +101,7 @@ const TrainingDetails = () => {
             tag,
             logo_url,
             owner_id,
+            is_external,
             team_members (
               id,
               player_name,
@@ -509,9 +511,17 @@ const TrainingDetails = () => {
 
             {/* Registered Teams */}
             <Card className="p-4 sm:p-6 backdrop-blur-sm bg-card/80 border-border">
-              <h2 className="text-xl sm:text-2xl font-bold mb-4 gradient-text">
-                Equipes Confirmadas ({registeredTeams.length})
-              </h2>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="text-xl sm:text-2xl font-bold gradient-text">
+                  Equipes Confirmadas ({registeredTeams.length})
+                </h2>
+                {profile?.role === "organizer" && training.organizer_id === user?.id && (
+                  <SlotReorderDialog
+                    trainingId={id!}
+                    onSlotsUpdated={fetchTrainingDetails}
+                  />
+                )}
+              </div>
 
               {registeredTeams.length === 0 ? (
                 <p className="text-muted-foreground text-center py-8 text-sm">
@@ -534,7 +544,7 @@ const TrainingDetails = () => {
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="font-semibold text-base sm:text-lg">
+                            <h3 className="font-semibold text-base sm:text-lg uppercase">
                               {registration.teams.name}
                             </h3>
                             {registration.slot_number && (
@@ -542,8 +552,14 @@ const TrainingDetails = () => {
                                 Slot {registration.slot_number}
                               </Badge>
                             )}
+                            {registration.teams.is_external && (
+                              <Badge variant="outline" className="text-xs border-primary text-primary gap-1">
+                                <Users className="w-3 h-3" />
+                                Convidado
+                              </Badge>
+                            )}
                           </div>
-                          <p className="text-xs sm:text-sm text-muted-foreground mb-3">
+                          <p className="text-xs sm:text-sm text-muted-foreground mb-3 uppercase">
                             [{registration.teams.tag}]
                           </p>
                           
