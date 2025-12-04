@@ -28,6 +28,8 @@ import { TrainingChat } from "@/components/TrainingChat";
 import { RegistrationConfirmDialog } from "@/components/RegistrationConfirmDialog";
 import { ExternalTeamDialog } from "@/components/ExternalTeamDialog";
 import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalTeamDialog";
+import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
+import { Scoreboard } from "@/components/Scoreboard";
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -494,6 +496,17 @@ const TrainingDetails = () => {
 
             </Card>
 
+            {/* Scoreboard */}
+            <Scoreboard 
+              trainingId={id!} 
+              teams={registeredTeams.map((r: any) => ({
+                id: r.teams.id,
+                name: r.teams.name,
+                tag: r.teams.tag,
+                logo_url: r.teams.logo_url,
+              }))}
+            />
+
             {/* Registered Teams */}
             <Card className="p-4 sm:p-6 backdrop-blur-sm bg-card/80 border-border">
               <h2 className="text-xl sm:text-2xl font-bold mb-4 gradient-text">
@@ -617,16 +630,30 @@ const TrainingDetails = () => {
 
               {/* External Team Buttons for Organizer */}
               {profile?.role === "organizer" && training.organizer_id === user?.id && (
-                <div className="flex flex-wrap gap-2">
-                  <ExternalTeamDialog 
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap gap-2">
+                    <ExternalTeamDialog 
+                      trainingId={id!}
+                      organizerId={user.id}
+                      onTeamCreated={fetchTrainingDetails}
+                    />
+                    <AddExistingExternalTeamDialog
+                      trainingId={id!}
+                      organizerId={user.id}
+                      onTeamAdded={fetchTrainingDetails}
+                    />
+                  </div>
+                  <ScoreManagementDialog
                     trainingId={id!}
-                    organizerId={user.id}
-                    onTeamCreated={fetchTrainingDetails}
-                  />
-                  <AddExistingExternalTeamDialog
-                    trainingId={id!}
-                    organizerId={user.id}
-                    onTeamAdded={fetchTrainingDetails}
+                    teams={registeredTeams.map((r: any) => ({
+                      id: r.teams.id,
+                      name: r.teams.name,
+                      tag: r.teams.tag,
+                      logo_url: r.teams.logo_url,
+                    }))}
+                    pointsPerKill={training.points_per_kill}
+                    pointsPerPosition={training.points_per_position_text || ""}
+                    onScoresUpdated={fetchTrainingDetails}
                   />
                 </div>
               )}

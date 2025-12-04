@@ -291,6 +291,108 @@ export type Database = {
           },
         ]
       }
+      training_match_scores: {
+        Row: {
+          created_at: string
+          id: string
+          kill_points: number
+          kills: number
+          match_id: string
+          position: number
+          position_points: number
+          team_id: string
+          total_points: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kill_points?: number
+          kills?: number
+          match_id: string
+          position: number
+          position_points?: number
+          team_id: string
+          total_points?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kill_points?: number
+          kills?: number
+          match_id?: string
+          position?: number
+          position_points?: number
+          team_id?: string
+          total_points?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_match_scores_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "training_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_match_scores_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_matches: {
+        Row: {
+          created_at: string
+          id: string
+          map_name: string | null
+          match_number: number
+          match_time: string | null
+          name: string
+          round_id: string
+          status: string
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          map_name?: string | null
+          match_number?: number
+          match_time?: string | null
+          name: string
+          round_id: string
+          status?: string
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          map_name?: string | null
+          match_number?: number
+          match_time?: string | null
+          name?: string
+          round_id?: string
+          status?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_matches_round_id_fkey"
+            columns: ["round_id"]
+            isOneToOne: false
+            referencedRelation: "training_rounds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_matches_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_messages: {
         Row: {
           created_at: string
@@ -355,6 +457,38 @@ export type Database = {
           },
           {
             foreignKeyName: "training_registrations_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_rounds: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          round_number: number
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          round_number?: number
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          round_number?: number
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_rounds_training_id_fkey"
             columns: ["training_id"]
             isOneToOne: false
             referencedRelation: "trainings"
