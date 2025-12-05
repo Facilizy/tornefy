@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Calendar,
   Users,
@@ -20,6 +20,10 @@ import {
   ArrowLeft,
   CheckCircle,
   XCircle,
+  Info,
+  Medal,
+  Swords,
+  Radio,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -31,6 +35,12 @@ import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalT
 import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
 import { Scoreboard } from "@/components/Scoreboard";
 import { SlotReorderDialog } from "@/components/SlotReorderDialog";
+
+// Banner sizes constants
+export const BANNER_SIZES = {
+  CARD: { width: 400, height: 192, aspectRatio: "2.08:1" },
+  PAGE: { width: 1920, height: 400, aspectRatio: "4.8:1" },
+};
 
 const TrainingDetails = () => {
   const { id } = useParams();
@@ -44,6 +54,7 @@ const TrainingDetails = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
     checkUser();
@@ -147,7 +158,6 @@ const TrainingDetails = () => {
       return;
     }
 
-    // Check if team is banned (temporary ban)
     const { data: banCheck } = await supabase
       .from("team_bans")
       .select("*")
@@ -161,19 +171,17 @@ const TrainingDetails = () => {
       return;
     }
 
-    // Check if team has 3+ blacklists from different organizers
     const { data: blacklistCount, error: countError } = await supabase
       .rpc("count_active_blacklists_from_different_organizers", {
         _team_tag: myTeam.tag
       });
 
     if (!countError && blacklistCount && blacklistCount >= 3) {
-      toast.error("⚠️ ATENÇÃO: Sua equipe possui 3 ou mais blacklists de organizadores diferentes. Isso pode afetar futuras inscrições.", {
+      toast.error("⚠️ ATENÇÃO: Sua equipe possui 3 ou mais blacklists de organizadores diferentes.", {
         duration: 6000,
       });
     }
 
-    // Validar número mínimo de membros baseado no modo
     const { data: members } = await supabase
       .from("team_members")
       .select("*")
@@ -193,7 +201,6 @@ const TrainingDetails = () => {
       return;
     }
 
-    // Check blacklist from this organizer
     const { data: blacklisted } = await supabase
       .from("organizer_blacklist")
       .select("*")
@@ -210,7 +217,6 @@ const TrainingDetails = () => {
       return;
     }
 
-    // Check private training
     if (training.is_private && !training.invited_tags.includes(myTeam.tag)) {
       toast.error("Treino privado. Sua equipe não está na lista de convidados!");
       return;
@@ -233,7 +239,6 @@ const TrainingDetails = () => {
     try {
       setActionLoading(true);
       
-      // Find the next available slot number
       const { data: existingRegistrations } = await supabase
         .from("training_registrations")
         .select("slot_number")
@@ -242,13 +247,11 @@ const TrainingDetails = () => {
 
       let nextSlot = 1;
       if (existingRegistrations && existingRegistrations.length > 0) {
-        // Find gaps in slot numbers or get the next number
         const usedSlots = existingRegistrations
           .map(r => r.slot_number)
           .filter(s => s !== null)
           .sort((a, b) => a - b);
         
-        // Find first gap
         for (let i = 1; i <= training.max_slots; i++) {
           if (!usedSlots.includes(i)) {
             nextSlot = i;
@@ -288,19 +291,17 @@ const TrainingDetails = () => {
         .eq("training_id", id)
         .eq("team_id", myTeam.id);
 
-      if (error) {
-        console.error("Error unregistering:", error);
-        throw error;
-      }
+      if (error) throw error;
       toast.success("Inscrição cancelada!");
       fetchTrainingDetails();
     } catch (error: any) {
-      console.error("Unregister error:", error);
       toast.error(error.message || "Erro ao cancelar inscrição");
     } finally {
       setActionLoading(false);
     }
   };
+
+  const isOrganizer = profile?.role === "organizer" && training?.organizer_id === user?.id;
 
   if (loading) {
     return (
@@ -336,18 +337,18 @@ const TrainingDetails = () => {
     <div className="min-h-screen bg-background">
       <Header user={user} />
 
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-4 py-6">
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
-          className="mb-6 hover:text-primary"
+          className="mb-4"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar
         </Button>
 
-        {/* Banner */}
-        <div className="relative h-48 sm:h-64 md:h-80 lg:h-96 rounded-2xl overflow-hidden mb-8 animate-fade-in">
+        {/* Banner - Fixed height 400px for page banner */}
+        <div className="relative h-[200px] sm:h-[300px] lg:h-[400px] rounded-2xl overflow-hidden mb-6">
           {training.banner_url ? (
             <img
               src={training.banner_url}
@@ -356,149 +357,280 @@ const TrainingDetails = () => {
             />
           ) : (
             <div className="w-full h-full bg-gradient-primary flex items-center justify-center">
-              <Trophy className="w-20 h-20 sm:w-24 sm:h-24 md:w-32 md:h-32 text-white/20" />
+              <Trophy className="w-20 h-20 text-white/20" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-          <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6">
-            <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-2">
+          
+          {/* Status badges */}
+          <div className="absolute top-4 left-4 flex gap-2">
+            {training.status && (
+              <Badge variant="secondary" className="backdrop-blur-sm">
+                {training.status}
+              </Badge>
+            )}
+            {training.is_live && (
+              <Badge className="bg-destructive backdrop-blur-sm">
+                ● AO VIVO
+              </Badge>
+            )}
+          </div>
+          
+          <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 right-4">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 uppercase">
               {training.name}
             </h1>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary" className="backdrop-blur-sm">
+                {getPlatformIcon(training.platform)}
+                <span className="ml-1">{training.platform}</span>
+              </Badge>
+              <Badge variant="outline" className="backdrop-blur-sm border-white/30 text-white">
+                {training.mode}
+              </Badge>
+              <Badge className="bg-primary/80 backdrop-blur-sm">
+                {format(new Date(training.datetime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+              </Badge>
+            </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Info */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="p-6 backdrop-blur-sm bg-card/80 border-border">
-              <h2 className="text-2xl font-bold mb-4 gradient-text">
-                Informações do Treino
-              </h2>
+        {/* Tabs Navigation */}
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <TabsList className="w-full justify-start bg-card/80 border border-border p-1 overflow-x-auto">
+            <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Info className="w-4 h-4" />
+              <span className="hidden sm:inline">Visão Geral</span>
+            </TabsTrigger>
+            <TabsTrigger value="ranking" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Medal className="w-4 h-4" />
+              <span className="hidden sm:inline">Ranking</span>
+            </TabsTrigger>
+            <TabsTrigger value="teams" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Users className="w-4 h-4" />
+              <span className="hidden sm:inline">Equipes</span>
+            </TabsTrigger>
+            <TabsTrigger value="matches" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <Swords className="w-4 h-4" />
+              <span className="hidden sm:inline">Partidas</span>
+            </TabsTrigger>
+            {(isOrganizer || isRegistered) && (
+              <TabsTrigger value="chat" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+                <MessageCircle className="w-4 h-4" />
+                <span className="hidden sm:inline">Chat</span>
+              </TabsTrigger>
+            )}
+            {training.is_live && (
+              <TabsTrigger value="live" className="gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+                <Radio className="w-4 h-4" />
+                <span className="hidden sm:inline">Ao Vivo</span>
+              </TabsTrigger>
+            )}
+          </TabsList>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                <div className="flex items-center gap-3">
-                  <Calendar className="w-5 h-5 text-primary flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Data e Hora</p>
-                    <p className="font-semibold text-sm sm:text-base">
-                      {format(
-                        new Date(training.datetime),
-                        "dd/MM/yyyy 'às' HH:mm",
-                        { locale: ptBR }
-                      )}
-                    </p>
+          {/* Overview Tab */}
+          <TabsContent value="overview" className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Main Info */}
+              <div className="lg:col-span-2 space-y-6">
+                <Card className="p-6 bg-card/80 border-border">
+                  <h2 className="text-xl font-bold mb-4 gradient-text">Informações do Treino</h2>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Data</p>
+                        <p className="font-semibold text-sm">
+                          {format(new Date(training.datetime), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Users className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Vagas</p>
+                        <p className="font-semibold text-sm">
+                          {registeredTeams.length}/{training.max_slots}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Trophy className="w-5 h-5 text-primary" />
+                      <div>
+                        <p className="text-xs text-muted-foreground">Rodadas</p>
+                        <p className="font-semibold text-sm">{training.rounds}</p>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
-                <div className="flex items-center gap-3">
-                  <Users className="w-5 h-5 text-primary flex-shrink-0" />
+                  <Separator className="my-4" />
+
                   <div>
-                    <p className="text-sm text-muted-foreground">Vagas</p>
-                    <p className="font-semibold text-sm sm:text-base">
-                      {registeredTeams.length}/{training.max_slots}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  {getPlatformIcon(training.platform)}
-                  <div>
-                    <p className="text-sm text-muted-foreground">Plataforma</p>
-                    <Badge variant="secondary" className="text-xs sm:text-sm">{training.platform}</Badge>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Target className="w-5 h-5 text-primary flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Modo</p>
-                    <Badge variant="outline" className="text-xs sm:text-sm">{training.mode}</Badge>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <Trophy className="w-5 h-5 text-primary flex-shrink-0" />
-                  <div>
-                    <p className="text-sm text-muted-foreground">Quedas</p>
-                    <p className="font-semibold text-sm sm:text-base">{training.rounds}</p>
-                  </div>
-                </div>
-              </div>
-
-              <Separator className="my-6" />
-
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary flex-shrink-0" />
-                  <span className="text-sm sm:text-base">Pontuação</span>
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  Abates: {training.points_per_kill} ponto(s)
-                </p>
-                {training.points_per_position_text && (
-                  <div className="mt-3 text-sm text-muted-foreground whitespace-pre-wrap">
-                    <p className="font-semibold mb-1">Pontos por Colocação:</p>
-                    {training.points_per_position_text}
-                  </div>
-                )}
-              </div>
-
-              {training.prize && (
-                <>
-                  <Separator className="my-6" />
-                  <div>
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-primary flex-shrink-0" />
-                      <span className="text-sm sm:text-base">Premiação</span>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm">
+                      <Target className="w-4 h-4 text-primary" />
+                      Sistema de Pontuação
                     </h3>
-                    <p className="text-muted-foreground whitespace-pre-wrap bg-gradient-primary/5 p-3 sm:p-4 rounded-lg border border-primary/20 text-sm">
+                    <p className="text-sm text-muted-foreground">
+                      Abates: <span className="text-primary font-semibold">{training.points_per_kill} pt(s)</span>
+                    </p>
+                    {training.points_per_position_text && (
+                      <div className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">
+                        {training.points_per_position_text}
+                      </div>
+                    )}
+                  </div>
+                </Card>
+
+                {training.prize && (
+                  <Card className="p-6 bg-card/80 border-border">
+                    <h3 className="font-semibold mb-3 flex items-center gap-2">
+                      <Trophy className="w-5 h-5 text-primary" />
+                      Premiação
+                    </h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap bg-primary/5 p-4 rounded-lg border border-primary/20 text-sm">
                       {training.prize}
                     </p>
-                  </div>
-                </>
-              )}
+                  </Card>
+                )}
 
-              {training.important_info && (
-                <>
-                  <Separator className="my-6" />
-                  <div>
-                    <h3 className="font-semibold mb-3 text-primary text-sm sm:text-base">⚠️ Informações Importantes</h3>
-                    <p className="text-muted-foreground whitespace-pre-wrap bg-primary/5 p-3 sm:p-4 rounded-lg border border-primary/20 text-sm">
+                {training.important_info && (
+                  <Card className="p-6 bg-card/80 border-border border-l-4 border-l-primary">
+                    <h3 className="font-semibold mb-3 text-primary">⚠️ Informações Importantes</h3>
+                    <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                       {training.important_info}
                     </p>
-                  </div>
-                </>
-              )}
+                  </Card>
+                )}
 
-              {training.rules && (
-                <>
-                  <Separator className="my-6" />
-                  <div>
-                    <h3 className="font-semibold mb-3 text-sm sm:text-base">Regras do Treino</h3>
+                {training.rules && (
+                  <Card className="p-6 bg-card/80 border-border">
+                    <h3 className="font-semibold mb-3">📋 Regras do Treino</h3>
                     <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                       {training.rules}
                     </p>
+                  </Card>
+                )}
+              </div>
+
+              {/* Sidebar - Actions */}
+              <div className="space-y-4">
+                <Card className="p-6 bg-card/80 border-border">
+                  <h3 className="font-semibold mb-4">Ações</h3>
+
+                  {profile?.role === "player" && (
+                    <div className="space-y-3">
+                      {!isRegistered ? (
+                        <Button
+                          onClick={handleRegisterClick}
+                          disabled={
+                            actionLoading ||
+                            registeredTeams.length >= training.max_slots ||
+                            training.status !== "INSCRIÇÕES ABERTAS"
+                          }
+                          className="w-full bg-gradient-primary"
+                        >
+                          {actionLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                          )}
+                          {training.status !== "INSCRIÇÕES ABERTAS"
+                            ? "Inscrições Encerradas"
+                            : registeredTeams.length >= training.max_slots
+                            ? "Treino Lotado"
+                            : "Inscrever Minha Equipe"}
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={handleUnregister}
+                          disabled={actionLoading}
+                          variant="destructive"
+                          className="w-full"
+                        >
+                          {actionLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                          ) : (
+                            <XCircle className="w-4 h-4 mr-2" />
+                          )}
+                          Cancelar Inscrição
+                        </Button>
+                      )}
+
+                      {!myTeam && (
+                        <p className="text-sm text-muted-foreground text-center">
+                          Crie sua equipe para se inscrever
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {isOrganizer && (
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-2">
+                        <ExternalTeamDialog 
+                          trainingId={id!}
+                          organizerId={user.id}
+                          onTeamCreated={fetchTrainingDetails}
+                        />
+                        <AddExistingExternalTeamDialog
+                          trainingId={id!}
+                          organizerId={user.id}
+                          onTeamAdded={fetchTrainingDetails}
+                        />
+                      </div>
+                      <ScoreManagementDialog
+                        trainingId={id!}
+                        teams={registeredTeams.map((r: any) => ({
+                          id: r.teams.id,
+                          name: r.teams.name,
+                          tag: r.teams.tag,
+                          logo_url: r.teams.logo_url,
+                        }))}
+                        pointsPerKill={training.points_per_kill || 1}
+                        pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
+                        onScoresUpdated={fetchTrainingDetails}
+                      />
+                    </div>
+                  )}
+
+                  <Separator className="my-4" />
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Status:</span>
+                      <Badge variant="outline" className="text-xs">
+                        {training.status || "INSCRIÇÕES ABERTAS"}
+                      </Badge>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Vagas Restantes:</span>
+                      <span className="font-semibold">
+                        {training.max_slots - registeredTeams.length}
+                      </span>
+                    </div>
                   </div>
-                </>
-              )}
 
-              {training.table_image_url && (
-                <>
-                  <Separator className="my-6" />
-                  <div>
-                    <h3 className="font-semibold mb-3 text-sm sm:text-base">📊 Tabela de Resultados</h3>
-                    <img 
-                      src={training.table_image_url} 
-                      alt="Tabela de resultados"
-                      className="w-full rounded-lg border border-border"
-                    />
-                  </div>
-                </>
-              )}
+                  {training.discord_link && (
+                    <>
+                      <Separator className="my-4" />
+                      <Button
+                        variant="outline"
+                        onClick={() => window.open(training.discord_link, "_blank")}
+                        className="w-full gap-2"
+                      >
+                        <MessageCircle className="w-4 h-4" />
+                        Entrar no Discord
+                      </Button>
+                    </>
+                  )}
+                </Card>
+              </div>
+            </div>
+          </TabsContent>
 
-            </Card>
-
-            {/* Scoreboard */}
+          {/* Ranking Tab */}
+          <TabsContent value="ranking">
             <Scoreboard 
               trainingId={id!} 
               teams={registeredTeams.map((r: any) => ({
@@ -508,14 +640,22 @@ const TrainingDetails = () => {
                 logo_url: r.teams.logo_url,
               }))}
             />
+            {registeredTeams.length === 0 && (
+              <Card className="p-12 text-center bg-card/80">
+                <Medal className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <p className="text-muted-foreground">Nenhuma pontuação registrada ainda</p>
+              </Card>
+            )}
+          </TabsContent>
 
-            {/* Registered Teams */}
-            <Card className="p-4 sm:p-6 backdrop-blur-sm bg-card/80 border-border">
+          {/* Teams Tab */}
+          <TabsContent value="teams">
+            <Card className="p-6 bg-card/80 border-border">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 className="text-xl sm:text-2xl font-bold gradient-text">
+                <h2 className="text-xl font-bold gradient-text">
                   Equipes Confirmadas ({registeredTeams.length})
                 </h2>
-                {profile?.role === "organizer" && training.organizer_id === user?.id && (
+                {isOrganizer && (
                   <SlotReorderDialog
                     trainingId={id!}
                     onSlotsUpdated={fetchTrainingDetails}
@@ -524,64 +664,55 @@ const TrainingDetails = () => {
               </div>
 
               {registeredTeams.length === 0 ? (
-                <p className="text-muted-foreground text-center py-8 text-sm">
-                  Nenhuma equipe inscrita ainda
-                </p>
+                <div className="text-center py-12">
+                  <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">Nenhuma equipe inscrita ainda</p>
+                </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {registeredTeams.map((registration: any) => (
-                    <Card
-                      key={registration.id}
-                      className="p-3 sm:p-4 bg-background/50"
-                    >
-                      <div className="flex items-start gap-3 sm:gap-4">
+                    <Card key={registration.id} className="p-4 bg-background/50">
+                      <div className="flex items-start gap-3">
                         {registration.teams.logo_url && (
                           <img
                             src={registration.teams.logo_url}
                             alt={registration.teams.name}
-                            className="w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover flex-shrink-0"
+                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
                           />
                         )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="font-semibold text-base sm:text-lg uppercase">
+                            <h3 className="font-semibold text-sm uppercase">
                               {registration.teams.name}
                             </h3>
                             {registration.slot_number && (
                               <Badge variant="secondary" className="text-xs">
-                                Slot {registration.slot_number}
+                                #{registration.slot_number}
                               </Badge>
                             )}
                             {registration.teams.is_external && (
-                              <Badge variant="outline" className="text-xs border-primary text-primary gap-1">
-                                <Users className="w-3 h-3" />
+                              <Badge variant="outline" className="text-xs border-primary text-primary">
                                 Convidado
                               </Badge>
                             )}
                           </div>
-                          <p className="text-xs sm:text-sm text-muted-foreground mb-3 uppercase">
+                          <p className="text-xs text-muted-foreground uppercase">
                             [{registration.teams.tag}]
                           </p>
                           
-                          {registration.teams.team_members && registration.teams.team_members.length > 0 ? (
-                            <div className="space-y-2">
-                              {registration.teams.team_members.map((member: any) => (
-                                <div key={member.id} className="bg-background/50 p-2 rounded-lg border border-border/50">
-                                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-1 sm:gap-0">
-                                    <div>
-                                      <p className="font-medium text-xs sm:text-sm">{member.player_name}</p>
-                                      <p className="text-xs text-muted-foreground">{member.function}</p>
-                                    </div>
-                                    <div className="sm:text-right">
-                                      <p className="text-xs text-muted-foreground">ID: {member.game_id}</p>
-                                      <p className="text-xs text-muted-foreground">Discord: {member.discord}</p>
-                                    </div>
-                                  </div>
-                                </div>
+                          {registration.teams.team_members && registration.teams.team_members.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {registration.teams.team_members.slice(0, 4).map((member: any) => (
+                                <p key={member.id} className="text-xs text-muted-foreground">
+                                  {member.player_name} • {member.function}
+                                </p>
                               ))}
+                              {registration.teams.team_members.length > 4 && (
+                                <p className="text-xs text-primary">
+                                  +{registration.teams.team_members.length - 4} mais
+                                </p>
+                              )}
                             </div>
-                          ) : (
-                            <p className="text-xs sm:text-sm text-muted-foreground">Nenhum membro cadastrado</p>
                           )}
                         </div>
                       </div>
@@ -590,75 +721,15 @@ const TrainingDetails = () => {
                 </div>
               )}
             </Card>
-          </div>
+          </TabsContent>
 
-          {/* Sidebar - Actions */}
-          <div>
-            <Card className="p-6 backdrop-blur-sm bg-card/80 border-border sticky top-24">
-              <h3 className="font-semibold mb-4">Ações</h3>
-
-              {profile?.role === "player" && (
-                <div className="space-y-3">
-                  {!isRegistered ? (
-                  <Button
-                    onClick={handleRegisterClick}
-                    disabled={
-                      actionLoading ||
-                      registeredTeams.length >= training.max_slots ||
-                      training.status !== "INSCRIÇÕES ABERTAS"
-                    }
-                    className="w-full bg-gradient-primary"
-                  >
-                    {actionLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                    )}
-                    {training.status !== "INSCRIÇÕES ABERTAS"
-                      ? "Inscrições Encerradas"
-                      : registeredTeams.length >= training.max_slots
-                      ? "Treino Lotado"
-                      : "Inscrever Minha Equipe"}
-                  </Button>
-                  ) : (
-                    <Button
-                      onClick={handleUnregister}
-                      disabled={actionLoading}
-                      variant="destructive"
-                      className="w-full"
-                    >
-                      {actionLoading ? (
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      ) : (
-                        <XCircle className="w-4 h-4 mr-2" />
-                      )}
-                      Cancelar Inscrição
-                    </Button>
-                  )}
-
-                  {!myTeam && (
-                    <p className="text-sm text-muted-foreground text-center">
-                      Crie sua equipe para se inscrever
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* External Team Buttons for Organizer */}
-              {profile?.role === "organizer" && training.organizer_id === user?.id && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    <ExternalTeamDialog 
-                      trainingId={id!}
-                      organizerId={user.id}
-                      onTeamCreated={fetchTrainingDetails}
-                    />
-                    <AddExistingExternalTeamDialog
-                      trainingId={id!}
-                      organizerId={user.id}
-                      onTeamAdded={fetchTrainingDetails}
-                    />
-                  </div>
+          {/* Matches Tab */}
+          <TabsContent value="matches">
+            <Card className="p-6 bg-card/80 border-border">
+              <h2 className="text-xl font-bold gradient-text mb-4">Partidas</h2>
+              
+              {isOrganizer && (
+                <div className="mb-6">
                   <ScoreManagementDialog
                     trainingId={id!}
                     teams={registeredTeams.map((r: any) => ({
@@ -674,84 +745,60 @@ const TrainingDetails = () => {
                 </div>
               )}
 
-              <Separator className="my-6" />
-
-              {/* Chat Section */}
-              {(profile?.role === "organizer" && training.organizer_id === user?.id) || isRegistered ? (
-                <>
-                  <TrainingChat 
-                    trainingId={id!} 
-                    isOrganizer={profile?.role === "organizer" && training.organizer_id === user?.id}
+              {training.table_image_url && (
+                <div className="mb-6">
+                  <h3 className="font-semibold mb-3">📊 Tabela de Resultados</h3>
+                  <img 
+                    src={training.table_image_url} 
+                    alt="Tabela de resultados"
+                    className="w-full rounded-lg border border-border"
                   />
-                  
-                  {/* Quick Actions */}
-                  <div className="flex flex-col gap-2 mt-4">
-                    {training.discord_link && (
-                      <Button
-                        variant="outline"
-                        onClick={() => window.open(training.discord_link, "_blank")}
-                        className="w-full flex items-center justify-center gap-2 border-primary/50 hover:bg-primary/10"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        Entrar no Discord
-                      </Button>
-                    )}
-
-                    {training.is_live && training.live_link && (
-                      <Button
-                        onClick={() => window.open(training.live_link, "_blank")}
-                        className="w-full flex items-center justify-center gap-2 bg-destructive hover:bg-destructive/90"
-                      >
-                        <Video className="w-4 h-4" />
-                        🔴 Assistir à Live
-                      </Button>
-                    )}
-                  </div>
-
-                  <Separator className="my-6" />
-                </>
-              ) : null}
-
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-muted-foreground">Status:</span>
-                  <Badge
-                    variant={
-                      training.status === "INSCRIÇÕES ABERTAS" 
-                        ? "default" 
-                        : training.status === "EM ANDAMENTO" 
-                        ? "secondary" 
-                        : "destructive"
-                    }
-                    className="text-xs"
-                  >
-                    {training.status || "INSCRIÇÕES ABERTAS"}
-                  </Badge>
                 </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-muted-foreground">Transmissão:</span>
-                  <Badge
-                    variant={training.is_live ? "destructive" : "secondary"}
-                    className="text-xs"
-                  >
-                    {training.is_live ? "AO VIVO" : "Offline"}
-                  </Badge>
-                </div>
-                <div className="flex justify-between items-center gap-2">
-                  <span className="text-muted-foreground">
-                    Vagas Restantes:
-                  </span>
-                  <span className="font-semibold">
-                    {training.max_slots - registeredTeams.length}
-                  </span>
-                </div>
+              )}
+
+              <div className="text-center py-8 text-muted-foreground">
+                <Swords className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                <p>Use o botão "Gerenciar Pontuação" para adicionar rodadas e partidas</p>
               </div>
             </Card>
-          </div>
-        </div>
+          </TabsContent>
+
+          {/* Chat Tab */}
+          {(isOrganizer || isRegistered) && (
+            <TabsContent value="chat">
+              <Card className="p-6 bg-card/80 border-border">
+                <TrainingChat 
+                  trainingId={id!} 
+                  isOrganizer={isOrganizer}
+                />
+              </Card>
+            </TabsContent>
+          )}
+
+          {/* Live Tab */}
+          {training.is_live && (
+            <TabsContent value="live">
+              <Card className="p-6 bg-card/80 border-border text-center">
+                <Radio className="w-16 h-16 mx-auto mb-4 text-destructive animate-pulse" />
+                <h2 className="text-2xl font-bold mb-4">🔴 Transmissão Ao Vivo</h2>
+                {training.live_link ? (
+                  <Button
+                    onClick={() => window.open(training.live_link, "_blank")}
+                    className="bg-destructive hover:bg-destructive/90 gap-2"
+                    size="lg"
+                  >
+                    <Video className="w-5 h-5" />
+                    Assistir à Live
+                  </Button>
+                ) : (
+                  <p className="text-muted-foreground">Link da transmissão não disponível</p>
+                )}
+              </Card>
+            </TabsContent>
+          )}
+        </Tabs>
       </main>
 
-      {/* Registration Confirmation Dialog */}
       <RegistrationConfirmDialog
         open={showConfirmDialog}
         onOpenChange={setShowConfirmDialog}
