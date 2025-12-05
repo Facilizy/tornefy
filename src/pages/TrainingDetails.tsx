@@ -607,7 +607,7 @@ const TrainingDetails = () => {
                       registeredTeams.length >= training.max_slots ||
                       training.status !== "INSCRIÇÕES ABERTAS"
                     }
-                    className="w-full bg-gradient-primary hover:shadow-glow-strong"
+                    className="w-full bg-gradient-primary"
                   >
                     {actionLoading ? (
                       <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -667,8 +667,8 @@ const TrainingDetails = () => {
                       tag: r.teams.tag,
                       logo_url: r.teams.logo_url,
                     }))}
-                    pointsPerKill={training.points_per_kill}
-                    pointsPerPosition={training.points_per_position_text || ""}
+                    pointsPerKill={training.points_per_kill || 1}
+                    pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
                     onScoresUpdated={fetchTrainingDetails}
                   />
                 </div>
