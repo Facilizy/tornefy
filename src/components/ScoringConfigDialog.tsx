@@ -205,7 +205,7 @@ export function ScoringConfigDialog({
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="w-full bg-gradient-primary"
+            className="w-full"
           >
             {saving ? (
               <>

@@ -374,7 +374,7 @@ const MyTeam = () => {
             </p>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-gradient-primary hover:shadow-glow-strong">
+                <Button className="bg-gradient-primary">
                   <Plus className="w-4 h-4 mr-2" />
                   Criar Equipe
                 </Button>

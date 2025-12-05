@@ -315,7 +315,7 @@ const ExternalTeams = () => {
             </p>
             <Button
               onClick={() => navigate("/organizer")}
-              className="bg-gradient-primary hover:shadow-glow-strong"
+              className="bg-gradient-primary"
             >
               Ir para Painel
             </Button>

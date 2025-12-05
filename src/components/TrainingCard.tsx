@@ -66,7 +66,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
   };
 
   return (
-    <Card className="group overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all duration-300 hover:shadow-glow">
+    <Card className="group overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all duration-300">
       {/* Banner */}
       <div className="relative h-48 bg-gradient-primary overflow-hidden">
         {training.banner_url ? (

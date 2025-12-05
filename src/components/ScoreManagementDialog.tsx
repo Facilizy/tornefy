@@ -51,11 +51,16 @@ interface MatchScore {
   kills: number;
 }
 
+interface PositionPoint {
+  position: number;
+  points: number;
+}
+
 interface ScoreManagementDialogProps {
   trainingId: string;
   teams: Team[];
   pointsPerKill: number;
-  pointsPerPosition: string;
+  pointsPerPosition: PositionPoint[];
   onScoresUpdated: () => void;
 }
 
@@ -80,8 +85,13 @@ export function ScoreManagementDialog({
   const [newMatchName, setNewMatchName] = useState("");
   const [newMatchMap, setNewMatchMap] = useState("");
 
-  // Parse points per position
-  const positionPoints = parsePositionPoints(pointsPerPosition);
+  // Convert array to record for easy lookup
+  const positionPointsMap: Record<number, number> = {};
+  if (Array.isArray(pointsPerPosition)) {
+    pointsPerPosition.forEach((pp: PositionPoint) => {
+      positionPointsMap[pp.position] = pp.points;
+    });
+  }
 
   useEffect(() => {
     if (open) {
@@ -101,19 +111,6 @@ export function ScoreManagementDialog({
     }
   }, [selectedMatch]);
 
-  function parsePositionPoints(text: string): Record<number, number> {
-    const points: Record<number, number> = {};
-    if (!text) return points;
-    
-    const lines = text.split('\n');
-    lines.forEach(line => {
-      const match = line.match(/(\d+)[º°]?\s*(?:lugar|colocado|posição|:)?\s*[-:=]?\s*(\d+)/i);
-      if (match) {
-        points[parseInt(match[1])] = parseInt(match[2]);
-      }
-    });
-    return points;
-  }
 
   const fetchRounds = async () => {
     setLoading(true);
@@ -301,7 +298,7 @@ export function ScoreManagementDialog({
   };
 
   const calculatePoints = (position: number, kills: number) => {
-    const posPoints = positionPoints[position] || 0;
+    const posPoints = positionPointsMap[position] || 0;
     const killPoints = kills * pointsPerKill;
     return { posPoints, killPoints, total: posPoints + killPoints };
   };
