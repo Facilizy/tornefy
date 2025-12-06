@@ -36,6 +36,8 @@ import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
 import { Scoreboard } from "@/components/Scoreboard";
 import { SlotReorderDialog } from "@/components/SlotReorderDialog";
 import { MatchesTab } from "@/components/MatchesTab";
+import { SaveTemplateDialog } from "@/components/SaveTemplateDialog";
+import { FloatingChat } from "@/components/FloatingChat";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -592,6 +594,10 @@ const TrainingDetails = () => {
                         pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
                         onScoresUpdated={fetchTrainingDetails}
                       />
+                      <SaveTemplateDialog
+                        training={training}
+                        organizerId={user.id}
+                      />
                     </div>
                   )}
 
@@ -795,6 +801,11 @@ const TrainingDetails = () => {
         teamName={myTeam?.name || ""}
         loading={actionLoading}
       />
+
+      {/* Floating Chat */}
+      {(isOrganizer || isRegistered) && (
+        <FloatingChat trainingId={id!} isOrganizer={isOrganizer} />
+      )}
     </div>
   );
 };

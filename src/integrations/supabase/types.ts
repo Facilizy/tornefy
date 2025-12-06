@@ -496,6 +496,74 @@ export type Database = {
           },
         ]
       }
+      training_templates: {
+        Row: {
+          created_at: string
+          discord_link: string | null
+          game: Database["public"]["Enums"]["game_type"]
+          id: string
+          important_info: string | null
+          max_slots: number
+          mode: Database["public"]["Enums"]["mode_type"]
+          name: string
+          organizer_id: string
+          platform: Database["public"]["Enums"]["platform_type"]
+          points_per_kill: number
+          points_per_position: Json
+          points_per_position_text: string | null
+          prize: string | null
+          rounds: number
+          rules: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          discord_link?: string | null
+          game?: Database["public"]["Enums"]["game_type"]
+          id?: string
+          important_info?: string | null
+          max_slots?: number
+          mode: Database["public"]["Enums"]["mode_type"]
+          name: string
+          organizer_id: string
+          platform: Database["public"]["Enums"]["platform_type"]
+          points_per_kill?: number
+          points_per_position?: Json
+          points_per_position_text?: string | null
+          prize?: string | null
+          rounds?: number
+          rules?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          discord_link?: string | null
+          game?: Database["public"]["Enums"]["game_type"]
+          id?: string
+          important_info?: string | null
+          max_slots?: number
+          mode?: Database["public"]["Enums"]["mode_type"]
+          name?: string
+          organizer_id?: string
+          platform?: Database["public"]["Enums"]["platform_type"]
+          points_per_kill?: number
+          points_per_position?: Json
+          points_per_position_text?: string | null
+          prize?: string | null
+          rounds?: number
+          rules?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_templates_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       trainings: {
         Row: {
           banner_url: string | null

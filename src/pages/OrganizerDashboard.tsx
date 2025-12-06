@@ -48,6 +48,7 @@ import { RegisteredTeamsDialog } from "@/components/RegisteredTeamsDialog";
 import { EventLogsDialog } from "@/components/EventLogsDialog";
 import { BlacklistDialog } from "@/components/BlacklistDialog";
 import { ScoringConfigDialog } from "@/components/ScoringConfigDialog";
+import { UseTemplateDialog } from "@/components/UseTemplateDialog";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -392,6 +393,31 @@ const OrganizerDashboard = () => {
                   {editingTraining ? "Editar Treino" : "Criar Treino"}
                 </DialogTitle>
               </DialogHeader>
+              
+              {/* Use Template Button */}
+              {!editingTraining && user && (
+                <UseTemplateDialog
+                  organizerId={user.id}
+                  onSelectTemplate={(template) => {
+                    setTrainingForm({
+                      ...trainingForm,
+                      game: template.game as "free_fire" | "blood_strike" | "farlight_84",
+                      mode: template.mode as "Solo" | "Duo" | "Squad",
+                      platform: template.platform as "PC" | "Mobile" | "Misto",
+                      max_slots: template.max_slots,
+                      rounds: template.rounds,
+                      points_per_kill: template.points_per_kill,
+                      points_per_position: JSON.stringify(template.points_per_position || []),
+                      points_per_position_text: template.points_per_position_text || "",
+                      rules: template.rules || "",
+                      prize: template.prize || "",
+                      important_info: template.important_info || "",
+                      discord_link: template.discord_link || "",
+                    });
+                  }}
+                />
+              )}
+              
               <form onSubmit={handleSaveTraining} className="space-y-4">
                 <div>
                   <Label htmlFor="name">Nome do Treino</Label>
