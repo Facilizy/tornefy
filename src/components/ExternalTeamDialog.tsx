@@ -143,8 +143,8 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Plus className="w-4 h-4 mr-2" />
+        <Button variant="outline" className="w-full justify-start gap-2">
+          <Plus className="w-4 h-4" />
           Adicionar Equipe Externa
         </Button>
       </DialogTrigger>

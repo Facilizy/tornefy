@@ -35,6 +35,7 @@ import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalT
 import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
 import { Scoreboard } from "@/components/Scoreboard";
 import { SlotReorderDialog } from "@/components/SlotReorderDialog";
+import { MatchesTab } from "@/components/MatchesTab";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -397,31 +398,31 @@ const TrainingDetails = () => {
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="w-full justify-start bg-card/80 border border-border p-1 overflow-x-auto">
-            <TabsTrigger value="overview" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 bg-card/80 border border-border p-1 h-auto">
+            <TabsTrigger value="overview" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Info className="w-4 h-4" />
               <span className="hidden sm:inline">Visão Geral</span>
             </TabsTrigger>
-            <TabsTrigger value="ranking" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="ranking" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Medal className="w-4 h-4" />
               <span className="hidden sm:inline">Ranking</span>
             </TabsTrigger>
-            <TabsTrigger value="teams" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="teams" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Equipes</span>
             </TabsTrigger>
-            <TabsTrigger value="matches" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger value="matches" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
               <Swords className="w-4 h-4" />
               <span className="hidden sm:inline">Partidas</span>
             </TabsTrigger>
             {(isOrganizer || isRegistered) && (
-              <TabsTrigger value="chat" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger value="chat" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
                 <MessageCircle className="w-4 h-4" />
                 <span className="hidden sm:inline">Chat</span>
               </TabsTrigger>
             )}
             {training.is_live && (
-              <TabsTrigger value="live" className="gap-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+              <TabsTrigger value="live" className="gap-2 py-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
                 <Radio className="w-4 h-4" />
                 <span className="hidden sm:inline">Ao Vivo</span>
               </TabsTrigger>
@@ -567,7 +568,7 @@ const TrainingDetails = () => {
 
                   {isOrganizer && (
                     <div className="space-y-2">
-                      <div className="flex flex-wrap gap-2">
+                      <div className="grid grid-cols-1 gap-2">
                         <ExternalTeamDialog 
                           trainingId={id!}
                           organizerId={user.id}
@@ -725,52 +726,39 @@ const TrainingDetails = () => {
 
           {/* Matches Tab */}
           <TabsContent value="matches">
-            <Card className="p-6 bg-card/80 border-border">
-              <h2 className="text-xl font-bold gradient-text mb-4">Partidas</h2>
-              
-              {isOrganizer && (
-                <div className="mb-6">
-                  <ScoreManagementDialog
-                    trainingId={id!}
-                    teams={registeredTeams.map((r: any) => ({
-                      id: r.teams.id,
-                      name: r.teams.name,
-                      tag: r.teams.tag,
-                      logo_url: r.teams.logo_url,
-                    }))}
-                    pointsPerKill={training.points_per_kill || 1}
-                    pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
-                    onScoresUpdated={fetchTrainingDetails}
-                  />
-                </div>
-              )}
-
-              {training.table_image_url && (
-                <div className="mb-6">
-                  <h3 className="font-semibold mb-3">📊 Tabela de Resultados</h3>
-                  <img 
-                    src={training.table_image_url} 
-                    alt="Tabela de resultados"
-                    className="w-full rounded-lg border border-border"
-                  />
-                </div>
-              )}
-
-              <div className="text-center py-8 text-muted-foreground">
-                <Swords className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Use o botão "Gerenciar Pontuação" para adicionar rodadas e partidas</p>
-              </div>
-            </Card>
+            <MatchesTab 
+              trainingId={id!} 
+              isOrganizer={isOrganizer}
+              teams={registeredTeams.map((r: any) => ({
+                id: r.teams.id,
+                name: r.teams.name,
+                tag: r.teams.tag,
+                logo_url: r.teams.logo_url,
+              }))}
+              pointsPerKill={training.points_per_kill || 1}
+              pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
+              tableImageUrl={training.table_image_url}
+              onScoresUpdated={fetchTrainingDetails}
+            />
           </TabsContent>
 
           {/* Chat Tab */}
           {(isOrganizer || isRegistered) && (
             <TabsContent value="chat">
-              <Card className="p-6 bg-card/80 border-border">
-                <TrainingChat 
-                  trainingId={id!} 
-                  isOrganizer={isOrganizer}
-                />
+              <Card className="p-0 bg-card/80 border-border overflow-hidden">
+                <div className="bg-gradient-primary p-4 flex items-center gap-2">
+                  <MessageCircle className="w-5 h-5" />
+                  <h2 className="font-semibold">Chat do Treino</h2>
+                  <Badge variant="secondary" className="ml-auto">
+                    {isOrganizer ? "Organizador" : "Jogador"}
+                  </Badge>
+                </div>
+                <div className="p-4">
+                  <TrainingChat 
+                    trainingId={id!} 
+                    isOrganizer={isOrganizer}
+                  />
+                </div>
               </Card>
             </TabsContent>
           )}

@@ -150,8 +150,8 @@ export function AddExistingExternalTeamDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <UserPlus className="w-4 h-4 mr-2" />
+        <Button variant="outline" className="w-full justify-start gap-2">
+          <UserPlus className="w-4 h-4" />
           Buscar Equipe Externa
         </Button>
       </DialogTrigger>
