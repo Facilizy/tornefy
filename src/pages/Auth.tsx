@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
+import TornefyLogo from "@/components/TornefyLogo";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -125,10 +126,8 @@ const Auth = () => {
 
       <div className="w-full max-w-md px-6 relative z-10">
         {/* Logo / Title */}
-        <div className="text-center mb-8 animate-fade-in">
-          <h1 className="text-5xl font-bold gradient-text mb-2">
-            TORNEFY
-          </h1>
+        <div className="text-center mb-8 animate-fade-in flex flex-col items-center">
+          <TornefyLogo className="h-12 mb-2" />
           <span className="text-sm text-muted-foreground tracking-wider">(BETA)</span>
         </div>
 
