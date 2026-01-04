@@ -46,6 +46,8 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
       free_fire: "/game-logos/free-fire.png",
       blood_strike: "/game-logos/blood-strike.png",
       farlight_84: "/game-logos/farlight-84.png",
+      prime_rush: "/game-logos/prime-rush.png",
+      battlefield_6: "/game-logos/battlefield-6.png",
     };
     return game ? logos[game] : "";
   };
@@ -151,6 +153,8 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
               {training.game === 'free_fire' && 'Free Fire'}
               {training.game === 'blood_strike' && 'Blood Strike'}
               {training.game === 'farlight_84' && 'Farlight 84'}
+              {training.game === 'prime_rush' && 'Prime Rush'}
+              {training.game === 'battlefield_6' && 'Battlefield 6'}
             </Badge>
           )}
           {training.is_private && (
