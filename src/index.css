@@ -1,3 +1,6 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Source+Serif+Pro&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Fira+Code&display=swap");
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -9,45 +12,54 @@ All colors MUST be HSL.
 @layer base {
   :root {
   /* Deep dark theme with purple/lilac gradients */
-  --background: 240 10% 8%; /* Darker for better contrast */
+  --background: 216 16% 6%; /* Darker for better contrast */
   --foreground: 0 0% 98%; /* #fafafa - almost white */
 
-  --card: 240 8% 12%; /* Lighter card background */
+  --card: 214 16% 8%; /* Lighter card background */
   --card-foreground: 0 0% 98%;
 
-  --popover: 240 10% 10%;
+  --popover: 214 16% 8%;
   --popover-foreground: 0 0% 98%;
 
     /* Purple gradient colors */
-    --primary: 270 91% 65%; /* #8b5cf6 - vibrant purple */
+    --primary: 264 100% 64%; /* #8b5cf6 - vibrant purple */
     --primary-foreground: 0 0% 100%;
     --primary-glow: 280 85% 75%; /* #c084fc - lilac for glow */
 
-    --secondary: 240 8% 15%; /* darker card variant */
+    --secondary: 240 38% 75%; /* darker card variant */
     --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 6% 14%;
+    --muted: 214 16% 8%;
     --muted-foreground: 240 5% 65%;
 
-    --accent: 280 85% 75%; /* lilac accent */
+    --accent: 264 100% 64%; /* lilac accent */
     --accent-foreground: 240 10% 6%;
 
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 6% 18%; /* More visible borders */
-    --input: 240 6% 14%;
-    --ring: 270 91% 65%;
+    --border: 220 10% 18%; /* More visible borders */
+    --input: 214 17% 8%;
+    --ring: 264 100% 64%;
 
-    --radius: 0.75rem; /* more rounded for modern look */
+    --radius: 1.375rem; /* more rounded for modern look */
 
     /* Gradient definitions */
     --gradient-primary: linear-gradient(135deg, hsl(270 91% 65%), hsl(280 85% 75%));
     --gradient-radial: radial-gradient(circle at 50% 0%, hsl(270 91% 65% / 0.15), transparent 60%);
-    
+
     /* Glow effects */
     --glow-primary: 0 0 20px hsl(270 91% 65% / 0.5);
     --glow-strong: 0 0 30px hsl(270 91% 65% / 0.8), 0 0 60px hsl(280 85% 75% / 0.4);
+    --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-serif: "Source Serif Pro", ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
+    --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
+  }
+  .dark {
+    --radius: 1.375rem;
+    --font-sans: "Space Grotesk", ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji, Segoe UI Symbol, Noto Color Emoji;
+    --font-serif: "Source Serif Pro", ui-serif, Georgia, Cambria, Times New Roman, Times, serif;
+    --font-mono: "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
   }
 }
 
