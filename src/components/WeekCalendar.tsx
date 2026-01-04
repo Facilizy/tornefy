@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Calendar } from "lucide-react";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { format, addDays, isSameDay } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 interface Training {
@@ -47,7 +47,7 @@ const WeekCalendar = ({ trainings, onSelectDate }: WeekCalendarProps) => {
       <div className="container mx-auto">
         {/* Badge */}
         <div className="flex justify-center mb-4">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-destructive/50 text-destructive text-sm">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-primary/50 text-primary text-sm">
             <Calendar className="w-4 h-4" />
             Calendário de Eventos
           </div>
@@ -63,7 +63,7 @@ const WeekCalendar = ({ trainings, onSelectDate }: WeekCalendarProps) => {
 
         {/* Week Days */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2 text-destructive font-semibold">
+          <div className="flex items-center gap-2 text-primary font-semibold">
             <Calendar className="w-4 h-4" />
             PRÓXIMOS 7 DIAS
           </div>
@@ -82,15 +82,15 @@ const WeekCalendar = ({ trainings, onSelectDate }: WeekCalendarProps) => {
                 className={`
                   relative flex flex-col items-center justify-center p-3 md:p-4 rounded-lg transition-all
                   ${isSelected 
-                    ? "bg-destructive/20 border-2 border-destructive text-destructive" 
-                    : "bg-card/50 border border-border hover:border-destructive/50"
+                    ? "bg-primary/20 border-2 border-primary text-primary" 
+                    : "bg-card/50 border border-border hover:border-primary/50"
                   }
                 `}
               >
                 <span className="text-[10px] md:text-xs text-muted-foreground mb-1">
                   {getDayName(day).slice(0, 3)}
                 </span>
-                <span className={`text-xl md:text-3xl font-bold ${isSelected ? "text-destructive" : "text-foreground"}`}>
+                <span className={`text-xl md:text-3xl font-bold ${isSelected ? "text-primary" : "text-foreground"}`}>
                   {format(day, "d")}
                 </span>
                 {hasTraining && (

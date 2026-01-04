@@ -11,14 +11,14 @@ const HowItWorks = () => {
       title: "CRIE SUA CONTA",
       description: "Registre-se gratuitamente e configure seu perfil com suas informações de jogador.",
       icon: UserPlus,
-      color: "text-destructive border-destructive/50"
+      color: "text-primary border-primary/50"
     },
     {
       number: "02",
       title: "ESCOLHA SUA MODALIDADE",
       description: "Scrims competitivas, treinos Squad, Duo ou Solo. Entre para uma organização.",
       icon: Gamepad2,
-      color: "text-primary border-primary/50"
+      color: "text-blue-500 border-blue-500/50"
     },
     {
       number: "03",
@@ -34,7 +34,7 @@ const HowItWorks = () => {
       <div className="container mx-auto">
         {/* Title */}
         <h2 className="text-3xl md:text-4xl font-black text-center mb-2 tracking-tight">
-          COMO <span className="text-destructive">FUNCIONA</span>
+          COMO <span className="text-primary">FUNCIONA</span>
         </h2>
         <p className="text-center text-muted-foreground mb-12">
           Comece sua jornada competitiva em poucos passos
@@ -69,7 +69,7 @@ const HowItWorks = () => {
         <div className="flex flex-col items-center gap-3">
           <Button 
             size="lg"
-            className="bg-destructive hover:bg-destructive/90 text-white px-8"
+            className="bg-primary hover:bg-primary/90 text-white px-8"
             onClick={() => navigate("/auth")}
           >
             COMEÇAR AGORA
