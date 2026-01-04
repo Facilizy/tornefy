@@ -73,7 +73,7 @@ const OrganizerDashboard = () => {
     points_per_position_text: "",
     platform: "PC" as "PC" | "Mobile" | "Misto",
     mode: "Squad" as "Solo" | "Duo" | "Squad",
-    game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84",
+    game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
     rules: "",
     discord_link: "",
     live_link: "",
@@ -401,7 +401,7 @@ const OrganizerDashboard = () => {
                   onSelectTemplate={(template) => {
                     setTrainingForm({
                       ...trainingForm,
-                      game: template.game as "free_fire" | "blood_strike" | "farlight_84",
+                      game: template.game as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
                       mode: template.mode as "Solo" | "Duo" | "Squad",
                       platform: template.platform as "PC" | "Mobile" | "Misto",
                       max_slots: template.max_slots,
@@ -435,7 +435,7 @@ const OrganizerDashboard = () => {
                   <Label htmlFor="game">Jogo</Label>
                   <Select
                     value={trainingForm.game}
-                    onValueChange={(value: "free_fire" | "blood_strike" | "farlight_84") =>
+                    onValueChange={(value: "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6") =>
                       setTrainingForm({ ...trainingForm, game: value })
                     }
                   >
@@ -446,6 +446,8 @@ const OrganizerDashboard = () => {
                       <SelectItem value="free_fire">Free Fire</SelectItem>
                       <SelectItem value="blood_strike">Blood Strike</SelectItem>
                       <SelectItem value="farlight_84">Farlight 84</SelectItem>
+                      <SelectItem value="prime_rush">Prime Rush</SelectItem>
+                      <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -101,6 +101,8 @@ export function UseTemplateDialog({ organizerId, onSelectTemplate }: UseTemplate
       free_fire: "Free Fire",
       blood_strike: "Blood Strike",
       farlight_84: "Farlight 84",
+      prime_rush: "Prime Rush",
+      battlefield_6: "Battlefield 6",
     };
     return games[game] || game;
   };

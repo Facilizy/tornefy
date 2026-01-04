@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, User, Trophy } from "lucide-react";
+import { LogOut, User } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useState, useEffect } from "react";
+import TornefyLogo from "@/components/TornefyLogo";
 
 interface HeaderProps {
   user?: any;
@@ -45,11 +46,8 @@ const Header = ({ user }: HeaderProps) => {
           onClick={() => navigate("/")}
           className="flex items-center gap-2 group"
         >
-          <Trophy className="w-6 h-6 sm:w-8 sm:h-8 text-primary group-hover:text-primary-glow transition-colors" />
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-xl sm:text-2xl font-bold gradient-text">TORNEFY</h1>
-            <span className="text-[10px] sm:text-xs text-muted-foreground">(BETA)</span>
-          </div>
+          <TornefyLogo className="h-6 sm:h-8" />
+          <span className="text-[10px] sm:text-xs text-muted-foreground">(BETA)</span>
         </button>
 
         {user && (

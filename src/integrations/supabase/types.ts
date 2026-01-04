@@ -696,7 +696,12 @@ export type Database = {
       notify_blacklist_expired: { Args: never; Returns: undefined }
     }
     Enums: {
-      game_type: "free_fire" | "blood_strike" | "farlight_84"
+      game_type:
+        | "free_fire"
+        | "blood_strike"
+        | "farlight_84"
+        | "prime_rush"
+        | "battlefield_6"
       mode_type: "Solo" | "Duo" | "Squad"
       platform_type: "PC" | "Mobile" | "Misto"
       player_function: "RUSH" | "SUPORTE" | "CAPITÃO"
@@ -828,7 +833,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      game_type: ["free_fire", "blood_strike", "farlight_84"],
+      game_type: [
+        "free_fire",
+        "blood_strike",
+        "farlight_84",
+        "prime_rush",
+        "battlefield_6",
+      ],
       mode_type: ["Solo", "Duo", "Squad"],
       platform_type: ["PC", "Mobile", "Misto"],
       player_function: ["RUSH", "SUPORTE", "CAPITÃO"],
