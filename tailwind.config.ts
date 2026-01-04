@@ -51,7 +51,7 @@ export default {
   		},
   		fontFamily: {
   			sans: [
-  				'Space Grotesk',
+  				'Outfit',
   				'ui-sans-serif',
   				'system-ui',
   				'sans-serif',
@@ -61,7 +61,7 @@ export default {
   				'Noto Color Emoji'
   			],
   			serif: [
-  				'Source Serif Pro',
+  				'Lora',
   				'ui-serif',
   				'Georgia',
   				'Cambria',
@@ -70,7 +70,7 @@ export default {
   				'serif'
   			],
   			mono: [
-  				'Fira Code',
+  				'Source Code Pro',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',
