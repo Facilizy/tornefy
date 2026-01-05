@@ -516,11 +516,7 @@ const Home = () => {
           )}
 
           {/* Trainings Grid */}
-          {loading ? (
-            <div className="text-center py-16">
-              <p className="text-muted-foreground">Carregando...</p>
-            </div>
-          ) : filteredTrainings.length === 0 ? (
+          {filteredTrainings.length === 0 ? (
             <div className="text-center py-16">
               <p className="text-muted-foreground text-lg">
                 Nenhum treino encontrado
