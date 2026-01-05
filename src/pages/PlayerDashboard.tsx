@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-import Header from "@/components/Header";
+import MainLayout from "@/components/MainLayout";
 import TrainingCard from "@/components/TrainingCard";
 import WeekCalendar from "@/components/WeekCalendar";
 import HowItWorks from "@/components/HowItWorks";
+import FollowUsSection from "@/components/FollowUsSection";
+import JoinCommunity from "@/components/JoinCommunity";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,13 +16,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, Loader2, Zap, Trophy, Target } from "lucide-react";
+import { Search, Filter, Zap, Trophy, Target } from "lucide-react";
 import { toast } from "sonner";
 
 const PlayerDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
   const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
@@ -38,7 +38,6 @@ const PlayerDashboard = () => {
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
-        fetchProfile(session.user.id);
       } else {
         navigate("/auth");
       }
@@ -63,24 +62,8 @@ const PlayerDashboard = () => {
     } = await supabase.auth.getSession();
     if (session?.user) {
       setUser(session.user);
-      await fetchProfile(session.user.id);
     } else {
       navigate("/auth");
-    }
-  };
-
-  const fetchProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", userId)
-        .single();
-
-      if (error) throw error;
-      setProfile(data);
-    } catch (error: any) {
-      toast.error("Erro ao carregar perfil");
     }
   };
 
@@ -138,185 +121,175 @@ const PlayerDashboard = () => {
     setFilteredTrainings(filtered);
   };
 
-  const getGameLogo = (game: string) => {
-    const logos: Record<string, string> = {
-      free_fire: "/game-logos/free-fire.png",
-      blood_strike: "/game-logos/blood-strike.png",
-      farlight_84: "/game-logos/farlight-84.png",
-      prime_rush: "/game-logos/prime-rush.png",
-      battlefield_6: "/game-logos/battlefield-6.png",
-    };
-    return logos[game] || "";
-  };
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <MainLayout>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+        </div>
+      </MainLayout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header user={user} />
-
-      <main>
-        {/* Hero Section */}
-        <div className="relative py-16 px-4 text-center overflow-hidden">
-          {/* Background gradient */}
-          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+    <MainLayout>
+      {/* Hero Section */}
+      <div className="relative py-16 px-4 text-center overflow-hidden">
+        <div className="relative z-10 container mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-primary/10 border border-primary/30">
+            <Zap className="w-4 h-4 text-primary" />
+            <span className="text-sm text-primary font-medium">Plataforma #1 de Scrims</span>
+          </div>
           
-          <div className="relative z-10 container mx-auto animate-fade-in">
-            <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-primary/10 border border-primary/30">
-              <Zap className="w-4 h-4 text-primary" />
-              <span className="text-sm text-primary font-medium">Plataforma #1 de Scrims</span>
-            </div>
-            
-            <h2 className="text-4xl md:text-6xl font-black mb-4 tracking-tight">
-              DOMINE O <span className="gradient-text">CENÁRIO</span>
-              <br />
-              COMPETITIVO
-            </h2>
-            
-            <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-              Participe dos melhores treinos, evolua suas habilidades e 
-              conquiste seu espaço entre os pro players.
-            </p>
+          <h2 className="text-4xl md:text-6xl font-black mb-4 tracking-tight">
+            DOMINE O <span className="text-primary">CENÁRIO</span>
+            <br />
+            COMPETITIVO
+          </h2>
+          
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
+            Participe dos melhores treinos, evolua suas habilidades e 
+            conquiste seu espaço entre os pro players.
+          </p>
 
-            <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-primary" />
-                <span>Ranking em tempo real</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Target className="w-5 h-5 text-destructive" />
-                <span>Scrims competitivas</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-yellow-500" />
-                <span>Múltiplos jogos</span>
-              </div>
+          <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-primary" />
+              <span>Ranking em tempo real</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Target className="w-5 h-5 text-destructive" />
+              <span>Scrims competitivas</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-yellow-500" />
+              <span>Múltiplos jogos</span>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Calendar Section */}
-        <WeekCalendar trainings={trainings} />
+      {/* Calendar Section */}
+      <WeekCalendar trainings={trainings} />
 
-        {/* How It Works Section */}
-        <HowItWorks />
+      {/* How It Works Section */}
+      <HowItWorks />
 
-        <div className="container mx-auto px-4 py-8">
-          {/* Filters */}
-          <div className="mb-8 backdrop-blur-sm bg-card/50 border border-border rounded-xl p-6 animate-slide-up">
+      <div className="container mx-auto px-4 py-8">
+        {/* Filters */}
+        <div className="mb-8 backdrop-blur-sm bg-card/50 border border-border rounded-xl p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Filter className="w-5 h-5 text-primary" />
+            <h3 className="font-semibold">Filtros</h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-background/50"
+              />
+            </div>
+
+            <Select value={gameFilter} onValueChange={setGameFilter}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder="Jogo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Jogos</SelectItem>
+                <SelectItem value="free_fire">Free Fire</SelectItem>
+                <SelectItem value="blood_strike">Blood Strike</SelectItem>
+                <SelectItem value="farlight_84">Farlight 84</SelectItem>
+                <SelectItem value="prime_rush">Prime Rush</SelectItem>
+                <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={platformFilter} onValueChange={setPlatformFilter}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder="Plataforma" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="PC">PC</SelectItem>
+                <SelectItem value="Mobile">Mobile</SelectItem>
+                <SelectItem value="Misto">Misto</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={modeFilter} onValueChange={setModeFilter}>
+              <SelectTrigger className="bg-background/50">
+                <SelectValue placeholder="Modo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="Solo">Solo</SelectItem>
+                <SelectItem value="Duo">Duo</SelectItem>
+                <SelectItem value="Squad">Squad</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {(searchTerm || platformFilter !== "all" || modeFilter !== "all" || gameFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setSearchTerm("");
+                setPlatformFilter("all");
+                setModeFilter("all");
+                setGameFilter("all");
+              }}
+              className="mt-4 text-primary"
+            >
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+
+        {/* Live Trainings Section */}
+        {liveTrainings.length > 0 && (
+          <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
-              <Filter className="w-5 h-5 text-primary" />
-              <h3 className="font-semibold">Filtros</h3>
+              <span className="text-destructive text-2xl">●</span>
+              <h3 className="text-2xl font-bold text-primary">Treinos Ao Vivo</h3>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar por nome..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 bg-background/50"
-                />
-              </div>
-
-              <Select value={gameFilter} onValueChange={setGameFilter}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Jogo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os Jogos</SelectItem>
-                  <SelectItem value="free_fire">Free Fire</SelectItem>
-                  <SelectItem value="blood_strike">Blood Strike</SelectItem>
-                  <SelectItem value="farlight_84">Farlight 84</SelectItem>
-                  <SelectItem value="prime_rush">Prime Rush</SelectItem>
-                  <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={platformFilter} onValueChange={setPlatformFilter}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Plataforma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="PC">PC</SelectItem>
-                  <SelectItem value="Mobile">Mobile</SelectItem>
-                  <SelectItem value="Misto">Misto</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={modeFilter} onValueChange={setModeFilter}>
-                <SelectTrigger className="bg-background/50">
-                  <SelectValue placeholder="Modo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="Solo">Solo</SelectItem>
-                  <SelectItem value="Duo">Duo</SelectItem>
-                  <SelectItem value="Squad">Squad</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {liveTrainings.map((training) => (
+                <TrainingCard key={training.id} training={training} />
+              ))}
             </div>
-
-            {(searchTerm || platformFilter !== "all" || modeFilter !== "all" || gameFilter !== "all") && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchTerm("");
-                  setPlatformFilter("all");
-                  setModeFilter("all");
-                  setGameFilter("all");
-                }}
-                className="mt-4 text-primary hover:text-primary-glow"
-              >
-                Limpar filtros
-              </Button>
-            )}
           </div>
+        )}
 
-          {/* Live Trainings Section */}
-          {liveTrainings.length > 0 && (
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-destructive text-2xl">●</span>
-                <h3 className="text-2xl font-bold gradient-text">Treinos Ao Vivo</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {liveTrainings.map((training) => (
-                  <TrainingCard key={training.id} training={training} />
-                ))}
-              </div>
+        {/* Trainings Grid */}
+        {filteredTrainings.length === 0 ? (
+          <div className="text-center py-16">
+            <p className="text-muted-foreground text-lg">
+              Nenhum treino encontrado
+            </p>
+          </div>
+        ) : (
+          <>
+            <h3 className="text-2xl font-bold mb-4">Próximos Treinos</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredTrainings.map((training) => (
+                <TrainingCard key={training.id} training={training} />
+              ))}
             </div>
-          )}
+          </>
+        )}
+      </div>
 
-          {/* Trainings Grid */}
-          {filteredTrainings.length === 0 ? (
-            <div className="text-center py-16">
-              <p className="text-muted-foreground text-lg">
-                Nenhum treino encontrado
-              </p>
-            </div>
-          ) : (
-            <>
-              <h3 className="text-2xl font-bold mb-4">Próximos Treinos</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTrainings.map((training) => (
-                  <TrainingCard key={training.id} training={training} />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </main>
-    </div>
+      {/* Follow Us Section */}
+      <FollowUsSection />
+
+      {/* Join Community Section */}
+      <JoinCommunity />
+    </MainLayout>
   );
 };
 

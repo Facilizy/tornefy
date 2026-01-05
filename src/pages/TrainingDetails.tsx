@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Header from "@/components/Header";
+import MainLayout from "@/components/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -308,23 +308,24 @@ const TrainingDetails = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <MainLayout showFooter={false}>
+        <div className="min-h-[50vh] flex items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
     );
   }
 
   if (!training) {
     return (
-      <div className="min-h-screen bg-background">
-        <Header user={user} />
+      <MainLayout showFooter={false}>
         <div className="container mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Treino não encontrado</p>
           <Button onClick={() => navigate("/")} className="mt-4">
             Voltar
           </Button>
         </div>
-      </div>
+      </MainLayout>
     );
   }
 
@@ -337,9 +338,7 @@ const TrainingDetails = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <Header user={user} />
-
+    <MainLayout showFooter={false}>
       <main className="container mx-auto px-4 py-6">
         <Button
           variant="ghost"
@@ -806,7 +805,7 @@ const TrainingDetails = () => {
       {(isOrganizer || isRegistered) && (
         <FloatingChat trainingId={id!} isOrganizer={isOrganizer} />
       )}
-    </div>
+    </MainLayout>
   );
 };
 
