@@ -12,6 +12,8 @@ import OrganizerDashboard from "./pages/OrganizerDashboard";
 import ExternalTeams from "./pages/ExternalTeams";
 import UserProfile from "./pages/UserProfile";
 import TeamProfile from "./pages/TeamProfile";
+import Teams from "./pages/Teams";
+import ProfileEdit from "./pages/ProfileEdit";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,7 +30,8 @@ const App = () => (
           <Route path="/dashboard" element={<PlayerDashboard />} />
           <Route path="/scrims" element={<Home />} />
           <Route path="/ranking" element={<Home />} />
-          <Route path="/equipes" element={<Home />} />
+          <Route path="/equipes" element={<Teams />} />
+          <Route path="/profile/edit" element={<ProfileEdit />} />
           <Route path="/training/:id" element={<TrainingDetails />} />
           <Route path="/my-team" element={<MyTeam />} />
           <Route path="/organizer" element={<OrganizerDashboard />} />
