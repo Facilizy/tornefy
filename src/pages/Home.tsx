@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Filter, Zap, Trophy, Target } from "lucide-react";
+import { Search, Filter, Zap } from "lucide-react";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -94,70 +94,27 @@ const Home = () => {
   return (
     <MainLayout>
       {/* Hero Section */}
-      <section className="py-16 px-4 text-center">
-        <div className="container mx-auto">
-          <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-primary/10 border border-primary/30">
+      <section className="py-20 md:py-28 px-4 text-center relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent pointer-events-none" />
+        
+        <div className="container mx-auto relative z-10">
+          <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 rounded-full bg-primary/10 border border-primary/20">
             <Zap className="w-4 h-4 text-primary" />
-            <span className="text-sm text-primary font-medium">Plataforma #1 de Scrims</span>
+            <span className="text-sm text-primary font-medium tracking-wide">Plataforma #1 de Scrims</span>
           </div>
           
-          <h1 className="text-4xl md:text-6xl font-black mb-4 tracking-tight">
-            DOMINE O <span className="text-primary">CENÁRIO</span>
+          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black mb-6 tracking-tighter leading-none">
+            <span className="text-foreground">EVOLUA.</span>
             <br />
-            COMPETITIVO
+            <span className="text-primary">COMPETE.</span>
+            <br />
+            <span className="text-foreground">DOMINE.</span>
           </h1>
           
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto mb-8">
-            Participe dos melhores treinos, evolua suas habilidades e 
-            conquiste seu espaço entre os pro players.
+          <p className="text-lg md:text-xl text-muted-foreground max-w-xl mx-auto leading-relaxed">
+            A plataforma onde times de elite treinam, competem e evoluem juntos.
           </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button 
-              size="lg"
-              className="bg-primary hover:bg-primary/90 text-lg px-8"
-              onClick={() => navigate('/auth')}
-            >
-              Criar Conta
-            </Button>
-            <Button 
-              size="lg"
-              variant="outline"
-              className="border-primary/50 text-primary hover:bg-primary/10 text-lg px-8"
-              onClick={() => document.getElementById('scrims')?.scrollIntoView({ behavior: 'smooth' })}
-            >
-              Ver Scrims
-            </Button>
-            <a
-              href="https://discord.gg/bHgPsBfN7r"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <Button 
-                size="lg"
-                variant="outline"
-                className="w-full sm:w-auto border-[#5865F2]/50 text-[#5865F2] hover:bg-[#5865F2]/10 text-lg px-8"
-              >
-                <DiscordIcon className="w-5 h-5 mr-2" />
-                Entrar no Discord
-              </Button>
-            </a>
-          </div>
-
-          <div className="flex flex-wrap justify-center gap-6 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-primary" />
-              <span>Ranking em tempo real</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-destructive" />
-              <span>Scrims competitivas</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-yellow-500" />
-              <span>Múltiplos jogos</span>
-            </div>
-          </div>
         </div>
       </section>
 

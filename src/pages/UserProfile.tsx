@@ -102,7 +102,14 @@ const UserProfile = () => {
   return (
     <MainLayout>
       {/* Banner */}
-      <div className="relative h-48 md:h-64 bg-gradient-to-r from-primary/20 via-destructive/10 to-primary/20">
+      <div className="relative h-48 md:h-64 bg-gradient-to-r from-primary/20 via-destructive/10 to-primary/20 overflow-hidden">
+        {profile?.banner_url && (
+          <img
+            src={profile.banner_url}
+            alt="Banner"
+            className="w-full h-full object-cover"
+          />
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
       </div>
 
@@ -110,8 +117,16 @@ const UserProfile = () => {
         {/* Profile Header */}
         <div className="flex flex-col md:flex-row items-start md:items-end gap-4 mb-8">
           {/* Avatar */}
-          <div className="w-32 h-32 rounded-lg border-4 border-primary/50 bg-card flex items-center justify-center">
-            <User className="w-16 h-16 text-primary" />
+          <div className="w-32 h-32 rounded-lg border-4 border-primary/50 bg-card overflow-hidden flex items-center justify-center">
+            {profile?.avatar_url ? (
+              <img
+                src={profile.avatar_url}
+                alt={profile.full_name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-16 h-16 text-primary" />
+            )}
           </div>
 
           <div className="flex-1 flex flex-col md:flex-row md:items-end justify-between gap-4">

@@ -202,10 +202,8 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
               </div>
             )}
 
-            {/* Mobile: Notification + Menu */}
+            {/* Mobile: Menu only (no notification icon next to hamburger) */}
             <div className="flex items-center gap-2 md:hidden">
-              {user && <NotificationBell userId={user.id} />}
-              
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon">
