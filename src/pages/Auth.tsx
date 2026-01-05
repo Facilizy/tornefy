@@ -19,10 +19,14 @@ const Auth = () => {
     password: "",
     fullName: "",
     role: "player" as "player" | "organizer",
+    inviteCode: "",
   });
   const [forgotPassword, setForgotPassword] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  
+  // Valid organizer invite codes
+  const VALID_ORGANIZER_CODES = ["TORNEFY2024", "ORGANIZER-VIP"];
 
   // Reset accepted terms when switching between login/signup
   useEffect(() => {
@@ -90,6 +94,15 @@ const Auth = () => {
           toast.error("Você precisa aceitar os termos e diretrizes da plataforma");
           setLoading(false);
           return;
+        }
+
+        // Validar código de organizador
+        if (formData.role === "organizer") {
+          if (!formData.inviteCode || !VALID_ORGANIZER_CODES.includes(formData.inviteCode.toUpperCase())) {
+            toast.error("Código de indicação inválido para criar conta de organizador");
+            setLoading(false);
+            return;
+          }
         }
 
         const { error } = await supabase.auth.signUp({
@@ -220,6 +233,26 @@ const Auth = () => {
                     </Label>
                   </div>
                 </RadioGroup>
+              </div>
+            )}
+
+            {!isLogin && !forgotPassword && formData.role === "organizer" && (
+              <div className="space-y-2">
+                <Label htmlFor="inviteCode">Código de Indicação</Label>
+                <Input
+                  id="inviteCode"
+                  type="text"
+                  placeholder="Digite o código de indicação"
+                  value={formData.inviteCode}
+                  onChange={(e) =>
+                    setFormData({ ...formData, inviteCode: e.target.value })
+                  }
+                  required
+                  className="bg-background/50 border-border"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Conta de organizador requer código válido
+                </p>
               </div>
             )}
 
