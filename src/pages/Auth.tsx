@@ -117,22 +117,19 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Background gradient effect */}
-      <div className="absolute inset-0 bg-gradient-radial opacity-50" />
-      
-      {/* Floating orbs for visual effect */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary-glow/20 rounded-full blur-3xl animate-pulse" />
+      {/* Background effect */}
+      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
+      <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
 
       <div className="w-full max-w-md px-6 relative z-10">
         {/* Logo / Title */}
-        <div className="text-center mb-8 animate-fade-in flex flex-col items-center">
+        <div className="text-center mb-8 flex flex-col items-center">
           <TornefyLogo className="h-12 mb-2" />
           <span className="text-sm text-muted-foreground tracking-wider">(BETA)</span>
         </div>
 
         {/* Auth Form */}
-        <div className="backdrop-blur-xl bg-card/50 border border-border rounded-2xl p-8 animate-slide-up">
+        <div className="bg-card/50 border border-border rounded-2xl p-8">
           <h2 className="text-2xl font-semibold mb-6 text-center">
             {forgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
           </h2>
@@ -245,7 +242,7 @@ const Auth = () => {
 
             <Button
               type="submit"
-              className="w-full bg-gradient-primary transition-all duration-300"
+              className="w-full bg-primary hover:bg-primary/90 transition-colors"
               disabled={loading}
             >
               {loading 
@@ -262,7 +259,7 @@ const Auth = () => {
             {isLogin && !forgotPassword && (
               <button
                 onClick={() => setForgotPassword(true)}
-                className="text-sm text-primary hover:text-primary-glow transition-colors block w-full"
+                className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
               >
                 Esqueci minha senha
               </button>
@@ -271,7 +268,7 @@ const Auth = () => {
             {!forgotPassword && (
               <button
                 onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary hover:text-primary-glow transition-colors block w-full"
+                className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
               >
                 {isLogin
                   ? "Não tem conta? Criar conta"
@@ -282,7 +279,7 @@ const Auth = () => {
             {forgotPassword && (
               <button
                 onClick={() => setForgotPassword(false)}
-                className="text-sm text-primary hover:text-primary-glow transition-colors block w-full"
+                className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
               >
                 Voltar ao login
               </button>
