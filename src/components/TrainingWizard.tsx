@@ -73,7 +73,7 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
     name: "",
     game: "free_fire" as string,
     mode: "Squad" as "Solo" | "Duo" | "Squad",
-    platform: "Mobile" as "PC" | "Mobile" | "Misto",
+    platform: "Mobile" as "PC" | "Mobile" | "Console" | "Misto",
     datetime: "",
     max_slots: 20,
     rounds: 3,
@@ -85,6 +85,8 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
     important_info: "",
     is_private: false,
     banner_url: "",
+    primary_color: "#9146FF",
+    secondary_color: "#1F2937",
   });
 
   const handleNext = () => {
@@ -136,7 +138,7 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
         name: form.name,
         game: form.game as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
         mode: form.mode,
-        platform: form.platform,
+        platform: form.platform as "PC" | "Mobile" | "console" | "Misto",
         datetime: form.datetime,
         max_slots: form.max_slots,
         rounds: form.rounds,
@@ -151,6 +153,8 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
         banner_url: bannerUrl || null,
         organizer_id: userId,
         status: "INSCRIÇÕES ABERTAS",
+        primary_color: form.primary_color,
+        secondary_color: form.secondary_color,
       }]);
 
       if (error) throw error;
@@ -184,6 +188,8 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
       important_info: "",
       is_private: false,
       banner_url: "",
+      primary_color: "#9146FF",
+      secondary_color: "#1F2937",
     });
     setBannerFile(null);
   };
@@ -291,13 +297,14 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
                 </div>
                 <div>
                   <Label>Plataforma</Label>
-                  <Select value={form.platform} onValueChange={(v: "PC" | "Mobile" | "Misto") => setForm({ ...form, platform: v })}>
+                  <Select value={form.platform} onValueChange={(v: "PC" | "Mobile" | "Console" | "Misto") => setForm({ ...form, platform: v })}>
                     <SelectTrigger className="mt-2">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Mobile">Mobile</SelectItem>
                       <SelectItem value="PC">PC</SelectItem>
+                      <SelectItem value="Console">Console</SelectItem>
                       <SelectItem value="Misto">Misto</SelectItem>
                     </SelectContent>
                   </Select>
@@ -454,6 +461,75 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
                   className="mt-2"
                 />
               </div>
+
+              {/* Color Customization */}
+              <Separator className="my-4" />
+              <div>
+                <Label className="text-base flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  Cores do Evento
+                </Label>
+                <p className="text-xs text-muted-foreground mb-3">Personalize as cores do seu treino</p>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="primary_color" className="text-sm">Cor Primária</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="color"
+                        id="primary_color"
+                        value={form.primary_color}
+                        onChange={(e) => setForm({ ...form, primary_color: e.target.value })}
+                        className="w-10 h-10 rounded cursor-pointer border-0"
+                      />
+                      <Input
+                        value={form.primary_color}
+                        onChange={(e) => setForm({ ...form, primary_color: e.target.value })}
+                        className="flex-1 font-mono text-sm"
+                        placeholder="#9146FF"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="secondary_color" className="text-sm">Cor Secundária</Label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <input
+                        type="color"
+                        id="secondary_color"
+                        value={form.secondary_color}
+                        onChange={(e) => setForm({ ...form, secondary_color: e.target.value })}
+                        className="w-10 h-10 rounded cursor-pointer border-0"
+                      />
+                      <Input
+                        value={form.secondary_color}
+                        onChange={(e) => setForm({ ...form, secondary_color: e.target.value })}
+                        className="flex-1 font-mono text-sm"
+                        placeholder="#1F2937"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview */}
+                <div 
+                  className="mt-4 p-4 rounded-lg border"
+                  style={{
+                    background: `linear-gradient(135deg, ${form.primary_color}20, ${form.secondary_color}40)`,
+                    borderColor: `${form.primary_color}50`,
+                  }}
+                >
+                  <p className="text-xs text-muted-foreground mb-2">Preview do cabeçalho:</p>
+                  <div 
+                    className="h-16 rounded-lg flex items-center justify-center font-bold"
+                    style={{
+                      background: `linear-gradient(90deg, ${form.primary_color}, ${form.secondary_color})`,
+                      color: '#fff',
+                    }}
+                  >
+                    {form.name || "Nome do Treino"}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -465,27 +541,33 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
                 <p className="text-sm text-muted-foreground">Confirme se está tudo certo antes de criar</p>
               </div>
 
-              <Card className="p-4 bg-muted/30">
-                <div className="space-y-4">
-                  <div className="flex items-start gap-4">
-                    <img 
-                      src={GAMES.find(g => g.id === form.game)?.logo} 
-                      alt="" 
-                      className="w-12 h-12 rounded-lg object-cover"
-                    />
-                    <div className="flex-1">
-                      <h4 className="font-bold text-lg">{form.name || "Sem nome"}</h4>
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        <Badge variant="secondary">{GAMES.find(g => g.id === form.game)?.name}</Badge>
-                        <Badge variant="outline">{form.mode}</Badge>
-                        <Badge variant="outline">{form.platform}</Badge>
-                        {form.is_private && <Badge variant="destructive">Privado</Badge>}
-                      </div>
+              {/* Color Preview Header */}
+              <div 
+                className="rounded-lg overflow-hidden"
+                style={{
+                  background: `linear-gradient(135deg, ${form.primary_color}, ${form.secondary_color})`,
+                }}
+              >
+                <div className="p-4 flex items-center gap-4">
+                  <img 
+                    src={GAMES.find(g => g.id === form.game)?.logo} 
+                    alt="" 
+                    className="w-12 h-12 rounded-lg object-cover bg-black/20"
+                  />
+                  <div className="flex-1 text-white">
+                    <h4 className="font-bold text-lg drop-shadow">{form.name || "Sem nome"}</h4>
+                    <div className="flex flex-wrap gap-2 mt-1">
+                      <Badge className="bg-white/20 text-white border-white/30">{GAMES.find(g => g.id === form.game)?.name}</Badge>
+                      <Badge className="bg-white/20 text-white border-white/30">{form.mode}</Badge>
+                      <Badge className="bg-white/20 text-white border-white/30">{form.platform}</Badge>
+                      {form.is_private && <Badge variant="destructive">Privado</Badge>}
                     </div>
                   </div>
+                </div>
+              </div>
 
-                  <Separator />
-
+              <Card className="p-4 bg-muted/30">
+                <div className="space-y-4">
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                     <div>
                       <p className="text-muted-foreground">Data</p>
