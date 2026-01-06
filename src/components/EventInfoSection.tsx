@@ -4,10 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { FileText, Target, HelpCircle } from "lucide-react";
 
 interface EventInfoSectionProps {
@@ -76,8 +76,11 @@ export const EventInfoSection = ({
               <FileText className="w-5 h-5 text-primary" />
               Regras do Evento
             </DialogTitle>
+            <DialogDescription>
+              Leia as regras antes de participar do evento.
+            </DialogDescription>
           </DialogHeader>
-          <ScrollArea className="max-h-[60vh] pr-4">
+          <div className="max-h-[60vh] overflow-y-auto pr-4">
             {rules ? (
               <div className="space-y-3">
                 {rules.split("\n").map((line, idx) => (
@@ -91,7 +94,7 @@ export const EventInfoSection = ({
                 Nenhuma regra específica definida para este evento.
               </p>
             )}
-          </ScrollArea>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -103,6 +106,9 @@ export const EventInfoSection = ({
               <Target className="w-5 h-5 text-primary" />
               Sistema de Pontuação
             </DialogTitle>
+            <DialogDescription>
+              Entenda como os pontos são calculados.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
@@ -138,6 +144,9 @@ export const EventInfoSection = ({
               <HelpCircle className="w-5 h-5 text-primary" />
               Ajuda
             </DialogTitle>
+            <DialogDescription>
+              Dúvidas frequentes sobre o evento.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 text-sm">
             <div>
