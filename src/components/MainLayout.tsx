@@ -19,11 +19,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -161,22 +156,16 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                {/* Discord link with tooltip */}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <a
-                      href="https://discord.gg/bHgPsBfN7r"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      <DiscordIcon className="w-5 h-5" />
-                    </a>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>Entre no Nosso Discord</p>
-                  </TooltipContent>
-                </Tooltip>
+                {/* Discord link */}
+                <a
+                  href="https://discord.gg/bHgPsBfN7r"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  title="Entre no Nosso Discord"
+                >
+                  <DiscordIcon className="w-5 h-5" />
+                </a>
               </>
             ) : (
               <div className="hidden md:flex items-center gap-3">
@@ -186,21 +175,15 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                 <Button onClick={() => navigate('/auth')} className="bg-primary hover:bg-primary/90">
                   Criar Conta
                 </Button>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <a
-                      href="https://discord.gg/bHgPsBfN7r"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                    >
-                      <DiscordIcon className="w-5 h-5" />
-                    </a>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    <p>Entre no Nosso Discord</p>
-                  </TooltipContent>
-                </Tooltip>
+                <a
+                  href="https://discord.gg/bHgPsBfN7r"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  title="Entre no Nosso Discord"
+                >
+                  <DiscordIcon className="w-5 h-5" />
+                </a>
               </div>
             )}
 
