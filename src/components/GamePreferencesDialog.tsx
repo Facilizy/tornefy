@@ -98,6 +98,7 @@ export const GamePreferencesDialog = ({
             >
               <Checkbox
                 checked={selectedGames.includes(game.id)}
+                onClick={(e) => e.stopPropagation()}
                 onCheckedChange={() => toggleGame(game.id)}
               />
               <img

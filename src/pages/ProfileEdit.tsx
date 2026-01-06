@@ -384,24 +384,29 @@ const ProfileEdit = () => {
                         : "border-border hover:border-primary/50"
                     }`}
                     onClick={() => {
-                      const isSelected = formData.preferred_games.includes(game.id);
-                      setFormData({
-                        ...formData,
-                        preferred_games: isSelected
-                          ? formData.preferred_games.filter((g) => g !== game.id)
-                          : [...formData.preferred_games, game.id],
+                      setFormData((prev) => {
+                        const isSelected = prev.preferred_games.includes(game.id);
+                        return {
+                          ...prev,
+                          preferred_games: isSelected
+                            ? prev.preferred_games.filter((g) => g !== game.id)
+                            : [...prev.preferred_games, game.id],
+                        };
                       });
                     }}
                   >
                     <Checkbox
                       checked={formData.preferred_games.includes(game.id)}
+                      onClick={(e) => e.stopPropagation()}
                       onCheckedChange={() => {
-                        const isSelected = formData.preferred_games.includes(game.id);
-                        setFormData({
-                          ...formData,
-                          preferred_games: isSelected
-                            ? formData.preferred_games.filter((g) => g !== game.id)
-                            : [...formData.preferred_games, game.id],
+                        setFormData((prev) => {
+                          const isSelected = prev.preferred_games.includes(game.id);
+                          return {
+                            ...prev,
+                            preferred_games: isSelected
+                              ? prev.preferred_games.filter((g) => g !== game.id)
+                              : [...prev.preferred_games, game.id],
+                          };
                         });
                       }}
                     />
