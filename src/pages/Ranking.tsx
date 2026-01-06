@@ -71,7 +71,7 @@ const Ranking = () => {
         rating: team.rating || 1000,
         is_verified: team.is_verified || false,
         memberCount: team.team_members?.[0]?.count || 0,
-        primary_color: team.primary_color || "#DC2626",
+        primary_color: team.primary_color || "#9146FF",
         region: team.region || "BR",
       })) as TeamRanking[];
 

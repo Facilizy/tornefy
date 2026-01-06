@@ -16,8 +16,7 @@ const Footer = () => {
     { name: "Scrims", href: "/scrims" },
     { name: "Ranking", href: "/ranking" },
     { name: "Equipes", href: "/equipes" },
-    { name: "Termos", href: "/termos" },
-    { name: "Privacidade", href: "/privacidade" },
+    { name: "Termos e Privacidade", href: "/terms" },
   ];
 
   return (
