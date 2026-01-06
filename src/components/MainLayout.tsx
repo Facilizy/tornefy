@@ -2,9 +2,9 @@ import { useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import TornefyLogo from "@/components/TornefyLogo";
-import TornefyIcon from "@/components/TornefyIcon";
 import Footer from "@/components/Footer";
 import { NotificationBell } from "@/components/NotificationBell";
+import { UpcomingScrimWidget } from "@/components/UpcomingScrimWidget";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -24,7 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -95,12 +95,11 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
-      <header className="sticky top-0 z-50 bg-background/95 border-b border-border">
+      <header className="sticky top-0 z-50 bg-background/95 border-b border-border backdrop-blur-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <TornefyLogo className="h-6 hidden sm:block" />
-            <TornefyIcon className="h-8 w-8 sm:hidden" />
+            <TornefyLogo className="h-6" />
           </Link>
 
           {/* Desktop Nav */}
@@ -124,7 +123,10 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
           <div className="flex items-center gap-3">
             {user ? (
               <>
-                <NotificationBell userId={user.id} />
+                {/* Desktop: Notifications */}
+                <div className="hidden md:block">
+                  <NotificationBell userId={user.id} />
+                </div>
                 
                 {/* Desktop User Menu */}
                 <DropdownMenu>
@@ -202,8 +204,8 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
               </div>
             )}
 
-            {/* Mobile: Menu only (no notification icon next to hamburger) */}
-            <div className="flex items-center gap-2 md:hidden">
+            {/* Mobile: Only hamburger menu */}
+            <div className="flex items-center md:hidden">
               <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                   <Button variant="ghost" size="icon">
@@ -214,7 +216,7 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                   <div className="flex flex-col h-full">
                     {/* Mobile Header */}
                     <div className="flex items-center justify-between p-4 border-b border-border">
-                      <TornefyIcon className="h-8 w-8" />
+                      <TornefyLogo className="h-6" />
                       <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)}>
                         <X className="w-5 h-5" />
                       </Button>
@@ -241,6 +243,17 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                       {user && (
                         <>
                           <div className="h-px bg-border my-4" />
+                          
+                          {/* Notifications inside mobile menu */}
+                          <Link
+                            to="/notifications"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                          >
+                            <Bell className="w-5 h-5" />
+                            <span className="font-medium">Notificações</span>
+                          </Link>
+                          
                           <Link
                             to="/profile"
                             onClick={() => setMobileMenuOpen(false)}
@@ -331,6 +344,9 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
       </main>
 
       {showFooter && <Footer />}
+      
+      {/* Upcoming Scrim Widget */}
+      <UpcomingScrimWidget />
     </div>
   );
 };

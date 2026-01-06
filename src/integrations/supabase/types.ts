@@ -82,6 +82,7 @@ export type Database = {
           discord_contact: string | null
           full_name: string
           id: string
+          preferred_games: string[] | null
           role: Database["public"]["Enums"]["user_role"]
           tracker_url: string | null
           updated_at: string
@@ -94,6 +95,7 @@ export type Database = {
           discord_contact?: string | null
           full_name: string
           id: string
+          preferred_games?: string[] | null
           role?: Database["public"]["Enums"]["user_role"]
           tracker_url?: string | null
           updated_at?: string
@@ -106,6 +108,7 @@ export type Database = {
           discord_contact?: string | null
           full_name?: string
           id?: string
+          preferred_games?: string[] | null
           role?: Database["public"]["Enums"]["user_role"]
           tracker_url?: string | null
           updated_at?: string
@@ -222,33 +225,72 @@ export type Database = {
       }
       teams: {
         Row: {
+          banner_url: string | null
+          bio: string | null
           created_at: string
+          description: string | null
+          discord_url: string | null
           id: string
+          instagram_url: string | null
           is_external: boolean
+          is_recruiting: boolean | null
+          is_verified: boolean | null
           logo_url: string | null
           name: string
           owner_id: string
+          platform: string | null
+          primary_color: string | null
+          rating: number | null
+          region: string | null
+          secondary_color: string | null
           tag: string
+          twitter_url: string | null
           updated_at: string
         }
         Insert: {
+          banner_url?: string | null
+          bio?: string | null
           created_at?: string
+          description?: string | null
+          discord_url?: string | null
           id?: string
+          instagram_url?: string | null
           is_external?: boolean
+          is_recruiting?: boolean | null
+          is_verified?: boolean | null
           logo_url?: string | null
           name: string
           owner_id: string
+          platform?: string | null
+          primary_color?: string | null
+          rating?: number | null
+          region?: string | null
+          secondary_color?: string | null
           tag: string
+          twitter_url?: string | null
           updated_at?: string
         }
         Update: {
+          banner_url?: string | null
+          bio?: string | null
           created_at?: string
+          description?: string | null
+          discord_url?: string | null
           id?: string
+          instagram_url?: string | null
           is_external?: boolean
+          is_recruiting?: boolean | null
+          is_verified?: boolean | null
           logo_url?: string | null
           name?: string
           owner_id?: string
+          platform?: string | null
+          primary_color?: string | null
+          rating?: number | null
+          region?: string | null
+          secondary_color?: string | null
           tag?: string
+          twitter_url?: string | null
           updated_at?: string
         }
         Relationships: [
