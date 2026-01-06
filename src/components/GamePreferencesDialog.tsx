@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -86,29 +85,36 @@ export const GamePreferencesDialog = ({
         </DialogHeader>
 
         <div className="space-y-3 py-4">
-          {GAMES.map((game) => (
-            <div
-              key={game.id}
-              className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                selectedGames.includes(game.id)
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-primary/50"
-              }`}
-              onClick={() => toggleGame(game.id)}
-            >
-              <Checkbox
-                checked={selectedGames.includes(game.id)}
-                onClick={(e) => e.stopPropagation()}
-                onCheckedChange={() => toggleGame(game.id)}
-              />
-              <img
-                src={game.logo}
-                alt={game.name}
-                className="w-8 h-8 rounded object-cover"
-              />
-              <Label className="cursor-pointer flex-1">{game.name}</Label>
-            </div>
-          ))}
+          {GAMES.map((game) => {
+            const selected = selectedGames.includes(game.id);
+            return (
+              <button
+                key={game.id}
+                type="button"
+                aria-pressed={selected}
+                onClick={() => toggleGame(game.id)}
+                className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                  selected
+                    ? "border-primary bg-primary/10"
+                    : "border-border hover:border-primary/50"
+                }`}
+              >
+                <Checkbox
+                  checked={selected}
+                  className="pointer-events-none"
+                  tabIndex={-1}
+                  aria-hidden="true"
+                />
+                <img
+                  src={game.logo}
+                  alt={game.name}
+                  loading="lazy"
+                  className="w-8 h-8 rounded object-cover"
+                />
+                <span className="flex-1 font-medium">{game.name}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex gap-3">

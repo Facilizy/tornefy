@@ -195,6 +195,17 @@ const ProfileEdit = () => {
     }
   };
 
+  const togglePreferredGame = (gameId: string) => {
+    setFormData((prev) => {
+      const current = Array.isArray(prev.preferred_games) ? prev.preferred_games : [];
+      const isSelected = current.includes(gameId);
+      return {
+        ...prev,
+        preferred_games: isSelected ? current.filter((g) => g !== gameId) : [...current, gameId],
+      };
+    });
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -375,49 +386,36 @@ const ProfileEdit = () => {
                 Selecione os jogos que você joga para receber recomendações de scrims personalizadas.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {GAMES.map((game) => (
-                  <div
-                    key={game.id}
-                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                      formData.preferred_games.includes(game.id)
-                        ? "border-primary bg-primary/10"
-                        : "border-border hover:border-primary/50"
-                    }`}
-                    onClick={() => {
-                      setFormData((prev) => {
-                        const isSelected = prev.preferred_games.includes(game.id);
-                        return {
-                          ...prev,
-                          preferred_games: isSelected
-                            ? prev.preferred_games.filter((g) => g !== game.id)
-                            : [...prev.preferred_games, game.id],
-                        };
-                      });
-                    }}
-                  >
-                    <Checkbox
-                      checked={formData.preferred_games.includes(game.id)}
-                      onClick={(e) => e.stopPropagation()}
-                      onCheckedChange={() => {
-                        setFormData((prev) => {
-                          const isSelected = prev.preferred_games.includes(game.id);
-                          return {
-                            ...prev,
-                            preferred_games: isSelected
-                              ? prev.preferred_games.filter((g) => g !== game.id)
-                              : [...prev.preferred_games, game.id],
-                          };
-                        });
-                      }}
-                    />
-                    <img
-                      src={game.logo}
-                      alt={game.name}
-                      className="w-8 h-8 rounded object-cover"
-                    />
-                    <Label className="cursor-pointer flex-1">{game.name}</Label>
-                  </div>
-                ))}
+                {GAMES.map((game) => {
+                  const selected = formData.preferred_games.includes(game.id);
+                  return (
+                    <button
+                      key={game.id}
+                      type="button"
+                      aria-pressed={selected}
+                      onClick={() => togglePreferredGame(game.id)}
+                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        selected
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <Checkbox
+                        checked={selected}
+                        className="pointer-events-none"
+                        tabIndex={-1}
+                        aria-hidden="true"
+                      />
+                      <img
+                        src={game.logo}
+                        alt={game.name}
+                        loading="lazy"
+                        className="w-8 h-8 rounded object-cover"
+                      />
+                      <span className="flex-1 font-medium">{game.name}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
