@@ -21,6 +21,7 @@ import { Search, Filter, Zap } from "lucide-react";
 const Home = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
+  const [userGames, setUserGames] = useState<string[]>([]);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
   const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
@@ -36,12 +37,22 @@ const Home = () => {
 
   useEffect(() => {
     filterTrainings();
-  }, [trainings, searchTerm, platformFilter, modeFilter, gameFilter]);
+  }, [trainings, searchTerm, platformFilter, modeFilter, gameFilter, userGames]);
 
   const checkUser = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       setUser(session.user);
+      // Fetch user's preferred games
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("preferred_games")
+        .eq("id", session.user.id)
+        .single();
+      
+      if (profile?.preferred_games) {
+        setUserGames(profile.preferred_games);
+      }
     }
   };
 
@@ -86,6 +97,14 @@ const Home = () => {
 
     if (gameFilter !== "all") {
       filtered = filtered.filter((training) => training.game === gameFilter);
+    } else if (user && userGames.length > 0) {
+      // Auto-filter by user's preferred games when logged in
+      const preferredScrims = filtered.filter((t) => userGames.includes(t.game));
+      // If there are preferred scrims, show them first, otherwise show all
+      if (preferredScrims.length > 0) {
+        const otherScrims = filtered.filter((t) => !userGames.includes(t.game));
+        filtered = [...preferredScrims, ...otherScrims];
+      }
     }
 
     setFilteredTrainings(filtered);

@@ -67,7 +67,7 @@ const Teams = () => {
       const teamsWithCount = data?.map((team: any) => ({
         ...team,
         memberCount: team.team_members?.[0]?.count || 0,
-        primary_color: team.primary_color || "#DC2626",
+        primary_color: team.primary_color || "#9146FF",
       })) as Team[];
 
       setTeams(teamsWithCount || []);
@@ -119,7 +119,21 @@ const Teams = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8">
+      {/* Purple Header Banner */}
+      <div className="relative py-16 mb-8 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+        <div className="container mx-auto px-4 relative z-10 text-center">
+          <h1 className="text-3xl md:text-5xl font-black uppercase text-primary mb-2">
+            Equipes
+          </h1>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Explore as melhores equipes competitivas da plataforma
+          </p>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 pb-8">
         {/* Tabs */}
         <div className="flex items-center justify-between mb-6">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "ranking" | "explore")}>

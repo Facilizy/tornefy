@@ -123,20 +123,19 @@ const Scrims = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tight">
-              Scrims Abertas
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Encontre e participe das melhores scrims competitivas
-            </p>
-          </div>
-          
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-card rounded-lg border border-border">
+      {/* Purple Header Banner */}
+      <div className="relative py-16 mb-8 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+        <div className="container mx-auto px-4 relative z-10 text-center">
+          <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-primary mb-2">
+            Scrims Abertas
+          </h1>
+          <p className="text-muted-foreground max-w-md mx-auto">
+            Encontre e participe das melhores scrims competitivas
+          </p>
+          <div className="flex items-center justify-center gap-3 mt-4 text-sm">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-card/80 backdrop-blur-sm rounded-lg border border-border">
               <Users className="w-4 h-4 text-primary" />
               <span>{trainings.length} scrims</span>
             </div>
@@ -148,6 +147,9 @@ const Scrims = () => {
             )}
           </div>
         </div>
+      </div>
+
+      <div className="container mx-auto px-4 pb-8">
 
         {/* Filters Bar */}
         <div className="bg-card border border-border rounded-xl p-4 mb-8">

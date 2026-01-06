@@ -168,21 +168,6 @@ const UserProfile = () => {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            {/* Tracker Card */}
-            <Card className="p-6 bg-card/50 border-border">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
-                  <Gamepad2 className="w-6 h-6 text-muted-foreground" />
-                </div>
-                <div>
-                  <h3 className="font-semibold">Tracker não vinculado</h3>
-                  <p className="text-sm text-muted-foreground">
-                    Configure seu EA ID nas configurações do perfil para ver suas estatísticas.
-                  </p>
-                </div>
-              </div>
-            </Card>
-
             {/* Conquistas Card */}
             <Card className="p-6 bg-card/50 border-border">
               <div className="flex items-center justify-between mb-4">
