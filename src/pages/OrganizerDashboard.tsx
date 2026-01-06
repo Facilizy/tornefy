@@ -353,13 +353,61 @@ const OrganizerDashboard = () => {
   return (
     <MainLayout>
       <main className="container mx-auto px-4 py-8">
+        {/* Dashboard Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Card className="p-4 bg-card/80 border-border">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Trophy className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{trainings.length}</p>
+                <p className="text-xs text-muted-foreground">Treinos Criados</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 bg-card/80 border-border">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-green-500/10">
+                <Calendar className="w-5 h-5 text-green-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{trainings.filter(t => t.status === "INSCRIÇÕES ABERTAS").length}</p>
+                <p className="text-xs text-muted-foreground">Abertos</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 bg-card/80 border-border">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-destructive/10">
+                <Users className="w-5 h-5 text-destructive" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{trainings.reduce((acc, t) => acc + t.registrations, 0)}</p>
+                <p className="text-xs text-muted-foreground">Total Inscritos</p>
+              </div>
+            </div>
+          </Card>
+          <Card className="p-4 bg-card/80 border-border">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-yellow-500/10">
+                <Award className="w-5 h-5 text-yellow-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{trainings.filter(t => t.is_live).length}</p>
+                <p className="text-xs text-muted-foreground">Ao Vivo</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+
         {/* Header - Mobile Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 animate-fade-in">
           <div>
-            <h1 className="text-2xl sm:text-4xl font-bold gradient-text mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-1">
               Painel do Organizador
             </h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
+            <p className="text-muted-foreground text-sm">
               Gerencie seus treinos e inscrições
             </p>
           </div>

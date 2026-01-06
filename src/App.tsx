@@ -16,6 +16,7 @@ import Teams from "./pages/Teams";
 import ProfileEdit from "./pages/ProfileEdit";
 import NotFound from "./pages/NotFound";
 import Scrims from "./pages/Scrims";
+import Ranking from "./pages/Ranking";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/dashboard" element={<PlayerDashboard />} />
           <Route path="/scrims" element={<Scrims />} />
-          <Route path="/ranking" element={<Home />} />
+          <Route path="/ranking" element={<Ranking />} />
           <Route path="/equipes" element={<Teams />} />
           <Route path="/profile/edit" element={<ProfileEdit />} />
           <Route path="/training/:id" element={<TrainingDetails />} />

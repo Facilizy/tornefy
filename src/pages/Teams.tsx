@@ -207,7 +207,7 @@ const Teams = () => {
                   style={{
                     background: team.banner_url 
                       ? `url(${team.banner_url}) center/cover` 
-                      : `linear-gradient(135deg, ${team.primary_color}40, ${team.primary_color}10)`,
+                      : `linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.6) 100%)`,
                   }}
                 >
                   {/* Rating Badge */}

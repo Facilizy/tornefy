@@ -38,6 +38,7 @@ import { SlotReorderDialog } from "@/components/SlotReorderDialog";
 import { MatchesTab } from "@/components/MatchesTab";
 import { SaveTemplateDialog } from "@/components/SaveTemplateDialog";
 import { FloatingChat } from "@/components/FloatingChat";
+import { EventInfoSection } from "@/components/EventInfoSection";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -517,6 +518,17 @@ const TrainingDetails = () => {
 
               {/* Sidebar - Actions */}
               <div className="space-y-4">
+                {/* Event Info Section - Regras, Pontuação, Ajuda */}
+                <Card className="p-4 bg-card/80 border-border">
+                  <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide">Informações do Evento</h3>
+                  <EventInfoSection
+                    rules={training.rules}
+                    pointsPerKill={training.points_per_kill}
+                    pointsPerPositionText={training.points_per_position_text}
+                    discordLink={training.discord_link}
+                  />
+                </Card>
+
                 <Card className="p-6 bg-card/80 border-border">
                   <h3 className="font-semibold mb-4">Ações</h3>
 
