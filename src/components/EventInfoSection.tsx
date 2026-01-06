@@ -1,14 +1,6 @@
-import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import { FileText, Target, HelpCircle, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { FileText, Target, HelpCircle } from "lucide-react";
 
 interface EventInfoSectionProps {
   rules?: string;
@@ -23,164 +15,78 @@ export const EventInfoSection = ({
   pointsPerPositionText,
   discordLink,
 }: EventInfoSectionProps) => {
-  const [showRules, setShowRules] = useState(false);
-  const [showScoring, setShowScoring] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
-
-  const rulesCount = rules?.split("\n").filter((line) => line.trim()).length || 0;
-
   return (
-    <>
-      <div className="flex flex-wrap gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowRules(true)}
-          className="flex-1 sm:flex-none gap-2 bg-card hover:bg-muted"
-        >
-          <FileText className="w-4 h-4" />
-          Regras
-          {rulesCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {rulesCount}
-            </Badge>
+    <div className="space-y-4">
+      {/* Scoring Card */}
+      <Card className="p-4 bg-muted/30 border-border">
+        <div className="flex items-center gap-2 mb-3">
+          <Target className="w-4 h-4 text-primary" />
+          <h4 className="font-semibold text-sm">Sistema de Pontuação</h4>
+        </div>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-2 rounded bg-primary/10">
+            <span className="text-sm text-muted-foreground">Abates:</span>
+            <span className="font-bold text-primary">{pointsPerKill} pt(s)</span>
+          </div>
+          {pointsPerPositionText && (
+            <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              {pointsPerPositionText}
+            </div>
           )}
-        </Button>
+          {!pointsPerPositionText && (
+            <p className="text-sm text-muted-foreground italic">
+              Tabela de pontos não definida
+            </p>
+          )}
+        </div>
+      </Card>
 
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowScoring(true)}
-          className="flex-1 sm:flex-none gap-2 bg-card hover:bg-muted"
-        >
-          <Target className="w-4 h-4" />
-          Pontuação
-        </Button>
-
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowHelp(true)}
-          className="flex-1 sm:flex-none gap-2 bg-card hover:bg-muted"
-        >
-          <HelpCircle className="w-4 h-4" />
-          Ajuda
-        </Button>
-      </div>
-
-      {/* Rules Dialog */}
-      <Dialog open={showRules} onOpenChange={setShowRules}>
-        <DialogContent className="max-w-lg max-h-[80vh] bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5 text-primary" />
-              Regras do Evento
-            </DialogTitle>
-            <DialogDescription>
-              Leia as regras antes de participar do evento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="max-h-[60vh] overflow-y-auto pr-4">
-            {rules ? (
-              <div className="space-y-3">
-                {rules.split("\n").map((line, idx) => (
-                  <p key={idx} className="text-sm text-muted-foreground">
-                    {line || <br />}
-                  </p>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                Nenhuma regra específica definida para este evento.
-              </p>
-            )}
+      {/* Rules Card */}
+      {rules && (
+        <Card className="p-4 bg-muted/30 border-border">
+          <div className="flex items-center gap-2 mb-3">
+            <FileText className="w-4 h-4 text-primary" />
+            <h4 className="font-semibold text-sm">Regras do Treino</h4>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Scoring Dialog */}
-      <Dialog open={showScoring} onOpenChange={setShowScoring}>
-        <DialogContent className="max-w-lg bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Target className="w-5 h-5 text-primary" />
-              Sistema de Pontuação
-            </DialogTitle>
-            <DialogDescription>
-              Entenda como os pontos são calculados.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
-              <p className="text-sm font-semibold text-primary mb-1">
-                Pontos por Abate (Kill)
-              </p>
-              <p className="text-2xl font-bold">{pointsPerKill} pt(s)</p>
-            </div>
-
-            {pointsPerPositionText && (
-              <div>
-                <p className="text-sm font-semibold mb-2">Pontos por Colocação</p>
-                <div className="p-4 rounded-lg bg-muted/50 whitespace-pre-wrap text-sm text-muted-foreground">
-                  {pointsPerPositionText}
-                </div>
-              </div>
-            )}
-
-            {!pointsPerPositionText && (
-              <p className="text-sm text-muted-foreground">
-                Tabela de pontos por colocação não definida.
-              </p>
-            )}
+          <div className="text-sm text-muted-foreground whitespace-pre-wrap leading-relaxed max-h-[300px] overflow-y-auto pr-2">
+            {rules}
           </div>
-        </DialogContent>
-      </Dialog>
+        </Card>
+      )}
 
-      {/* Help Dialog */}
-      <Dialog open={showHelp} onOpenChange={setShowHelp}>
-        <DialogContent className="max-w-lg bg-card border-border">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <HelpCircle className="w-5 h-5 text-primary" />
-              Ajuda
-            </DialogTitle>
-            <DialogDescription>
-              Dúvidas frequentes sobre o evento.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 text-sm">
-            <div>
-              <h4 className="font-semibold mb-1">Como funciona?</h4>
-              <p className="text-muted-foreground">
-                Inscreva sua equipe e aguarde o início do evento. Acompanhe o chat para
-                informações do organizador.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-1">Onde encontrar a sala?</h4>
-              <p className="text-muted-foreground">
-                O organizador compartilhará os dados da sala no chat ou no Discord do evento.
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-1">Problemas?</h4>
-              <p className="text-muted-foreground">
-                Entre no Discord do evento e procure um administrador ou organizador.
-              </p>
-            </div>
-            {discordLink && (
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => window.open(discordLink, "_blank")}
-              >
-                Entrar no Discord
-              </Button>
-            )}
+      {/* Help Card */}
+      <Card className="p-4 bg-muted/30 border-border">
+        <div className="flex items-center gap-2 mb-3">
+          <HelpCircle className="w-4 h-4 text-primary" />
+          <h4 className="font-semibold text-sm">Ajuda</h4>
+        </div>
+        <div className="space-y-3 text-sm">
+          <div>
+            <p className="font-medium mb-1">Como funciona?</p>
+            <p className="text-muted-foreground">
+              Inscreva sua equipe e aguarde o início. Acompanhe o chat para informações.
+            </p>
           </div>
-        </DialogContent>
-      </Dialog>
-    </>
+          <div>
+            <p className="font-medium mb-1">Onde encontrar a sala?</p>
+            <p className="text-muted-foreground">
+              O organizador compartilhará os dados no chat ou Discord.
+            </p>
+          </div>
+          {discordLink && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full mt-2 gap-2"
+              onClick={() => window.open(discordLink, "_blank")}
+            >
+              <MessageCircle className="w-4 h-4" />
+              Entrar no Discord
+            </Button>
+          )}
+        </div>
+      </Card>
+    </div>
   );
 };
 
