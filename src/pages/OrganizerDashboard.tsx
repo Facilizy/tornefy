@@ -49,6 +49,7 @@ import { EventLogsDialog } from "@/components/EventLogsDialog";
 import { BlacklistDialog } from "@/components/BlacklistDialog";
 import { ScoringConfigDialog } from "@/components/ScoringConfigDialog";
 import { UseTemplateDialog } from "@/components/UseTemplateDialog";
+import { TrainingWizard } from "@/components/TrainingWizard";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -432,10 +433,11 @@ const OrganizerDashboard = () => {
                 }
               }}
             >
+              <TrainingWizard userId={user?.id} onCreated={fetchTrainings} />
               <DialogTrigger asChild>
-                <Button className="bg-gradient-primary w-full sm:w-auto" size="sm">
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
-                  Criar Treino
+                  Criar Avançado
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">

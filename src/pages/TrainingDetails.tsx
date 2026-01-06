@@ -13,7 +13,6 @@ import {
   Monitor,
   Gamepad2,
   Trophy,
-  Target,
   MessageCircle,
   Video,
   Loader2,
@@ -467,22 +466,6 @@ const TrainingDetails = () => {
                     </div>
                   </div>
 
-                  <Separator className="my-4" />
-
-                  <div>
-                    <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-                      <Target className="w-4 h-4 text-primary" />
-                      Sistema de Pontuação
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Abates: <span className="text-primary font-semibold">{training.points_per_kill} pt(s)</span>
-                    </p>
-                    {training.points_per_position_text && (
-                      <div className="mt-2 text-sm text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-lg">
-                        {training.points_per_position_text}
-                      </div>
-                    )}
-                  </div>
                 </Card>
 
                 {training.prize && (
@@ -505,29 +488,17 @@ const TrainingDetails = () => {
                     </p>
                   </Card>
                 )}
-
-                {training.rules && (
-                  <Card className="p-6 bg-card/80 border-border">
-                    <h3 className="font-semibold mb-3">📋 Regras do Treino</h3>
-                    <p className="text-muted-foreground whitespace-pre-wrap text-sm">
-                      {training.rules}
-                    </p>
-                  </Card>
-                )}
               </div>
 
               {/* Sidebar - Actions */}
               <div className="space-y-4">
                 {/* Event Info Section - Regras, Pontuação, Ajuda */}
-                <Card className="p-4 bg-card/80 border-border">
-                  <h3 className="font-semibold mb-3 text-sm uppercase tracking-wide">Informações do Evento</h3>
-                  <EventInfoSection
-                    rules={training.rules}
-                    pointsPerKill={training.points_per_kill}
-                    pointsPerPositionText={training.points_per_position_text}
-                    discordLink={training.discord_link}
-                  />
-                </Card>
+                <EventInfoSection
+                  rules={training.rules}
+                  pointsPerKill={training.points_per_kill}
+                  pointsPerPositionText={training.points_per_position_text}
+                  discordLink={training.discord_link}
+                />
 
                 <Card className="p-6 bg-card/80 border-border">
                   <h3 className="font-semibold mb-4">Ações</h3>

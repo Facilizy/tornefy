@@ -613,7 +613,7 @@ const MyTeam = () => {
                       <Input
                         value={teamForm.primary_color}
                         onChange={(e) => setTeamForm({ ...teamForm, primary_color: e.target.value })}
-                        placeholder="#DC2626"
+                        placeholder="#9146FF"
                       />
                     </div>
                   </div>
