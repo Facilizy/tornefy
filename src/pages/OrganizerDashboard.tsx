@@ -353,19 +353,22 @@ const OrganizerDashboard = () => {
   return (
     <MainLayout>
       <main className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8 animate-fade-in">
+        {/* Header - Mobile Responsive */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 animate-fade-in">
           <div>
-            <h1 className="text-4xl font-bold gradient-text mb-2">
+            <h1 className="text-2xl sm:text-4xl font-bold gradient-text mb-2">
               Painel do Organizador
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-muted-foreground text-sm sm:text-base">
               Gerencie seus treinos e inscrições
             </p>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             <Button 
               variant="outline"
+              size="sm"
+              className="w-full sm:w-auto"
               onClick={() => navigate("/external-teams")}
             >
               <Users className="w-4 h-4 mr-2" />
@@ -382,12 +385,12 @@ const OrganizerDashboard = () => {
               }}
             >
               <DialogTrigger asChild>
-                <Button className="bg-gradient-primary">
+                <Button className="bg-gradient-primary w-full sm:w-auto" size="sm">
                   <Plus className="w-4 h-4 mr-2" />
                   Criar Treino
                 </Button>
               </DialogTrigger>
-              <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
               <DialogHeader>
                 <DialogTitle>
                   {editingTraining ? "Editar Treino" : "Criar Treino"}
@@ -818,7 +821,7 @@ const OrganizerDashboard = () => {
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {trainings.map((training) => (
               <Card
                 key={training.id}
@@ -882,7 +885,7 @@ const OrganizerDashboard = () => {
                   <Separator />
 
                   <div className="flex flex-col gap-2 mb-2">
-                    <div className="flex gap-2">
+                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
                       <RegisteredTeamsDialog 
                         trainingId={training.id}
                         trainingName={training.name}
@@ -900,14 +903,15 @@ const OrganizerDashboard = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-1 sm:gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => navigate(`/training/${training.id}`)}
-                      className="flex-1"
+                      className="flex-1 text-xs sm:text-sm"
                     >
-                      Ver Detalhes
+                      <span className="hidden sm:inline">Ver Detalhes</span>
+                      <span className="sm:hidden">Ver</span>
                     </Button>
                     <Button
                       size="sm"
