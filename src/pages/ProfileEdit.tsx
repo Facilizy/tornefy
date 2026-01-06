@@ -7,8 +7,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Upload, User, Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ArrowLeft, Upload, User, Loader2, Gamepad2 } from "lucide-react";
 import { toast } from "sonner";
+
+const GAMES = [
+  { id: "free_fire", name: "Free Fire", logo: "/game-logos/free-fire.png" },
+  { id: "blood_strike", name: "Blood Strike", logo: "/game-logos/blood-strike.png" },
+  { id: "farlight_84", name: "Farlight 84", logo: "/game-logos/farlight-84.png" },
+  { id: "prime_rush", name: "Prime Rush", logo: "/game-logos/prime-rush.png" },
+  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.png" },
+];
 
 const ProfileEdit = () => {
   const navigate = useNavigate();
@@ -28,6 +37,7 @@ const ProfileEdit = () => {
     tracker_url: "",
     avatar_url: "",
     banner_url: "",
+    preferred_games: [] as string[],
   });
 
   useEffect(() => {
@@ -61,6 +71,7 @@ const ProfileEdit = () => {
         tracker_url: data.tracker_url || "",
         avatar_url: data.avatar_url || "",
         banner_url: data.banner_url || "",
+        preferred_games: data.preferred_games || ["free_fire"],
       });
     } catch (error) {
       console.error("Error fetching profile:", error);
@@ -164,6 +175,7 @@ const ProfileEdit = () => {
           tracker_url: formData.tracker_url || null,
           avatar_url: formData.avatar_url || null,
           banner_url: formData.banner_url || null,
+          preferred_games: formData.preferred_games.length > 0 ? formData.preferred_games : ["free_fire"],
         })
         .eq("id", user.id);
 
@@ -363,6 +375,59 @@ const ProfileEdit = () => {
                     className="bg-background/50"
                   />
                 </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Jogos Preferidos */}
+            <div>
+              <h2 className="text-lg font-bold uppercase mb-4 flex items-center gap-2">
+                <Gamepad2 className="w-5 h-5 text-primary" />
+                Jogos Preferidos
+              </h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                Selecione os jogos que você joga para receber recomendações de scrims personalizadas.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {GAMES.map((game) => (
+                  <div
+                    key={game.id}
+                    className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                      formData.preferred_games.includes(game.id)
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => {
+                      const isSelected = formData.preferred_games.includes(game.id);
+                      setFormData({
+                        ...formData,
+                        preferred_games: isSelected
+                          ? formData.preferred_games.filter((g) => g !== game.id)
+                          : [...formData.preferred_games, game.id],
+                      });
+                    }}
+                  >
+                    <Checkbox
+                      checked={formData.preferred_games.includes(game.id)}
+                      onCheckedChange={() => {
+                        const isSelected = formData.preferred_games.includes(game.id);
+                        setFormData({
+                          ...formData,
+                          preferred_games: isSelected
+                            ? formData.preferred_games.filter((g) => g !== game.id)
+                            : [...formData.preferred_games, game.id],
+                        });
+                      }}
+                    />
+                    <img
+                      src={game.logo}
+                      alt={game.name}
+                      className="w-8 h-8 rounded object-cover"
+                    />
+                    <Label className="cursor-pointer flex-1">{game.name}</Label>
+                  </div>
+                ))}
               </div>
             </div>
 
