@@ -22,6 +22,7 @@ import {
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
+import TeamBadges from "@/components/TeamBadges";
 
 interface TeamMember {
   id: string;
@@ -36,6 +37,7 @@ const TeamProfile = () => {
   const { teamId } = useParams();
   const [team, setTeam] = useState<any>(null);
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [badges, setBadges] = useState<any[]>([]);
   const [stats, setStats] = useState({
     totalMatches: 0,
     wins: 0,
@@ -77,6 +79,14 @@ const TeamProfile = () => {
 
       if (teamError) throw teamError;
       setTeam(teamData);
+
+      // Fetch team badges
+      const { data: badgesData } = await supabase
+        .from("team_badges")
+        .select("*")
+        .eq("team_id", teamId);
+      
+      setBadges(badgesData || []);
 
       const { data: membersData } = await supabase
         .from("team_members")
@@ -219,7 +229,13 @@ const TeamProfile = () => {
                 </div>
 
                 {team.bio && (
-                  <p className="text-muted-foreground">{team.bio}</p>
+                  <p className="text-muted-foreground mb-3">{team.bio}</p>
+                )}
+
+                {badges.length > 0 && (
+                  <div className="mt-3">
+                    <TeamBadges badges={badges} compact />
+                  </div>
                 )}
               </div>
             </div>

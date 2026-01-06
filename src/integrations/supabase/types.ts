@@ -116,6 +116,38 @@ export type Database = {
         }
         Relationships: []
       }
+      team_badges: {
+        Row: {
+          badge_count: number
+          badge_type: string
+          earned_at: string
+          id: string
+          team_id: string
+        }
+        Insert: {
+          badge_count?: number
+          badge_type: string
+          earned_at?: string
+          id?: string
+          team_id: string
+        }
+        Update: {
+          badge_count?: number
+          badge_type?: string
+          earned_at?: string
+          id?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_badges_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_bans: {
         Row: {
           banned_until: string
@@ -139,6 +171,66 @@ export type Database = {
           team_tag?: string
         }
         Relationships: []
+      }
+      team_invites: {
+        Row: {
+          created_at: string
+          external_discord: string | null
+          external_game_id: string | null
+          external_player_name: string | null
+          id: string
+          invited_user_id: string | null
+          invited_username: string | null
+          is_external: boolean
+          permission: string
+          status: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          external_discord?: string | null
+          external_game_id?: string | null
+          external_player_name?: string | null
+          id?: string
+          invited_user_id?: string | null
+          invited_username?: string | null
+          is_external?: boolean
+          permission?: string
+          status?: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          external_discord?: string | null
+          external_game_id?: string | null
+          external_player_name?: string | null
+          id?: string
+          invited_user_id?: string | null
+          invited_username?: string | null
+          is_external?: boolean
+          permission?: string
+          status?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invites_invited_user_id_fkey"
+            columns: ["invited_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_invites_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_members: {
         Row: {
@@ -568,9 +660,11 @@ export type Database = {
           points_per_kill: number
           points_per_position: Json
           points_per_position_text: string | null
+          primary_color: string | null
           prize: string | null
           rounds: number
           rules: string | null
+          secondary_color: string | null
           updated_at: string
         }
         Insert: {
@@ -587,9 +681,11 @@ export type Database = {
           points_per_kill?: number
           points_per_position?: Json
           points_per_position_text?: string | null
+          primary_color?: string | null
           prize?: string | null
           rounds?: number
           rules?: string | null
+          secondary_color?: string | null
           updated_at?: string
         }
         Update: {
@@ -606,9 +702,11 @@ export type Database = {
           points_per_kill?: number
           points_per_position?: Json
           points_per_position_text?: string | null
+          primary_color?: string | null
           prize?: string | null
           rounds?: number
           rules?: string | null
+          secondary_color?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -642,9 +740,11 @@ export type Database = {
           points_per_kill: number
           points_per_position: Json
           points_per_position_text: string | null
+          primary_color: string | null
           prize: string | null
           rounds: number
           rules: string | null
+          secondary_color: string | null
           status: string | null
           table_image_url: string | null
           updated_at: string
@@ -669,9 +769,11 @@ export type Database = {
           points_per_kill?: number
           points_per_position?: Json
           points_per_position_text?: string | null
+          primary_color?: string | null
           prize?: string | null
           rounds?: number
           rules?: string | null
+          secondary_color?: string | null
           status?: string | null
           table_image_url?: string | null
           updated_at?: string
@@ -696,9 +798,11 @@ export type Database = {
           points_per_kill?: number
           points_per_position?: Json
           points_per_position_text?: string | null
+          primary_color?: string | null
           prize?: string | null
           rounds?: number
           rules?: string | null
+          secondary_color?: string | null
           status?: string | null
           table_image_url?: string | null
           updated_at?: string
@@ -760,7 +864,7 @@ export type Database = {
         | "prime_rush"
         | "battlefield_6"
       mode_type: "Solo" | "Duo" | "Squad"
-      platform_type: "PC" | "Mobile" | "Misto"
+      platform_type: "PC" | "Mobile" | "Misto" | "console"
       player_function: "RUSH" | "SUPORTE" | "CAPITÃO"
       user_role: "player" | "organizer"
     }
@@ -898,7 +1002,7 @@ export const Constants = {
         "battlefield_6",
       ],
       mode_type: ["Solo", "Duo", "Squad"],
-      platform_type: ["PC", "Mobile", "Misto"],
+      platform_type: ["PC", "Mobile", "Misto", "console"],
       player_function: ["RUSH", "SUPORTE", "CAPITÃO"],
       user_role: ["player", "organizer"],
     },

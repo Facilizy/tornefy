@@ -26,6 +26,7 @@ import {
   Star,
   TrendingUp,
 } from "lucide-react";
+import TeamBadges from "@/components/TeamBadges";
 
 interface TeamRanking {
   id: string;
@@ -37,6 +38,7 @@ interface TeamRanking {
   memberCount: number;
   primary_color: string;
   region: string;
+  badges: any[];
 }
 
 const Ranking = () => {
@@ -56,7 +58,8 @@ const Ranking = () => {
         .from("teams")
         .select(`
           *,
-          team_members(count)
+          team_members(count),
+          team_badges(*)
         `)
         .eq("is_external", false)
         .order("rating", { ascending: false });
@@ -68,11 +71,12 @@ const Ranking = () => {
         name: team.name,
         tag: team.tag,
         logo_url: team.logo_url,
-        rating: team.rating || 1000,
+        rating: team.rating || 0,
         is_verified: team.is_verified || false,
         memberCount: team.team_members?.[0]?.count || 0,
         primary_color: team.primary_color || "#9146FF",
         region: team.region || "BR",
+        badges: team.team_badges || [],
       })) as TeamRanking[];
 
       setTeams(teamsWithCount || []);
@@ -281,7 +285,14 @@ const Ranking = () => {
                       </Badge>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">[{team.tag}]</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm text-muted-foreground">[{team.tag}]</p>
+                    {team.badges.length > 0 && (
+                      <div className="hidden sm:block">
+                        <TeamBadges badges={team.badges} compact />
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Members */}

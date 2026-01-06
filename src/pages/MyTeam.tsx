@@ -45,6 +45,7 @@ import {
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import TeamInviteDialog from "@/components/TeamInviteDialog";
 
 const MyTeam = () => {
   const navigate = useNavigate();
@@ -379,17 +380,26 @@ const MyTeam = () => {
     if (!confirm("Deseja realmente excluir sua equipe? Esta ação não pode ser desfeita e você será removido de todos os treinos!")) return;
 
     try {
+      // First delete related records that might not have CASCADE
+      await supabase.from("team_members").delete().eq("team_id", team.id);
+      await supabase.from("team_invites").delete().eq("team_id", team.id);
+      
       const { error } = await supabase
         .from("teams")
         .delete()
-        .eq("id", team.id);
+        .eq("id", team.id)
+        .eq("owner_id", user?.id); // Ensure only owner can delete
 
-      if (error) throw error;
+      if (error) {
+        console.error("Delete error:", error);
+        throw error;
+      }
       toast.success("Equipe excluída!");
       setTeam(null);
       setMembers([]);
     } catch (error: any) {
-      toast.error("Erro ao excluir equipe");
+      console.error("Full delete error:", error);
+      toast.error(error.message || "Erro ao excluir equipe. Tente novamente.");
     }
   };
 
@@ -854,22 +864,24 @@ const MyTeam = () => {
                   <Users className="w-5 h-5 text-primary" />
                   <h2 className="font-bold uppercase">MEMBROS ({members.length})</h2>
                 </div>
-                <Dialog
-                  open={memberDialogOpen}
-                  onOpenChange={(open) => {
-                    setMemberDialogOpen(open);
-                    if (!open) {
-                      setEditingMember(null);
-                      setMemberForm({ player_name: "", game_id: "", discord: "", function: "RUSH" });
-                    }
-                  }}
-                >
-                  <DialogTrigger asChild>
-                    <Button className="bg-primary hover:bg-primary/90">
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      Convidar Jogador
-                    </Button>
-                  </DialogTrigger>
+                <div className="flex gap-2">
+                  <TeamInviteDialog teamId={team.id} onInviteSent={fetchMembers} />
+                  <Dialog
+                    open={memberDialogOpen}
+                    onOpenChange={(open) => {
+                      setMemberDialogOpen(open);
+                      if (!open) {
+                        setEditingMember(null);
+                        setMemberForm({ player_name: "", game_id: "", discord: "", function: "RUSH" });
+                      }
+                    }}
+                  >
+                    <DialogTrigger asChild>
+                      <Button className="bg-primary hover:bg-primary/90">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Adicionar Manual
+                      </Button>
+                    </DialogTrigger>
                   <DialogContent className="bg-card border-border">
                     <DialogHeader>
                       <DialogTitle>{editingMember ? "Editar Membro" : "Adicionar Membro"}</DialogTitle>
@@ -923,6 +935,7 @@ const MyTeam = () => {
                     </form>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {members.length === 0 ? (
