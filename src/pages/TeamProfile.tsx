@@ -148,7 +148,7 @@ const TeamProfile = () => {
     );
   }
 
-  const primaryColor = team.primary_color || "#DC2626";
+  const primaryColor = team.primary_color || "#9146FF";
   const secondaryColor = team.secondary_color || "#1F2937";
 
   return (

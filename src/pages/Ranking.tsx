@@ -117,17 +117,22 @@ const Ranking = () => {
 
   return (
     <MainLayout>
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8 text-center">
+      {/* Purple Header Banner */}
+      <div className="relative py-16 mb-8 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+        <div className="container mx-auto px-4 relative z-10 text-center">
           <div className="flex items-center justify-center gap-2 mb-2">
             <Trophy className="w-8 h-8 text-primary" />
-            <h1 className="text-3xl md:text-4xl font-black uppercase">Ranking</h1>
+            <h1 className="text-3xl md:text-5xl font-black uppercase text-primary">Ranking</h1>
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground max-w-md mx-auto">
             Classificação das equipes por T-Rating
           </p>
         </div>
+      </div>
+
+      <div className="container mx-auto px-4 pb-8">
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

@@ -339,24 +339,9 @@ const ProfileEdit = () => {
               />
             </div>
 
-            {/* Tracker URL */}
-            <div className="space-y-2">
-              <Label htmlFor="tracker_url">Link do Tracker</Label>
-              <Input
-                id="tracker_url"
-                placeholder="https://tracker.gg/bf6/profile/123456/overview"
-                value={formData.tracker_url}
-                onChange={(e) =>
-                  setFormData({ ...formData, tracker_url: e.target.value })
-                }
-                className="bg-background/50"
-              />
-              <p className="text-xs text-muted-foreground">
-                Cole a URL completa do seu perfil no Tracker.gg
-              </p>
-            </div>
-
             <Separator />
+
+            {/* Jogos Preferidos */}
 
             {/* Social Section */}
             <div>
