@@ -38,6 +38,7 @@ import { MatchesTab } from "@/components/MatchesTab";
 import { SaveTemplateDialog } from "@/components/SaveTemplateDialog";
 import { FloatingChat } from "@/components/FloatingChat";
 import { EventInfoSection } from "@/components/EventInfoSection";
+import { TrainingColorEditor } from "@/components/TrainingColorEditor";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -350,7 +351,14 @@ const TrainingDetails = () => {
         </Button>
 
         {/* Banner - Fixed height 400px for page banner */}
-        <div className="relative h-[200px] sm:h-[300px] lg:h-[400px] rounded-2xl overflow-hidden mb-6">
+        <div 
+          className="relative h-[200px] sm:h-[300px] lg:h-[400px] rounded-2xl overflow-hidden mb-6"
+          style={{
+            background: !training.banner_url 
+              ? `linear-gradient(135deg, ${training.primary_color || '#9146FF'} 0%, ${training.secondary_color || '#1F2937'} 100%)`
+              : undefined
+          }}
+        >
           {training.banner_url ? (
             <img
               src={training.banner_url}
@@ -358,23 +366,33 @@ const TrainingDetails = () => {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-primary flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center">
               <Trophy className="w-20 h-20 text-white/20" />
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           
-          {/* Status badges */}
-          <div className="absolute top-4 left-4 flex gap-2">
-            {training.status && (
-              <Badge variant="secondary" className="backdrop-blur-sm">
-                {training.status}
-              </Badge>
-            )}
-            {training.is_live && (
-              <Badge className="bg-destructive backdrop-blur-sm">
-                ● AO VIVO
-              </Badge>
+          {/* Status badges and color editor */}
+          <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
+            <div className="flex gap-2">
+              {training.status && (
+                <Badge variant="secondary" className="backdrop-blur-sm">
+                  {training.status}
+                </Badge>
+              )}
+              {training.is_live && (
+                <Badge className="bg-destructive backdrop-blur-sm">
+                  ● AO VIVO
+                </Badge>
+              )}
+            </div>
+            {isOrganizer && (
+              <TrainingColorEditor
+                trainingId={id!}
+                currentPrimaryColor={training.primary_color || "#9146FF"}
+                currentSecondaryColor={training.secondary_color || "#1F2937"}
+                onColorsUpdated={fetchTrainingDetails}
+              />
             )}
           </div>
           
@@ -390,7 +408,10 @@ const TrainingDetails = () => {
               <Badge variant="outline" className="backdrop-blur-sm border-white/30 text-white">
                 {training.mode}
               </Badge>
-              <Badge className="bg-primary/80 backdrop-blur-sm">
+              <Badge 
+                className="backdrop-blur-sm"
+                style={{ backgroundColor: training.primary_color || '#9146FF' }}
+              >
                 {format(new Date(training.datetime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
               </Badge>
             </div>
