@@ -26,7 +26,7 @@ const Auth = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   
   // Valid organizer invite codes
-  const VALID_ORGANIZER_CODES = ["TORNEFY2024", "ORGANIZER-VIP"];
+  const VALID_ORGANIZER_CODES = ["TORNEFY2024", "ORGANIZER-VIP", "TORNEFYPREMIUM"];
 
   // Reset accepted terms when switching between login/signup
   useEffect(() => {
