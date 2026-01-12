@@ -306,6 +306,8 @@ const TrainingDetails = () => {
   };
 
   const isOrganizer = profile?.role === "organizer" && training?.organizer_id === user?.id;
+  const eventPrimaryColor = training?.primary_color || "#9146FF";
+  const eventSecondaryColor = training?.secondary_color || "#1F2937";
 
   if (loading) {
     return (
@@ -457,11 +459,16 @@ const TrainingDetails = () => {
               {/* Main Info */}
               <div className="lg:col-span-2 space-y-6">
                 <Card className="p-6 bg-card/80 border-border">
-                  <h2 className="text-xl font-bold mb-4 gradient-text">Informações do Treino</h2>
+                  <h2 
+                    className="text-xl font-bold mb-4"
+                    style={{ color: eventPrimaryColor }}
+                  >
+                    Informações do Treino
+                  </h2>
                   
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-primary" />
+                      <Calendar className="w-5 h-5" style={{ color: eventPrimaryColor }} />
                       <div>
                         <p className="text-xs text-muted-foreground">Data</p>
                         <p className="font-semibold text-sm">
@@ -470,7 +477,7 @@ const TrainingDetails = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Users className="w-5 h-5 text-primary" />
+                      <Users className="w-5 h-5" style={{ color: eventPrimaryColor }} />
                       <div>
                         <p className="text-xs text-muted-foreground">Vagas</p>
                         <p className="font-semibold text-sm">
@@ -479,7 +486,7 @@ const TrainingDetails = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <Trophy className="w-5 h-5 text-primary" />
+                      <Trophy className="w-5 h-5" style={{ color: eventPrimaryColor }} />
                       <div>
                         <p className="text-xs text-muted-foreground">Rodadas</p>
                         <p className="font-semibold text-sm">{training.rounds}</p>
@@ -492,18 +499,29 @@ const TrainingDetails = () => {
                 {training.prize && (
                   <Card className="p-6 bg-card/80 border-border">
                     <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-primary" />
+                      <Trophy className="w-5 h-5" style={{ color: eventPrimaryColor }} />
                       Premiação
                     </h3>
-                    <p className="text-muted-foreground whitespace-pre-wrap bg-primary/5 p-4 rounded-lg border border-primary/20 text-sm">
+                    <p 
+                      className="text-muted-foreground whitespace-pre-wrap p-4 rounded-lg text-sm"
+                      style={{ 
+                        backgroundColor: `${eventPrimaryColor}10`,
+                        border: `1px solid ${eventPrimaryColor}30`
+                      }}
+                    >
                       {training.prize}
                     </p>
                   </Card>
                 )}
 
                 {training.important_info && (
-                  <Card className="p-6 bg-card/80 border-border border-l-4 border-l-primary">
-                    <h3 className="font-semibold mb-3 text-primary">⚠️ Informações Importantes</h3>
+                  <Card 
+                    className="p-6 bg-card/80 border-border border-l-4"
+                    style={{ borderLeftColor: eventPrimaryColor }}
+                  >
+                    <h3 className="font-semibold mb-3" style={{ color: eventPrimaryColor }}>
+                      ⚠️ Informações Importantes
+                    </h3>
                     <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                       {training.important_info}
                     </p>
@@ -534,7 +552,8 @@ const TrainingDetails = () => {
                             registeredTeams.length >= training.max_slots ||
                             training.status !== "INSCRIÇÕES ABERTAS"
                           }
-                          className="w-full bg-gradient-primary"
+                          className="w-full"
+                          style={{ backgroundColor: eventPrimaryColor }}
                         >
                           {actionLoading ? (
                             <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -662,7 +681,10 @@ const TrainingDetails = () => {
           <TabsContent value="teams">
             <Card className="p-6 bg-card/80 border-border">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 className="text-xl font-bold gradient-text">
+                <h2 
+                  className="text-xl font-bold"
+                  style={{ color: eventPrimaryColor }}
+                >
                   Equipes Confirmadas ({registeredTeams.length})
                 </h2>
                 {isOrganizer && (
@@ -755,7 +777,10 @@ const TrainingDetails = () => {
           {(isOrganizer || isRegistered) && (
             <TabsContent value="chat">
               <Card className="p-0 bg-card/80 border-border overflow-hidden">
-                <div className="bg-gradient-primary p-4 flex items-center gap-2">
+                <div 
+                  className="p-4 flex items-center gap-2 text-white"
+                  style={{ backgroundColor: eventPrimaryColor }}
+                >
                   <MessageCircle className="w-5 h-5" />
                   <h2 className="font-semibold">Chat do Treino</h2>
                   <Badge variant="secondary" className="ml-auto">
@@ -807,7 +832,11 @@ const TrainingDetails = () => {
 
       {/* Floating Chat */}
       {(isOrganizer || isRegistered) && (
-        <FloatingChat trainingId={id!} isOrganizer={isOrganizer} />
+        <FloatingChat 
+          trainingId={id!} 
+          isOrganizer={isOrganizer} 
+          primaryColor={eventPrimaryColor}
+        />
       )}
     </MainLayout>
   );
