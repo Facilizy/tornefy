@@ -442,6 +442,7 @@ export type Database = {
       }
       training_match_scores: {
         Row: {
+          bonus_points: number
           created_at: string
           id: string
           kill_points: number
@@ -453,6 +454,7 @@ export type Database = {
           total_points: number
         }
         Insert: {
+          bonus_points?: number
           created_at?: string
           id?: string
           kill_points?: number
@@ -464,6 +466,7 @@ export type Database = {
           total_points?: number
         }
         Update: {
+          bonus_points?: number
           created_at?: string
           id?: string
           kill_points?: number
