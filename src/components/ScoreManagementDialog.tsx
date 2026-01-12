@@ -49,6 +49,7 @@ interface MatchScore {
   team_id: string;
   position: number;
   kills: number;
+  bonus_points: number;
 }
 
 interface PositionPoint {
@@ -158,6 +159,7 @@ export function ScoreManagementDialog({
         team_id: s.team_id,
         position: s.position,
         kills: s.kills,
+        bonus_points: (s as any).bonus_points || 0,
       })));
     } else {
       setScores([]);
@@ -271,7 +273,7 @@ export function ScoreManagementDialog({
       nextPosition++;
     }
 
-    setScores([...scores, { team_id: teamId, position: nextPosition, kills: 0 }]);
+    setScores([...scores, { team_id: teamId, position: nextPosition, kills: 0, bonus_points: 0 }]);
   };
 
   const updateTeamPosition = (teamId: string, newPosition: number) => {
@@ -297,10 +299,16 @@ export function ScoreManagementDialog({
     setScores(scores.filter(s => s.team_id !== teamId));
   };
 
-  const calculatePoints = (position: number, kills: number) => {
+  const updateTeamBonusPoints = (teamId: string, bonus: number) => {
+    setScores(scores.map(s => 
+      s.team_id === teamId ? { ...s, bonus_points: bonus } : s
+    ));
+  };
+
+  const calculatePoints = (position: number, kills: number, bonusPoints: number = 0) => {
     const posPoints = positionPointsMap[position] || 0;
     const killPoints = kills * pointsPerKill;
-    return { posPoints, killPoints, total: posPoints + killPoints };
+    return { posPoints, killPoints, bonusPoints, total: posPoints + killPoints + bonusPoints };
   };
 
   const saveScores = async () => {
@@ -320,7 +328,7 @@ export function ScoreManagementDialog({
 
       // Insert new scores
       const scoresToInsert = scores.map(s => {
-        const pts = calculatePoints(s.position, s.kills);
+        const pts = calculatePoints(s.position, s.kills, s.bonus_points);
         return {
           match_id: selectedMatch,
           team_id: s.team_id,
@@ -328,6 +336,7 @@ export function ScoreManagementDialog({
           kills: s.kills,
           position_points: pts.posPoints,
           kill_points: pts.killPoints,
+          bonus_points: s.bonus_points,
           total_points: pts.total,
         };
       });
@@ -486,7 +495,7 @@ export function ScoreManagementDialog({
                     .sort((a, b) => a.position - b.position)
                     .map((score) => {
                       const team = teams.find(t => t.id === score.team_id);
-                      const pts = calculatePoints(score.position, score.kills);
+                      const pts = calculatePoints(score.position, score.kills, score.bonus_points);
                       
                       return (
                         <Card key={score.team_id} className="p-4">
@@ -542,6 +551,18 @@ export function ScoreManagementDialog({
                               />
                             </div>
 
+                            {/* Bonus Points */}
+                            <div>
+                              <Label className="text-xs">Bônus</Label>
+                              <Input
+                                type="number"
+                                value={score.bonus_points}
+                                onChange={(e) => updateTeamBonusPoints(score.team_id, parseInt(e.target.value) || 0)}
+                                className="w-20"
+                                placeholder="±"
+                              />
+                            </div>
+
                             {/* Points Display */}
                             <div className="flex items-center gap-4 text-sm">
                               <div>
@@ -552,6 +573,14 @@ export function ScoreManagementDialog({
                                 <span className="text-muted-foreground">Kills:</span>
                                 <span className="ml-1 font-semibold text-primary">{pts.killPoints}</span>
                               </div>
+                              {pts.bonusPoints !== 0 && (
+                                <div>
+                                  <span className="text-muted-foreground">Bônus:</span>
+                                  <span className={`ml-1 font-semibold ${pts.bonusPoints > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {pts.bonusPoints > 0 ? '+' : ''}{pts.bonusPoints}
+                                  </span>
+                                </div>
+                              )}
                               <div>
                                 <span className="text-muted-foreground">Total:</span>
                                 <span className="ml-1 font-bold text-primary">{pts.total}</span>
