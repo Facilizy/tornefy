@@ -20,9 +20,10 @@ interface Message {
 interface FloatingChatProps {
   trainingId: string;
   isOrganizer: boolean;
+  primaryColor?: string;
 }
 
-export function FloatingChat({ trainingId, isOrganizer }: FloatingChatProps) {
+export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF" }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -139,7 +140,8 @@ export function FloatingChat({ trainingId, isOrganizer }: FloatingChatProps) {
     return (
       <Button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-primary shadow-lg z-50"
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg z-50"
+        style={{ backgroundColor: primaryColor }}
         size="icon"
       >
         <MessageCircle className="w-6 h-6" />
@@ -162,7 +164,10 @@ export function FloatingChat({ trainingId, isOrganizer }: FloatingChatProps) {
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-3 bg-gradient-primary rounded-t-2xl">
+      <div 
+        className="flex items-center justify-between p-3 rounded-t-2xl"
+        style={{ backgroundColor: primaryColor }}
+      >
         <div className="flex items-center gap-2 text-white">
           <MessageCircle className="w-5 h-5" />
           <span className="font-semibold">Chat do Treino</span>
@@ -201,7 +206,7 @@ export function FloatingChat({ trainingId, isOrganizer }: FloatingChatProps) {
           >
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                <Loader2 className="w-6 h-6 animate-spin" style={{ color: primaryColor }} />
               </div>
             ) : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
@@ -211,7 +216,13 @@ export function FloatingChat({ trainingId, isOrganizer }: FloatingChatProps) {
             ) : (
               messages.map((msg) => (
                 <div key={msg.id} className="space-y-1">
-                  <div className="bg-primary/10 rounded-lg p-3 border-l-2 border-primary">
+                  <div 
+                    className="rounded-lg p-3 border-l-2"
+                    style={{ 
+                      backgroundColor: `${primaryColor}15`,
+                      borderLeftColor: primaryColor 
+                    }}
+                  >
                     <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -238,7 +249,8 @@ export function FloatingChat({ trainingId, isOrganizer }: FloatingChatProps) {
                   onClick={handleSendMessage}
                   disabled={!newMessage.trim() || sending}
                   size="icon"
-                  className="flex-shrink-0 bg-gradient-primary"
+                  className="flex-shrink-0"
+                  style={{ backgroundColor: primaryColor }}
                 >
                   {sending ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
