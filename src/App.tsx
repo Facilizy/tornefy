@@ -18,6 +18,7 @@ import NotFound from "./pages/NotFound";
 import Scrims from "./pages/Scrims";
 import Ranking from "./pages/Ranking";
 import Terms from "./pages/Terms";
+import PendingInvites from "./pages/PendingInvites";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,7 @@ const App = () => (
           <Route path="/profile" element={<UserProfile />} />
           <Route path="/profile/:userId" element={<UserProfile />} />
           <Route path="/team/:teamId" element={<TeamProfile />} />
+          <Route path="/invites" element={<PendingInvites />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

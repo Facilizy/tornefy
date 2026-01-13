@@ -422,25 +422,48 @@ const TrainingDetails = () => {
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="w-full grid grid-cols-3 sm:grid-cols-6 bg-card/80 border border-border p-1 h-auto">
-            <TabsTrigger value="overview" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsList 
+            className="w-full grid grid-cols-3 sm:grid-cols-6 bg-card/80 border border-border p-1 h-auto"
+            style={{ '--tabs-active-bg': eventPrimaryColor } as React.CSSProperties}
+          >
+            <TabsTrigger 
+              value="overview" 
+              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
+              style={activeTab === "overview" ? { backgroundColor: eventPrimaryColor } : {}}
+            >
               <Info className="w-4 h-4" />
               <span className="hidden sm:inline">Visão Geral</span>
             </TabsTrigger>
-            <TabsTrigger value="ranking" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger 
+              value="ranking" 
+              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
+              style={activeTab === "ranking" ? { backgroundColor: eventPrimaryColor } : {}}
+            >
               <Medal className="w-4 h-4" />
               <span className="hidden sm:inline">Ranking</span>
             </TabsTrigger>
-            <TabsTrigger value="teams" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger 
+              value="teams" 
+              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
+              style={activeTab === "teams" ? { backgroundColor: eventPrimaryColor } : {}}
+            >
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Equipes</span>
             </TabsTrigger>
-            <TabsTrigger value="matches" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+            <TabsTrigger 
+              value="matches" 
+              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
+              style={activeTab === "matches" ? { backgroundColor: eventPrimaryColor } : {}}
+            >
               <Swords className="w-4 h-4" />
               <span className="hidden sm:inline">Partidas</span>
             </TabsTrigger>
             {(isOrganizer || isRegistered) && (
-              <TabsTrigger value="chat" className="gap-2 py-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger 
+                value="chat" 
+                className="gap-2 py-2 data-[state=active]:text-white transition-colors"
+                style={activeTab === "chat" ? { backgroundColor: eventPrimaryColor } : {}}
+              >
                 <MessageCircle className="w-4 h-4" />
                 <span className="hidden sm:inline">Chat</span>
               </TabsTrigger>
@@ -535,8 +558,16 @@ const TrainingDetails = () => {
                 <EventInfoSection
                   rules={training.rules}
                   pointsPerKill={training.points_per_kill}
+                  pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
                   pointsPerPositionText={training.points_per_position_text}
                   discordLink={training.discord_link}
+                  primaryColor={eventPrimaryColor}
+                  platform={training.platform}
+                  mode={training.mode}
+                  game={training.game}
+                  status={training.status}
+                  maxSlots={training.max_slots}
+                  rounds={training.rounds}
                 />
 
                 <Card className="p-6 bg-card/80 border-border">
