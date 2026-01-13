@@ -399,24 +399,9 @@ const TrainingDetails = () => {
           </div>
           
           <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 right-4">
-            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white mb-2 uppercase">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white uppercase">
               {training.name}
             </h1>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="backdrop-blur-sm">
-                {getPlatformIcon(training.platform)}
-                <span className="ml-1">{training.platform}</span>
-              </Badge>
-              <Badge variant="outline" className="backdrop-blur-sm border-white/30 text-white">
-                {training.mode}
-              </Badge>
-              <Badge 
-                className="backdrop-blur-sm"
-                style={{ backgroundColor: training.primary_color || '#9146FF' }}
-              >
-                {format(new Date(training.datetime), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-              </Badge>
-            </div>
           </div>
         </div>
 
@@ -562,12 +547,6 @@ const TrainingDetails = () => {
                   pointsPerPositionText={training.points_per_position_text}
                   discordLink={training.discord_link}
                   primaryColor={eventPrimaryColor}
-                  platform={training.platform}
-                  mode={training.mode}
-                  game={training.game}
-                  status={training.status}
-                  maxSlots={training.max_slots}
-                  rounds={training.rounds}
                 />
 
                 <Card className="p-6 bg-card/80 border-border">
@@ -699,6 +678,7 @@ const TrainingDetails = () => {
                 tag: r.teams.tag,
                 logo_url: r.teams.logo_url,
               }))}
+              primaryColor={eventPrimaryColor}
             />
             {registeredTeams.length === 0 && (
               <Card className="p-12 text-center bg-card/80">
@@ -801,6 +781,7 @@ const TrainingDetails = () => {
               pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
               tableImageUrl={training.table_image_url}
               onScoresUpdated={fetchTrainingDetails}
+              primaryColor={eventPrimaryColor}
             />
           </TabsContent>
 

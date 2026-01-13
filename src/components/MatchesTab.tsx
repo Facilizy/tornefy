@@ -51,6 +51,7 @@ interface MatchesTabProps {
   pointsPerPosition: PositionPoint[];
   tableImageUrl?: string;
   onScoresUpdated: () => void;
+  primaryColor?: string;
 }
 
 export function MatchesTab({
@@ -61,6 +62,7 @@ export function MatchesTab({
   pointsPerPosition,
   tableImageUrl,
   onScoresUpdated,
+  primaryColor = "#9146FF",
 }: MatchesTabProps) {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -154,7 +156,7 @@ export function MatchesTab({
   return (
     <Card className="p-6 bg-card/80 border-border">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-xl font-bold gradient-text">Partidas</h2>
+        <h2 className="text-xl font-bold" style={{ color: primaryColor }}>Partidas</h2>
         {isOrganizer && (
           <ScoreManagementDialog
             trainingId={trainingId}
@@ -172,9 +174,9 @@ export function MatchesTab({
       {tableImageUrl && (
         <div className="mb-6">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <Trophy className="w-4 h-4 text-primary" />
-            Tabela de Resultados
-          </h3>
+              <Trophy className="w-4 h-4" style={{ color: primaryColor }} />
+              Tabela de Resultados
+            </h3>
           <img
             src={tableImageUrl}
             alt="Tabela de resultados"
@@ -196,7 +198,7 @@ export function MatchesTab({
           {/* Round Selection */}
           <div>
             <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
+              <Target className="w-4 h-4" style={{ color: primaryColor }} />
               Selecione a Rodada
             </h3>
             <div className="flex flex-wrap gap-2">
@@ -206,7 +208,7 @@ export function MatchesTab({
                   variant={selectedRound === round.id ? "default" : "outline"}
                   size="sm"
                   onClick={() => setSelectedRound(round.id)}
-                  className={selectedRound === round.id ? "bg-gradient-primary" : ""}
+                  style={selectedRound === round.id ? { backgroundColor: primaryColor } : {}}
                 >
                   {round.name}
                 </Button>
@@ -220,7 +222,7 @@ export function MatchesTab({
           {selectedRound && matches.length > 0 && (
             <div>
               <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Swords className="w-4 h-4 text-primary" />
+                <Swords className="w-4 h-4" style={{ color: primaryColor }} />
                 Quedas - {selectedRoundData?.name}
               </h3>
               <div className="flex flex-wrap gap-2 mb-6">
@@ -230,7 +232,7 @@ export function MatchesTab({
                     variant={selectedMatch === match.id ? "default" : "outline"}
                     size="sm"
                     onClick={() => setSelectedMatch(match.id)}
-                    className={selectedMatch === match.id ? "bg-gradient-primary" : ""}
+                    style={selectedMatch === match.id ? { backgroundColor: primaryColor } : {}}
                   >
                     {match.name}
                     {match.map_name && (
@@ -251,7 +253,7 @@ export function MatchesTab({
           {selectedMatch && scores.length > 0 && (
             <div>
               <h3 className="font-semibold mb-4 flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-primary" />
+                <Trophy className="w-4 h-4" style={{ color: primaryColor }} />
                 Resultado: {selectedMatchData?.name}
                 {selectedMatchData?.map_name && (
                   <Badge variant="outline" className="ml-2">
@@ -312,7 +314,7 @@ export function MatchesTab({
                       <div className="flex items-center gap-4 text-sm">
                         <div className="text-center">
                           <p className="text-xs text-muted-foreground">Kills</p>
-                          <p className="font-bold text-primary">{score.kills}</p>
+                          <p className="font-bold" style={{ color: primaryColor }}>{score.kills}</p>
                         </div>
                         <ChevronRight className="w-4 h-4 text-muted-foreground" />
                         <div className="text-center">
