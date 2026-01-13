@@ -44,9 +44,10 @@ interface Round {
 interface ScoreboardProps {
   trainingId: string;
   teams: Team[];
+  primaryColor?: string;
 }
 
-export function Scoreboard({ trainingId, teams }: ScoreboardProps) {
+export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: ScoreboardProps) {
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("all");
@@ -186,7 +187,7 @@ export function Scoreboard({ trainingId, teams }: ScoreboardProps) {
     <Card className="p-6 backdrop-blur-sm bg-card/80 border-border">
       <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
         <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
-          <Trophy className="w-6 h-6 text-primary" />
+          <Trophy className="w-6 h-6" style={{ color: primaryColor }} />
           Classificação Geral
         </h2>
         <div className="flex items-center gap-2">
@@ -220,7 +221,7 @@ export function Scoreboard({ trainingId, teams }: ScoreboardProps) {
                   K
                 </div>
               </TableHead>
-              <TableHead className="text-center text-primary font-bold">Pts</TableHead>
+              <TableHead className="text-center font-bold" style={{ color: primaryColor }}>Pts</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -259,7 +260,7 @@ export function Scoreboard({ trainingId, teams }: ScoreboardProps) {
                   </Badge>
                 </TableCell>
                 <TableCell className="text-center">
-                  <span className="text-lg font-bold text-primary">{standing.totalPoints}</span>
+                  <span className="text-lg font-bold" style={{ color: primaryColor }}>{standing.totalPoints}</span>
                 </TableCell>
               </TableRow>
             ))}
