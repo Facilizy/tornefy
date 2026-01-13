@@ -1,12 +1,18 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogOut, User } from "lucide-react";
+import { LogOut, User, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { NotificationBell } from "@/components/NotificationBell";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useState, useEffect } from "react";
 import TornefyLogo from "@/components/TornefyLogo";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface HeaderProps {
   user?: any;
@@ -16,10 +22,12 @@ const Header = ({ user }: HeaderProps) => {
   const navigate = useNavigate();
   const { role } = useUserRole(user?.id);
   const [profile, setProfile] = useState<any>(null);
+  const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
 
   useEffect(() => {
     if (user?.id) {
       fetchProfile(user.id);
+      fetchPendingInvites(user.id);
     }
   }, [user?.id]);
 
@@ -31,6 +39,16 @@ const Header = ({ user }: HeaderProps) => {
       .maybeSingle();
     
     setProfile(data);
+  };
+
+  const fetchPendingInvites = async (userId: string) => {
+    const { count } = await supabase
+      .from("team_invites")
+      .select("*", { count: "exact", head: true })
+      .eq("invited_user_id", userId)
+      .eq("status", "pending");
+    
+    setPendingInvitesCount(count || 0);
   };
 
   const handleLogout = async () => {
@@ -59,6 +77,32 @@ const Header = ({ user }: HeaderProps) => {
                 ({role})
               </span>
             </div>
+
+            {/* Pending Invites Button */}
+            {role === "player" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate("/invites")}
+                    className="relative"
+                  >
+                    <Mail className="w-4 h-4" />
+                    {pendingInvitesCount > 0 && (
+                      <Badge 
+                        className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[10px] bg-destructive"
+                      >
+                        {pendingInvitesCount}
+                      </Badge>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Convites de equipes {pendingInvitesCount > 0 && `(${pendingInvitesCount})`}</p>
+                </TooltipContent>
+              </Tooltip>
+            )}
 
             <NotificationBell userId={user?.id} />
             
