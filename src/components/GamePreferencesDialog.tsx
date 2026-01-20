@@ -102,7 +102,7 @@ export const GamePreferencesDialog = ({
                 }}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   selected
-                    ? "border-primary bg-primary/10"
+                    ? "border-primary bg-primary text-primary-foreground"
                     : "border-border hover:border-primary/50"
                 }`}
               >

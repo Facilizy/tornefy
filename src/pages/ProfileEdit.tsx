@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { PushNotificationsOptInCard } from "@/components/PushNotificationsOptInCard";
 import { ArrowLeft, Upload, User, Loader2, Gamepad2, Link2 } from "lucide-react";
 import { toast } from "sonner";
@@ -232,15 +233,8 @@ const ProfileEdit = () => {
     }
   };
 
-  const togglePreferredGame = (gameId: string) => {
-    setFormData((prev) => {
-      const current = Array.isArray(prev.preferred_games) ? prev.preferred_games : [];
-      const isSelected = current.includes(gameId);
-      return {
-        ...prev,
-        preferred_games: isSelected ? current.filter((g) => g !== gameId) : [...current, gameId],
-      };
-    });
+  const setPreferredGames = (games: string[]) => {
+    setFormData((prev) => ({ ...prev, preferred_games: games }));
   };
 
   const refreshLinkedProviders = async () => {
@@ -499,45 +493,30 @@ const ProfileEdit = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 Selecione os jogos que você joga para receber recomendações de scrims personalizadas.
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {GAMES.map((game) => {
-                  const selected = formData.preferred_games.includes(game.id);
-                  return (
-                    <div
-                      key={game.id}
-                      role="button"
-                      aria-pressed={selected}
-                      onClick={() => togglePreferredGame(game.id)}
-                      className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                        selected
-                          ? "border-primary bg-primary/10"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          togglePreferredGame(game.id);
-                        }
-                      }}
-                    >
-                      <Checkbox
-                        checked={selected}
-                        className="pointer-events-none"
-                        tabIndex={-1}
-                        aria-hidden="true"
-                      />
-                      <img
-                        src={game.logo}
-                        alt={game.name}
-                        loading="lazy"
-                        className="w-8 h-8 rounded object-cover"
-                      />
-                      <span className="flex-1 font-medium">{game.name}</span>
-                    </div>
-                  );
-                })}
-              </div>
+
+              <ToggleGroup
+                type="multiple"
+                value={formData.preferred_games}
+                onValueChange={(value) => setPreferredGames(value)}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3"
+              >
+                {GAMES.map((game) => (
+                  <ToggleGroupItem
+                    key={game.id}
+                    value={game.id}
+                    aria-label={game.name}
+                    className="w-full justify-start gap-3 px-3 py-3 h-auto rounded-lg border border-border bg-background/30 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <img
+                      src={game.logo}
+                      alt={game.name}
+                      loading="lazy"
+                      className="w-8 h-8 rounded object-cover"
+                    />
+                    <span className="flex-1 font-medium text-left">{game.name}</span>
+                  </ToggleGroupItem>
+                ))}
+              </ToggleGroup>
             </div>
 
             <Separator />

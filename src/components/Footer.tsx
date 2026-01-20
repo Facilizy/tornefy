@@ -14,7 +14,7 @@ const Footer = () => {
   const navLinks = [
     { name: "Home", href: "/" },
     { name: "Scrims", href: "/scrims" },
-    { name: "Ranking", href: "/ranking" },
+    { name: "Players", href: "/players" },
     { name: "Equipes", href: "/equipes" },
     { name: "Termos e Privacidade", href: "/terms" },
   ];

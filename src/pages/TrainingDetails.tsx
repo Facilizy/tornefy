@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
@@ -8,6 +8,15 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useOrganizerFollow } from "@/hooks/useOrganizerFollow";
 import {
   Calendar,
@@ -76,11 +85,30 @@ const TrainingDetails = () => {
   const [isInWaitlist, setIsInWaitlist] = useState(false);
   const [hasCheckedIn, setHasCheckedIn] = useState(false);
 
+  const [isTeamAdmin, setIsTeamAdmin] = useState(false);
+  const [checkinDialogOpen, setCheckinDialogOpen] = useState(false);
+  const [checkinDialogTitle, setCheckinDialogTitle] = useState("");
+  const [checkinDialogMessage, setCheckinDialogMessage] = useState("");
+
+  const [sessionExpired, setSessionExpired] = useState(false);
+
+  const rtRefetchTimeoutRef = useRef<number | null>(null);
+
+  const [nowTick, setNowTick] = useState(() => Date.now());
+
   const isAuthed = !!user;
   const confirmedTeamsCount = registeredTeamsCount;
   const isFull = confirmedTeamsCount >= (training?.max_slots || 0);
 
   useEffect(() => {
+    // Keep local auth state in sync (helps detect session expiry)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (!session?.user) setProfile(null);
+    });
+
     const init = async () => {
       const {
         data: { session },
@@ -98,8 +126,59 @@ const TrainingDetails = () => {
     };
 
     if (id) init();
+
+    return () => {
+      subscription.unsubscribe();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // Realtime: keep registration state/count/teams in sync without reload
+  useEffect(() => {
+    if (!id || !user?.id) return;
+
+    const schedule = () => {
+      if (rtRefetchTimeoutRef.current) window.clearTimeout(rtRefetchTimeoutRef.current);
+      rtRefetchTimeoutRef.current = window.setTimeout(async () => {
+        await fetchTrainingDetails(user.id);
+        await fetchMyWaitlistAndCheckin();
+      }, 250);
+    };
+
+    const channel = supabase
+      .channel(`rt-training-reg-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "training_registrations", filter: `training_id=eq.${id}` },
+        () => schedule()
+      )
+      .subscribe();
+
+    return () => {
+      if (rtRefetchTimeoutRef.current) window.clearTimeout(rtRefetchTimeoutRef.current);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?.id, myTeam?.id]);
+
+  // Auto-resume: if user logged in after being redirected, reopen registration modal
+  useEffect(() => {
+    if (!isAuthed || !id) return;
+
+    try {
+      const raw = localStorage.getItem("post_auth_action");
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed?.type === "training_register" && parsed?.trainingId === id) {
+        localStorage.removeItem("post_auth_action");
+        setConfirmMode("register");
+        setShowConfirmDialog(true);
+      }
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthed, id]);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
@@ -206,14 +285,7 @@ const TrainingDetails = () => {
             tag,
             logo_url,
             owner_id,
-            is_external,
-            team_members (
-              id,
-              player_name,
-              game_id,
-              discord,
-              function
-            )
+            is_external
           )
         `
         )
@@ -249,6 +321,26 @@ const TrainingDetails = () => {
   };
 
   const handleRegisterClick = async () => {
+    // Quick session check before opening the dialog (better UX when session expired)
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session?.user) {
+      setSessionExpired(true);
+      try {
+        localStorage.setItem(
+          "post_auth_action",
+          JSON.stringify({ type: "training_register", trainingId: id })
+        );
+      } catch {
+        // ignore
+      }
+      toast.error("Sessão expirada, faça login novamente.");
+      navigate("/auth");
+      return;
+    }
+
     if (!myTeam) {
       toast.error("Você precisa criar uma equipe primeiro!");
       navigate("/my-team");
@@ -332,12 +424,34 @@ const TrainingDetails = () => {
 
     setConfirmMode("register");
     setShowConfirmDialog(true);
-    setSelectedLineId("");
+    setSelectedLineId(myTeamLines.length === 1 ? myTeamLines[0].id : "");
   };
 
   const handleRegisterConfirm = async () => {
     if (confirmMode === "claim") {
       await handleClaimSlot();
+      return;
+    }
+
+    // Guard against expired session (prevents RLS violation on insert)
+    if (!user?.id) {
+      setSessionExpired(true);
+      try {
+        localStorage.setItem(
+          "post_auth_action",
+          JSON.stringify({ type: "training_register", trainingId: id })
+        );
+      } catch {
+        // ignore
+      }
+      toast.error("Sessão expirada, faça login novamente.");
+      setShowConfirmDialog(false);
+      navigate("/auth");
+      return;
+    }
+
+    if (!myTeam?.id) {
+      toast.error("Equipe não encontrada!");
       return;
     }
 
@@ -460,6 +574,26 @@ const TrainingDetails = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isAuthed, myTeam?.id, training?.datetime, registeredTeamsCount]);
 
+  useEffect(() => {
+    const run = async () => {
+      if (!user?.id || !myTeam?.id) {
+        setIsTeamAdmin(false);
+        return;
+      }
+      try {
+        const { data, error } = await (supabase as any).rpc("is_team_admin", {
+          _team_id: myTeam.id,
+          _user_id: user.id,
+        });
+        if (error) throw error;
+        setIsTeamAdmin(!!data);
+      } catch {
+        setIsTeamAdmin(false);
+      }
+    };
+    run();
+  }, [user?.id, myTeam?.id]);
+
   const handleJoinWaitlist = async () => {
     if (!id || !myTeam) return;
     try {
@@ -521,7 +655,7 @@ const TrainingDetails = () => {
   const handleOpenClaimDialog = () => {
     setConfirmMode("claim");
     setShowConfirmDialog(true);
-    setSelectedLineId("");
+    setSelectedLineId(myTeamLines.length === 1 ? myTeamLines[0].id : "");
   };
 
   const handleCheckin = async () => {
@@ -541,6 +675,41 @@ const TrainingDetails = () => {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const openCheckinDialog = (title: string, message: string) => {
+    setCheckinDialogTitle(title);
+    setCheckinDialogMessage(message);
+    setCheckinDialogOpen(true);
+  };
+
+  const checkinWindow = useMemo(() => {
+    const dt = training?.datetime ? new Date(training.datetime) : null;
+    if (!dt) return { canCheckIn: false, reason: "Treino sem horário definido." };
+
+    const now = new Date(nowTick);
+    const openAt = new Date(dt.getTime() - 60 * 60 * 1000);
+    const closeAt = new Date(dt.getTime() - 10 * 60 * 1000);
+
+    if (now < openAt) return { canCheckIn: false, reason: "O check-in abre 1h antes do evento." };
+    if (now > closeAt) return { canCheckIn: false, reason: "O check-in já foi encerrado (fecha 10min antes)." };
+    return { canCheckIn: true, reason: "" };
+  }, [training?.datetime, nowTick]);
+
+  const handleCheckinClick = async () => {
+    if (!id || !myTeam || !user) return;
+
+    if (!checkinWindow.canCheckIn) {
+      openCheckinDialog("Check-in indisponível", checkinWindow.reason);
+      return;
+    }
+
+    if (!isTeamAdmin) {
+      openCheckinDialog("Somente admin", "Somente admin da equipe pode fazer o check-in.");
+      return;
+    }
+
+    await handleCheckin();
   };
 
   const handleUndoCheckin = async () => {
@@ -1057,7 +1226,9 @@ const TrainingDetails = () => {
                         disabled={training.status !== "INSCRIÇÕES ABERTAS" || isFull}
                       >
                         <CheckCircle className="w-4 h-4 mr-2" />
-                        {training.status !== "INSCRIÇÕES ABERTAS"
+                        {sessionExpired
+                          ? "Sessão expirada — entrar novamente"
+                          : training.status !== "INSCRIÇÕES ABERTAS"
                           ? "Inscrições Encerradas"
                           : isFull
                           ? "Treino Lotado"
@@ -1071,7 +1242,9 @@ const TrainingDetails = () => {
                       )}
 
                       <p className="text-xs text-muted-foreground text-center">
-                        Faça login para inscrever sua equipe.
+                        {sessionExpired
+                          ? "Sua sessão expirou. Faça login para continuar."
+                          : "Faça login para inscrever sua equipe."}
                       </p>
                     </div>
                   ) : isOrganizer ? (
@@ -1164,20 +1337,60 @@ const TrainingDetails = () => {
                             Cancelar Inscrição
                           </Button>
 
-                          {/* Check-in */}
+                          {/* Painel de Check-in */}
                           {training?.datetime && (
-                            <div className="rounded-lg border bg-background/50 p-3 space-y-2">
-                              <div className="text-sm font-semibold">Check-in</div>
-                              <div className="text-xs text-muted-foreground">
-                                Abre 1h antes e fecha 10min antes do horário do treino.
+                            <div className="rounded-lg border bg-background/50 p-3 space-y-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-semibold">Janela de check-in</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    Abre 1h antes e fecha 10min antes do horário do treino.
+                                  </div>
+                                </div>
+                                <Badge variant={checkinWindow.canCheckIn ? "default" : "outline"} className="text-xs">
+                                  {checkinWindow.canCheckIn ? "ABERTO" : "FECHADO"}
+                                </Badge>
                               </div>
+
+                              {(() => {
+                                const dt = new Date(training.datetime);
+                                const openAt = new Date(dt.getTime() - 60 * 60 * 1000);
+                                const closeAt = new Date(dt.getTime() - 10 * 60 * 1000);
+                                const now = new Date(nowTick);
+
+                                const pad = (n: number) => String(Math.max(0, n)).padStart(2, "0");
+                                const fmt = (ms: number) => {
+                                  const total = Math.max(0, Math.floor(ms / 1000));
+                                  const h = Math.floor(total / 3600);
+                                  const m = Math.floor((total % 3600) / 60);
+                                  const s = total % 60;
+                                  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+                                };
+
+                                const state = now < openAt ? "antes" : now > closeAt ? "depois" : "durante";
+                                const remaining =
+                                  state === "antes" ? openAt.getTime() - now.getTime() : closeAt.getTime() - now.getTime();
+
+                                return (
+                                  <div className="rounded-md bg-muted/40 p-3">
+                                    <div className="text-xs text-muted-foreground">
+                                      {state === "antes"
+                                        ? "Abre em"
+                                        : state === "durante"
+                                        ? "Fecha em"
+                                        : "Encerrado há"}
+                                    </div>
+                                    <div className="text-lg font-bold tabular-nums">{fmt(Math.abs(remaining))}</div>
+                                  </div>
+                                );
+                              })()}
 
                               {!hasCheckedIn ? (
                                 <Button
                                   variant="outline"
                                   className="w-full"
-                                  onClick={handleCheckin}
-                                  disabled={actionLoading}
+                                  onClick={handleCheckinClick}
+                                  disabled={actionLoading || !checkinWindow.canCheckIn || !isTeamAdmin}
                                 >
                                   Confirmar check-in
                                 </Button>
@@ -1191,6 +1404,13 @@ const TrainingDetails = () => {
                                   Remover check-in
                                 </Button>
                               )}
+
+                              {!checkinWindow.canCheckIn && (
+                                <p className="text-xs text-muted-foreground">{checkinWindow.reason}</p>
+                              )}
+                              {checkinWindow.canCheckIn && !isTeamAdmin && (
+                                <p className="text-xs text-muted-foreground">Somente admin da equipe pode confirmar.</p>
+                              )}
                             </div>
                           )}
                         </>
@@ -1201,6 +1421,18 @@ const TrainingDetails = () => {
                           Crie sua equipe para se inscrever
                         </p>
                       )}
+
+                      <AlertDialog open={checkinDialogOpen} onOpenChange={setCheckinDialogOpen}>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>{checkinDialogTitle}</AlertDialogTitle>
+                            <AlertDialogDescription>{checkinDialogMessage}</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogAction>Entendi</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center">
@@ -1352,32 +1584,50 @@ const TrainingDetails = () => {
 
            {/* Ranking Tab */}
            {isAuthed && (
-             <TabsContent value="ranking" className="space-y-6">
-               {registeredTeams.length > 0 && (
-                 <>
-                   <Scoreboard
-                     trainingId={id!}
-                     teams={registeredTeams.map((r: any) => ({
-                       id: r.teams.id,
-                       name: r.teams.name,
-                       tag: r.teams.tag,
-                       logo_url: r.teams.logo_url,
-                     }))}
-                     primaryColor={eventPrimaryColor}
-                   />
+              <TabsContent value="ranking" className="space-y-6">
+                {!hasAnyScores ? (
+                  <Card className="p-6 bg-card/80 border-border">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-0.5">
+                        <Info className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">Por enquanto não há dados</div>
+                        <div className="text-sm text-muted-foreground">
+                          O ranking aparece automaticamente quando algum placar for lançado.
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ) : registeredTeams.length > 0 ? (
+                  <>
+                    <Scoreboard
+                      trainingId={id!}
+                      teams={registeredTeams.map((r: any) => ({
+                        id: r.teams.id,
+                        name: r.teams.name,
+                        tag: r.teams.tag,
+                        logo_url: r.teams.logo_url,
+                      }))}
+                      primaryColor={eventPrimaryColor}
+                    />
 
-                   <MvpListCard
-                     trainingId={id!}
-                     teams={registeredTeams.map((r: any) => ({
-                       id: r.teams.id,
-                       name: r.teams.name,
-                       tag: r.teams.tag,
-                       logo_url: r.teams.logo_url,
-                     }))}
-                   />
-                 </>
-               )}
-             </TabsContent>
+                    <MvpListCard
+                      trainingId={id!}
+                      teams={registeredTeams.map((r: any) => ({
+                        id: r.teams.id,
+                        name: r.teams.name,
+                        tag: r.teams.tag,
+                        logo_url: r.teams.logo_url,
+                      }))}
+                    />
+                  </>
+                ) : (
+                  <Card className="p-6 bg-card/80 border-border">
+                    <div className="text-sm text-muted-foreground">Nenhuma equipe inscrita ainda.</div>
+                  </Card>
+                )}
+              </TabsContent>
            )}
 
           {/* Settings tab - organizer only */}
@@ -1439,21 +1689,6 @@ const TrainingDetails = () => {
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground uppercase">[{registration.teams.tag}]</p>
-
-                            {registration.teams.team_members && registration.teams.team_members.length > 0 && (
-                              <div className="mt-2 space-y-1">
-                                {registration.teams.team_members.slice(0, 4).map((member: any) => (
-                                  <p key={member.id} className="text-xs text-muted-foreground">
-                                    {member.player_name} • {member.function}
-                                  </p>
-                                ))}
-                                {registration.teams.team_members.length > 4 && (
-                                  <p className="text-xs text-primary">
-                                    +{registration.teams.team_members.length - 4} mais
-                                  </p>
-                                )}
-                              </div>
-                            )}
                           </div>
                         </div>
                       </Card>

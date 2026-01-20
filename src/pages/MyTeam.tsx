@@ -242,6 +242,34 @@ const MyTeam = () => {
         return;
       }
 
+      const normalizedName = teamForm.name.trim().toUpperCase();
+      const normalizedTag = teamForm.tag.trim().toUpperCase();
+
+      if (!normalizedName) {
+        toast.error("Informe o nome do time");
+        return;
+      }
+      if (!normalizedTag) {
+        toast.error("Informe a tag do time");
+        return;
+      }
+
+      // Prevent duplicate tags (UI-level check; DB also enforces uniqueness)
+      const { data: existingTag, error: tagCheckError } = await supabase
+        .from("teams")
+        .select("id")
+        .eq("tag", normalizedTag)
+        .maybeSingle();
+
+      if (tagCheckError && tagCheckError.code !== "PGRST116") {
+        throw tagCheckError;
+      }
+
+      if (existingTag && (!team || existingTag.id !== team.id)) {
+        toast.error("Essa tag já está em uso. Escolha outra.");
+        return;
+      }
+
       let logoUrl = teamForm.logo_url;
       let bannerUrl = teamForm.banner_url;
 
@@ -286,8 +314,8 @@ const MyTeam = () => {
       }
 
       const teamData = {
-        name: teamForm.name,
-        tag: teamForm.tag,
+        name: normalizedName,
+        tag: normalizedTag,
         logo_url: logoUrl || null,
         banner_url: bannerUrl || null,
         bio: teamForm.bio || null,
@@ -316,6 +344,8 @@ const MyTeam = () => {
           .insert({
             ...teamData,
             owner_id: user.id,
+            // ensure real teams are not hidden by is_external filters
+            is_external: false,
           })
           .select()
           .single();
@@ -468,7 +498,12 @@ const MyTeam = () => {
                       <Input
                         id="name"
                         value={teamForm.name}
-                        onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
+                        onChange={(e) =>
+                          setTeamForm({
+                            ...teamForm,
+                            name: e.target.value.toUpperCase(),
+                          })
+                        }
                         required
                       />
                     </div>
@@ -477,7 +512,12 @@ const MyTeam = () => {
                       <Input
                         id="tag"
                         value={teamForm.tag}
-                        onChange={(e) => setTeamForm({ ...teamForm, tag: e.target.value })}
+                        onChange={(e) =>
+                          setTeamForm({
+                            ...teamForm,
+                            tag: e.target.value.toUpperCase().replace(/\s/g, ""),
+                          })
+                        }
                         required
                       />
                     </div>
@@ -561,7 +601,12 @@ const MyTeam = () => {
                     <Input
                       id="name"
                       value={teamForm.name}
-                      onChange={(e) => setTeamForm({ ...teamForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setTeamForm({
+                          ...teamForm,
+                          name: e.target.value.toUpperCase(),
+                        })
+                      }
                       required
                     />
                   </div>
@@ -570,7 +615,12 @@ const MyTeam = () => {
                     <Input
                       id="tag"
                       value={teamForm.tag}
-                      onChange={(e) => setTeamForm({ ...teamForm, tag: e.target.value })}
+                      onChange={(e) =>
+                        setTeamForm({
+                          ...teamForm,
+                          tag: e.target.value.toUpperCase().replace(/\s/g, ""),
+                        })
+                      }
                       required
                     />
                   </div>

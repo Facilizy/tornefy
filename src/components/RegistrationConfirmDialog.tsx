@@ -14,6 +14,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Calendar, Gamepad2, Monitor, Target, Trophy } from "lucide-react";
 import { Loader2 } from "lucide-react";
+import { getGameLabel } from "@/lib/games";
 
 interface RegistrationConfirmDialogProps {
   open: boolean;
@@ -40,8 +41,12 @@ export const RegistrationConfirmDialog = ({
 }: RegistrationConfirmDialogProps) => {
   const [agreed, setAgreed] = useState(false);
 
+  const requiresLineSelection = lines.length > 0;
+  const hasSelectedLine = !requiresLineSelection || !!selectedLineId;
+
   const handleConfirm = async () => {
     if (!agreed) return;
+    if (!hasSelectedLine) return;
     await onConfirm();
     setAgreed(false);
   };
@@ -54,16 +59,6 @@ export const RegistrationConfirmDialog = ({
     );
   };
 
-  const getGameName = (game: string) => {
-    const games: { [key: string]: string } = {
-      free_fire: "Free Fire",
-      blood_strike: "Blood Strike",
-      farlight_84: "Farlight 84",
-      prime_rush: "Prime Rush",
-      battlefield_6: "Battlefield 6",
-    };
-    return games[game] || game;
-  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -105,7 +100,7 @@ export const RegistrationConfirmDialog = ({
               <Trophy className="w-4 h-4 text-primary" />
               <span>
                 <span className="text-muted-foreground">Jogo: </span>
-                <span className="font-medium">{getGameName(training.game)}</span>
+                <span className="font-medium">{getGameLabel(training.game)}</span>
               </span>
             </div>
 
@@ -200,7 +195,7 @@ export const RegistrationConfirmDialog = ({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={!agreed || loading}
+            disabled={!agreed || loading || !hasSelectedLine}
             className="flex-1 bg-gradient-primary"
           >
             {loading ? (
@@ -208,6 +203,8 @@ export const RegistrationConfirmDialog = ({
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                 Inscrevendo...
               </>
+            ) : requiresLineSelection && !selectedLineId ? (
+              "Selecione a line"
             ) : (
               "Confirmar Inscrição"
             )}

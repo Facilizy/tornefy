@@ -87,7 +87,7 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
   const navItems = [
     { name: "Home", href: "/", icon: HomeIcon },
     { name: "Scrims", href: "/scrims", icon: Gamepad2 },
-    { name: "Ranking", href: "/ranking", icon: Award },
+    { name: "Players", href: "/players", icon: Award },
     { name: "Equipes", href: "/equipes", icon: Users },
   ];
 
@@ -102,6 +102,9 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
         break;
       case "/scrims":
         import("@/pages/Scrims");
+        break;
+      case "/players":
+        import("@/pages/Players");
         break;
       case "/ranking":
         import("@/pages/Ranking");
@@ -203,10 +206,10 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
               </>
             ) : (
               <div className="hidden md:flex items-center gap-3">
-                <Button variant="ghost" onClick={() => navigate('/auth')}>
+                <Button variant="ghost" onClick={() => navigate('/auth?mode=login')}>
                   Entrar
                 </Button>
-                <Button onClick={() => navigate('/auth')} className="bg-primary hover:bg-primary/90">
+                <Button onClick={() => navigate('/auth?mode=signup')} className="bg-primary hover:bg-primary/90">
                   Criar Conta
                 </Button>
                 <a
@@ -320,7 +323,7 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                           <Button 
                             className="w-full bg-primary hover:bg-primary/90"
                             onClick={() => {
-                              navigate('/auth');
+                              navigate('/auth?mode=signup');
                               setMobileMenuOpen(false);
                             }}
                           >
@@ -330,7 +333,7 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                             variant="outline"
                             className="w-full"
                             onClick={() => {
-                              navigate('/auth');
+                              navigate('/auth?mode=login');
                               setMobileMenuOpen(false);
                             }}
                           >

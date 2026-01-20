@@ -719,7 +719,7 @@ export type Database = {
           training_id: string
         }
         Insert: {
-          id: string
+          id?: string
           line_id?: string | null
           registered_at?: string
           slot_number?: number | null

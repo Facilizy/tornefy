@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, Trash2, Check } from "lucide-react";
 import { toast } from "sonner";
+import { getGameLabel } from "@/lib/games";
 
 interface Template {
   id: string;
@@ -96,16 +97,6 @@ export function UseTemplateDialog({ organizerId, onSelectTemplate }: UseTemplate
     }
   };
 
-  const getGameLabel = (game: string) => {
-    const games: Record<string, string> = {
-      free_fire: "Free Fire",
-      blood_strike: "Blood Strike",
-      farlight_84: "Farlight 84",
-      prime_rush: "Prime Rush",
-      battlefield_6: "Battlefield 6",
-    };
-    return games[game] || game;
-  };
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

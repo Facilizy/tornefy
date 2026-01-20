@@ -588,61 +588,7 @@ const UserProfile = () => {
           </section>
         ) : (
           <section>
-            {isOwnProfile && (
-              <Card className="p-6 bg-card/50 border-border mb-8">
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div>
-                    <h2 className="font-bold uppercase">Organizadores que sigo</h2>
-                    <p className="text-sm text-muted-foreground">
-                      Receba novidades e encontre mais scrims desses organizadores.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {loadingFollowed ? (
-                    <p className="text-sm text-muted-foreground">Carregando…</p>
-                  ) : followedOrganizers.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">Você ainda não segue nenhum organizador.</p>
-                  ) : (
-                    followedOrganizers.map((o) => (
-                      <button
-                        key={o.id}
-                        type="button"
-                        onClick={() => navigate(`/profile/${o.id}`)}
-                        className="text-left"
-                      >
-                        <Card className="p-3 bg-background/50 border-border hover:border-primary/50 transition-colors">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex items-center justify-center">
-                              {o.avatar_url ? (
-                                <img
-                                  src={o.avatar_url}
-                                  alt={o.full_name ? `Avatar de ${o.full_name}` : "Avatar do organizador"}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              ) : (
-                                <User className="w-5 h-5 text-muted-foreground" />
-                              )}
-                            </div>
-                            <div className="min-w-0">
-                              <div className="font-semibold uppercase truncate">
-                                {o.full_name || "Organizador"}
-                              </div>
-                              {o.username ? (
-                                <div className="text-xs text-muted-foreground truncate">@{o.username}</div>
-                              ) : null}
-                            </div>
-                          </div>
-                        </Card>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </Card>
-            )}
-
+            {/* 'Organizadores que sigo' foi movido para a página /scrims */}
             <Tabs defaultValue="overview" className="mb-12">
               <TabsList className="grid w-full max-w-md grid-cols-3 mb-8">
                 <TabsTrigger value="overview" className="flex items-center gap-2">

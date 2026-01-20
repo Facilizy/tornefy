@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
 import TrainingCard from "@/components/TrainingCard";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -10,10 +11,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Gamepad2, Trophy, Users, SlidersHorizontal } from "lucide-react";
+import { Calendar, Gamepad2, Trophy, Users, SlidersHorizontal, User } from "lucide-react";
 import { addDays, endOfDay, startOfDay } from "date-fns";
+import { useNavigate } from "react-router-dom";
+import { useFollowedOrganizers } from "@/hooks/useFollowedOrganizers";
 
 const Scrims = () => {
+  const navigate = useNavigate();
+  const [userId, setUserId] = useState<string | null>(null);
+  const followed = useFollowedOrganizers(userId);
+  const [showFollowed, setShowFollowed] = useState(true);
+
   const [trainings, setTrainings] = useState<any[]>([]);
   const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
   const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
@@ -27,6 +35,16 @@ const Scrims = () => {
 
   useEffect(() => {
     fetchTrainings();
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUserId(session?.user?.id ?? null);
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -186,6 +204,78 @@ const Scrims = () => {
       </header>
 
       <main className="container mx-auto px-4 pb-10">
+        {/* Followed organizers */}
+        {userId && showFollowed && (
+          <section className="mb-8">
+            <Card className="p-4 bg-card/50 border-border">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div>
+                  <h2 className="font-bold uppercase">Organizadores que sigo</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Acesse rápido os organizadores que você acompanha.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => followed.refetch()}>
+                    Atualizar
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowFollowed(false)}>
+                    Ocultar
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                {followed.loading ? (
+                  <p className="text-sm text-muted-foreground">Carregando…</p>
+                ) : followed.organizers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Você ainda não segue nenhum organizador.</p>
+                ) : (
+                  followed.organizers.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      onClick={() => navigate(`/profile/${o.id}`)}
+                      className="text-left"
+                    >
+                      <Card className="p-3 bg-background/50 border-border hover:border-primary/50 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-lg bg-muted overflow-hidden flex items-center justify-center">
+                            {o.avatar_url ? (
+                              <img
+                                src={o.avatar_url}
+                                alt={o.full_name ? `Avatar de ${o.full_name}` : "Avatar do organizador"}
+                                className="w-full h-full object-cover"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <User className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold uppercase truncate">{o.full_name || "Organizador"}</div>
+                            {o.username ? (
+                              <div className="text-xs text-muted-foreground truncate">@{o.username}</div>
+                            ) : null}
+                          </div>
+                        </div>
+                      </Card>
+                    </button>
+                  ))
+                )}
+              </div>
+            </Card>
+          </section>
+        )}
+
+        {!showFollowed && userId && (
+          <section className="mb-8">
+            <Button variant="outline" size="sm" onClick={() => setShowFollowed(true)}>
+              Mostrar organizadores que sigo
+            </Button>
+          </section>
+        )}
+
         {/* Filters */}
         <section className="bg-card/50 border border-border rounded-xl p-4 mb-8">
           <div className="flex items-center justify-between gap-4 flex-wrap">

@@ -1,20 +1,55 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import MainLayout from "@/components/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Eye, EyeOff } from "lucide-react";
-import TornefyLogo from "@/components/TornefyLogo";
+import { ArrowLeft, Eye, EyeOff, Mail } from "lucide-react";
+
+const GAMES = [
+  { id: "free_fire", name: "Free Fire", logo: "/game-logos/free-fire.png" },
+  { id: "blood_strike", name: "Blood Strike", logo: "/game-logos/blood-strike.png" },
+  { id: "farlight_84", name: "Farlight 84", logo: "/game-logos/farlight-84.png" },
+  { id: "prime_rush", name: "Prime Rush", logo: "/game-logos/prime-rush.png" },
+  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.png" },
+];
 
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isLogin, setIsLogin] = useState(true);
+
+  const isOAuthCompletion = new URLSearchParams(location.search).get("complete") === "1";
+
+  const consumePostAuthAction = () => {
+    try {
+      const raw = localStorage.getItem("post_auth_action");
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      localStorage.removeItem("post_auth_action");
+
+      if (parsed?.type === "training_register" && parsed?.trainingId) {
+        navigate(`/training/${parsed.trainingId}`, { replace: true });
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
+  const getAuthModeFromUrl = () => {
+    const mode = new URLSearchParams(location.search).get("mode");
+    return mode === "signup" ? "signup" : "login";
+  };
+
+  const [isLogin, setIsLogin] = useState(getAuthModeFromUrl() !== "signup");
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
@@ -26,19 +61,40 @@ const Auth = () => {
     preferredGames: ["free_fire"] as string[],
   });
   const [forgotPassword, setForgotPassword] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
 
-  const isOAuthCompletion = new URLSearchParams(location.search).get("complete") === "1";
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showSignupPassword, setShowSignupPassword] = useState(false);
+
+  const [signupAwaitingEmail, setSignupAwaitingEmail] = useState(false);
+  const signupEmail = useMemo(() => formData.email.trim(), [formData.email]);
 
   // Valid organizer invite codes
-  const VALID_ORGANIZER_CODES = ["TORNEFY2024", "ORGANIZER-VIP", "TORNEFYPREMIUM"];
+  const VALID_ORGANIZER_CODES = ["TORNEFYPREMIUM"];
 
-  // Reset accepted terms and step when switching between login/signup or forgot password
+  const setAuthMode = (mode: "login" | "signup") => {
+    if (isOAuthCompletion) return;
+    const params = new URLSearchParams(location.search);
+    params.delete("complete");
+    params.set("mode", mode);
+    navigate(`/auth?${params.toString()}`, { replace: true });
+    setForgotPassword(false);
+    setIsLogin(mode === "login");
+  };
+
+  useEffect(() => {
+    if (isOAuthCompletion) return;
+    setIsLogin(getAuthModeFromUrl() !== "signup");
+  }, [location.search, isOAuthCompletion]);
+
+  // Reset state when switching between login/signup or forgot password
   useEffect(() => {
     setAcceptedTerms(false);
     setCurrentStep(1);
+    setSignupAwaitingEmail(false);
+    setShowLoginPassword(false);
+    setShowSignupPassword(false);
   }, [isLogin, forgotPassword]);
 
   // OAuth completion: prefill name/avatar and force the wizard flow
@@ -63,7 +119,7 @@ const Auth = () => {
         .maybeSingle();
 
       if (profileData?.username) {
-        navigate("/");
+        if (!consumePostAuthAction()) navigate("/");
         return;
       }
 
@@ -114,11 +170,55 @@ const Auth = () => {
       toast.error("A senha deve conter pelo menos um número");
       return false;
     }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+    if (!/[!@#$%^&*(),.?\":{}|<>]/.test(password)) {
       toast.error("A senha deve conter pelo menos um caractere especial");
       return false;
     }
     return true;
+  };
+
+  const setPreferredGames = (games: string[]) => {
+    setFormData((prev) => ({ ...prev, preferredGames: games }));
+  };
+
+  const goToNextStep = () => {
+    if (currentStep === 1) {
+      if (!formData.email.trim()) {
+        toast.error("Informe seu e-mail");
+        return;
+      }
+      if (!formData.password) {
+        toast.error("Informe sua senha");
+        return;
+      }
+      setCurrentStep(2);
+      return;
+    }
+
+    if (currentStep === 2) {
+      if (!formData.username || formData.username.trim().length < 3) {
+        toast.error("Defina um username com pelo menos 3 caracteres");
+        return;
+      }
+
+      if (formData.role === "organizer") {
+        const code = formData.inviteCode.trim();
+        if (!code) {
+          toast.error("Informe o código de indicação");
+          return;
+        }
+        if (code.toLowerCase() !== "tornefypremium") {
+          toast.error("Código de indicação inválido");
+          return;
+        }
+      }
+
+      setCurrentStep(3);
+    }
+  };
+
+  const goToPrevStep = () => {
+    setCurrentStep((prev) => (prev === 1 ? 1 : (prev - 1) as 1 | 2 | 3));
   };
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -142,7 +242,7 @@ const Auth = () => {
 
         if (error) throw error;
         toast.success("Login realizado com sucesso!");
-        navigate("/");
+        if (!consumePostAuthAction()) navigate("/");
       } else {
         // Validar senha forte
         if (!validatePassword(formData.password)) {
@@ -173,7 +273,8 @@ const Auth = () => {
 
         // Validar código de organizador
         if (formData.role === "organizer") {
-          if (!formData.inviteCode || !VALID_ORGANIZER_CODES.includes(formData.inviteCode.toUpperCase())) {
+          const code = formData.inviteCode.trim();
+          if (!code || code.toLowerCase() !== "tornefypremium") {
             toast.error("Código de indicação inválido para criar conta de organizador");
             setLoading(false);
             return;
@@ -190,13 +291,14 @@ const Auth = () => {
               role: formData.role,
               preferred_games: formData.preferredGames,
             },
-            emailRedirectTo: `${window.location.origin}/`,
+            emailRedirectTo: `${window.location.origin}/auth?mode=login`,
           },
         });
 
         if (error) throw error;
-        toast.success("Conta criada com sucesso! Você já pode fazer login.");
-        setIsLogin(true);
+
+        setSignupAwaitingEmail(true);
+        toast.success("Conta criada! Verifique seu e-mail para confirmar.");
       }
     } catch (error: any) {
       toast.error(error.message || "Erro ao autenticar");
@@ -228,550 +330,385 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
-      {/* Background effect */}
-      <div className="absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
-      <div className="absolute bottom-20 right-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+    <MainLayout>
+      <div className="relative overflow-hidden">
+        {/* Background effect */}
+        <div className="pointer-events-none absolute top-20 left-10 w-72 h-72 bg-primary/10 rounded-full blur-3xl" />
+        <div className="pointer-events-none absolute bottom-20 right-10 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
 
-      <div className="w-full max-w-md px-6 relative z-10">
-        {/* Logo / Title */}
-        <div className="text-center mb-8 flex flex-col items-center">
-          <TornefyLogo className="h-12 mb-2" />
-          <span className="text-sm text-muted-foreground tracking-wider">(BETA)</span>
-        </div>
+        <div className="container mx-auto px-4 py-28 sm:py-36 md:py-44 relative z-10">
+          <div className="flex justify-center">
+            <div className="w-full max-w-md">
+              <div className="bg-card/50 border border-border rounded-2xl p-6 sm:p-8">
+                <h2 className="text-2xl font-semibold mb-6 text-center">
+                  {forgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
+                </h2>
 
-        {/* Auth Form */}
-        <div className="bg-card/50 border border-border rounded-2xl p-8">
-          <h2 className="text-2xl font-semibold mb-6 text-center">
-            {forgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
-          </h2>
-
-          <form onSubmit={handleAuth} className="space-y-4">
-            {/* Fluxo de LOGIN ou RECUPERAR SENHA (sem wizard) */}
-            {(isLogin || forgotPassword) && (
-              <>
-                {/* E-mail */}
-                <div className="space-y-2">
-                  <Label htmlFor="email">E-mail</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="voce@email.com"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                    required
-                    className="bg-background/50 border-border"
-                  />
-                </div>
-
-                {/* Senha (exceto recuperar senha) */}
-                {!forgotPassword && (
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Senha</Label>
-                    <div className="relative">
-                      <Input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        placeholder="Sua senha"
-                        value={formData.password}
-                        onChange={(e) =>
-                          setFormData({ ...formData, password: e.target.value })
-                        }
-                        required
-                        className="bg-background/50 border-border pr-10"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                      >
-                        {showPassword ? (
-                          <EyeOff className="w-4 h-4" />
-                        ) : (
-                          <Eye className="w-4 h-4" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  className="w-full bg-primary hover:bg-primary/90 transition-colors"
-                  disabled={loading}
-                >
-                  {loading
-                    ? "Processando..."
-                    : forgotPassword
-                    ? "Enviar E-mail de Recuperação"
-                    : "Entrar"}
-                </Button>
-
-                {/* Social login (somente no login) - abaixo do botão Entrar */}
-                {isLogin && !forgotPassword && !isOAuthCompletion && (
-                  <div className="pt-2 space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-px flex-1 bg-border" />
-                      <span className="text-xs text-muted-foreground">ou</span>
-                      <div className="h-px flex-1 bg-border" />
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-center gap-3 bg-background/40"
-                      onClick={() => handleOAuthLogin("discord")}
-                      disabled={loading}
-                    >
-                      <DiscordMark className="w-5 h-5" />
-                      <span>Entrar com Discord</span>
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* Fluxo de CRIAR CONTA (wizard 3 passos) */}
-            {!isLogin && !forgotPassword && (
-              <>
-                {/* HUD do Wizard (progresso + passos) */}
-                <div className="space-y-3 mb-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Cadastro · Passo {currentStep}/3
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {currentStep === 1
-                        ? "Setup inicial"
-                        : currentStep === 2
-                        ? "Identidade"
-                        : "Confirmação"}
-                    </p>
-                  </div>
-
-                  <Progress
-                    value={(currentStep / 3) * 100}
-                    className="h-2 bg-muted overflow-hidden"
-                    aria-label="Progresso do cadastro"
-                  />
-
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    {[1, 2, 3].map((step) => {
-                      const isActive = currentStep === step;
-                      const isDone = currentStep > step;
-                      return (
-                        <div
-                          key={step}
-                          className={`rounded-lg border px-2 py-2 text-[11px] leading-tight transition-colors ${
-                            isActive
-                              ? "border-primary bg-primary/10"
-                              : isDone
-                              ? "border-border bg-muted/30"
-                              : "border-border bg-card/30"
-                          }`}
-                        >
-                          <div className="font-semibold">
-                            {step === 1 ? "Dados" : step === 2 ? "@User" : "Revisar"}
-                          </div>
-                          <div className="text-muted-foreground">
-                            {step === 1
-                              ? "Conta"
-                              : step === 2
-                              ? "Perfil"
-                              : "Enviar"}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <p className="text-xs text-muted-foreground">
-                    Dica: preencha com calma — você só cria a conta no final, após revisar a prévia.
-                  </p>
-                </div>
-
-                {/* Conteúdo do passo (animado) */}
-                <div key={currentStep} className="animate-fade-in">
-                  {/* STEP 1 - DADOS BÁSICOS */}
-                {currentStep === 1 && (
-                  <>
-                    <div className="space-y-1 pt-1">
-                      <p className="text-[11px] font-semibold uppercase text-primary tracking-wide">
-                        Parte 1 · Dados básicos
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Comece com seu nome completo e credenciais de acesso.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName">Nome Completo</Label>
-                      <Input
-                        id="fullName"
-                        type="text"
-                        placeholder="Seu nome"
-                        value={formData.fullName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fullName: e.target.value })
-                        }
-                        className="bg-background/50 border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="email">E-mail</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="voce@email.com"
-                        value={formData.email}
-                        onChange={(e) =>
-                          setFormData({ ...formData, email: e.target.value })
-                        }
-                        className="bg-background/50 border-border"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Senha</Label>
-                      <div className="relative">
-                        <Input
-                          id="password"
-                          type={showPassword ? "text" : "password"}
-                          placeholder="Sua senha"
-                          value={formData.password}
-                          onChange={(e) =>
-                            setFormData({ ...formData, password: e.target.value })
-                          }
-                          className="bg-background/50 border-border pr-10"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        >
-                          {showPassword ? (
-                            <EyeOff className="w-4 h-4" />
-                          ) : (
-                            <Eye className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        Use uma senha forte com pelo menos 8 caracteres, letras maiúsculas,
-                        minúsculas, números e símbolo.
-                      </p>
-                    </div>
-                  </>
-                )}
-
-                {/* STEP 2 - USERNAME E TIPO DE CONTA */}
-                {currentStep === 2 && (
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-1">
-                      <p className="text-[11px] font-semibold uppercase text-primary tracking-wide">
-                        Parte 2 · Username e tipo de conta
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Escolha um @username único (como será visto nas scrims) e defina se
-                        você é jogador ou organizador.
-                      </p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="username">Username</Label>
-                      <Input
-                        id="username"
-                        type="text"
-                        placeholder="seu_username"
-                        value={formData.username}
-                        onChange={(e) =>
-                          setFormData({ ...formData, username: e.target.value })
-                        }
-                        className="bg-background/50 border-border"
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        Use apenas letras, números e underline. Esse será seu @fixo na
-                        plataforma e poderá aparecer em rankings e estatísticas.
-                      </p>
-                    </div>
-
-                    <div className="space-y-3">
-                      <Label>Tipo de Conta</Label>
-                      <RadioGroup
-                        value={formData.role}
-                        onValueChange={(value: "player" | "organizer") =>
-                          setFormData({ ...formData, role: value })
-                        }
-                        className="flex gap-4"
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="player" id="player" />
-                          <Label htmlFor="player" className="cursor-pointer">
-                            Jogador
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="organizer" id="organizer" />
-                          <Label htmlFor="organizer" className="cursor-pointer">
-                            Organizador
-                          </Label>
-                        </div>
-                      </RadioGroup>
-                    </div>
-
-                    {formData.role === "organizer" && (
+                <form onSubmit={handleAuth} className="space-y-4">
+                  {/* Fluxo de LOGIN ou RECUPERAR SENHA (sem wizard) */}
+                  {(isLogin || forgotPassword) && (
+                    <>
+                      {/* E-mail */}
                       <div className="space-y-2">
-                        <Label htmlFor="inviteCode">Código de Indicação</Label>
+                        <Label htmlFor="email">E-mail</Label>
                         <Input
-                          id="inviteCode"
-                          type="text"
-                          placeholder="Digite o código de indicação"
-                          value={formData.inviteCode}
-                          onChange={(e) =>
-                            setFormData({ ...formData, inviteCode: e.target.value })
-                          }
+                          id="email"
+                          type="email"
+                          placeholder="voce@email.com"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          required
                           className="bg-background/50 border-border"
                         />
-                        <p className="text-xs text-muted-foreground">
-                          Conta de organizador requer código válido
-                        </p>
                       </div>
-                    )}
-                  </div>
-                )}
 
-                {/* STEP 3 - TERMOS, JOGOS PREFERIDOS E PRÉVIA */}
-                {currentStep === 3 && (
-                  <>
-                    <div className="space-y-1 pt-4">
-                      <p className="text-[11px] font-semibold uppercase text-primary tracking-wide">
-                        Parte 3 · Termos e jogos preferidos
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        Confirme que está de acordo com as regras, escolha seus jogos e revise
-                        a prévia do seu perfil antes de criar a conta.
-                      </p>
-                    </div>
-
-                    <div className="flex items-start space-x-2 pt-2">
-                      <Checkbox
-                        id="terms"
-                        checked={acceptedTerms}
-                        onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-                        className="mt-0.5"
-                      />
-                      <Label
-                        htmlFor="terms"
-                        className="text-sm text-muted-foreground cursor-pointer leading-tight"
-                      >
-                        Ao criar uma conta, você concorda com os termos e diretrizes da plataforma
-                      </Label>
-                    </div>
-
-                    <div className="pt-4">
-                      <Label className="block mb-2 text-sm font-medium">Jogos Preferidos</Label>
-                      <p className="text-xs text-muted-foreground mb-2">
-                        Escolha pelo menos um jogo que você joga para personalizar suas recomendações.
-                      </p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { id: "free_fire", name: "Free Fire" },
-                          { id: "blood_strike", name: "Blood Strike" },
-                          { id: "farlight_84", name: "Farlight 84" },
-                          { id: "prime_rush", name: "Prime Rush" },
-                          { id: "battlefield_6", name: "Battlefield 6" },
-                        ].map((game) => {
-                          const selected = formData.preferredGames.includes(game.id);
-                          return (
-                            <div
-                              key={game.id}
-                              role="button"
-                              aria-pressed={selected}
-                              tabIndex={0}
-                              onClick={() => {
-                                setFormData((prev) => {
-                                  const current = prev.preferredGames;
-                                  const exists = current.includes(game.id);
-                                  return {
-                                    ...prev,
-                                    preferredGames: exists
-                                      ? current.filter((g) => g !== game.id)
-                                      : [...current, game.id],
-                                  };
-                                });
-                              }}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ") {
-                                  e.preventDefault();
-                                  setFormData((prev) => {
-                                    const current = prev.preferredGames;
-                                    const exists = current.includes(game.id);
-                                    return {
-                                      ...prev,
-                                      preferredGames: exists
-                                        ? current.filter((g) => g !== game.id)
-                                        : [...current, game.id],
-                                    };
-                                  });
-                                }
-                              }}
-                              className={`text-left text-xs px-3 py-2 rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background cursor-pointer ${
-                                selected
-                                  ? "border-primary bg-primary/10"
-                                  : "border-border hover:border-primary/50"
-                              }`}
+                      {/* Senha (exceto recuperar senha) */}
+                      {!forgotPassword && (
+                        <div className="space-y-2">
+                          <Label htmlFor="password">Senha</Label>
+                          <div className="relative">
+                            <Input
+                              id="password"
+                              type={showLoginPassword ? "text" : "password"}
+                              placeholder="Sua senha"
+                              value={formData.password}
+                              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                              required
+                              className="bg-background/50 border-border pr-10"
+                            />
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => setShowLoginPassword((v) => !v)}
+                              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                              aria-label={showLoginPassword ? "Ocultar senha" : "Mostrar senha"}
                             >
-                              <Checkbox
-                                checked={selected}
-                                className="mr-2 align-middle pointer-events-none"
-                                tabIndex={-1}
-                                aria-hidden="true"
-                              />
-                              <span className="align-middle">{game.name}</span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                              {showLoginPassword ? (
+                                <EyeOff className="h-4 w-4 text-muted-foreground" />
+                              ) : (
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
 
-                    {/* Prévia do perfil */}
-                    <div className="mt-6 rounded-lg border border-border bg-card/60 p-4 text-sm space-y-2">
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Prévia do seu perfil
-                      </p>
-                      <div className="space-y-1">
-                        <p>
-                          <span className="font-medium">Nome:</span> {formData.fullName || "—"}
-                        </p>
-                        <p>
-                          <span className="font-medium">Username:</span> @{formData.username || "seu_username"}
-                        </p>
-                        <p>
-                          <span className="font-medium">Tipo de conta:</span>{" "}
-                          {formData.role === "organizer" ? "Organizador" : "Jogador"}
-                        </p>
-                        <p>
-                          <span className="font-medium">Jogos:</span>{" "}
-                          {formData.preferredGames.length > 0
-                            ? formData.preferredGames
-                                .map((id) => {
-                                  const game = [
-                                    { id: "free_fire", name: "Free Fire" },
-                                    { id: "blood_strike", name: "Blood Strike" },
-                                    { id: "farlight_84", name: "Farlight 84" },
-                                    { id: "prime_rush", name: "Prime Rush" },
-                                    { id: "battlefield_6", name: "Battlefield 6" },
-                                  ].find((g) => g.id === id);
-                                  return game?.name ?? id;
-                                })
-                                .join(", ")
-                            : "Nenhum jogo selecionado"}
-                        </p>
-                      </div>
-                    </div>
-                  </>
-                )}
+                      <Button
+                        type="submit"
+                        className="w-full bg-primary hover:bg-primary/90 transition-colors"
+                        disabled={loading}
+                      >
+                        {loading
+                          ? "Processando..."
+                          : forgotPassword
+                            ? "Enviar E-mail de Recuperação"
+                            : "Entrar"}
+                      </Button>
+
+                      {/* Social login (somente no login) - abaixo do botão Entrar */}
+                      {isLogin && !forgotPassword && !isOAuthCompletion && (
+                        <div className="pt-2 space-y-3">
+                          <div className="flex items-center gap-3">
+                            <div className="h-px flex-1 bg-border" />
+                            <span className="text-xs text-muted-foreground">ou</span>
+                            <div className="h-px flex-1 bg-border" />
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-center gap-3 bg-background/40"
+                            onClick={() => handleOAuthLogin("discord")}
+                            disabled={loading}
+                          >
+                            <DiscordMark className="w-5 h-5" />
+                            <span>Entrar com Discord</span>
+                          </Button>
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Fluxo de CRIAR CONTA (wizard 3 passos) */}
+                  {!isLogin && !forgotPassword && (
+                    <>
+                      {/* Cadastro */}
+                      {signupAwaitingEmail ? (
+                        <div className="space-y-6 py-6 text-center">
+                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 border border-border">
+                            <Mail className="h-6 w-6 text-primary" />
+                          </div>
+                          <div className="space-y-2">
+                            <h3 className="text-lg font-semibold">Verifique seu e-mail</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Enviamos um link de confirmação para <span className="font-medium text-foreground">{signupEmail || "seu e-mail"}</span>.
+                            </p>
+                          </div>
+                          <Button type="button" className="w-full" onClick={() => setAuthMode("login")}
+                          >
+                            Fazer login
+                          </Button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* HUD do Wizard (somente barra + 'Cadastro · Passo X/3') */}
+                          <div className="space-y-3 mb-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Cadastro · Passo {currentStep}/3
+                            </p>
+                            <Progress
+                              value={(currentStep / 3) * 100}
+                              className="h-2 bg-muted overflow-hidden"
+                              aria-label="Progresso do cadastro"
+                            />
+                          </div>
+                        </>
+                      )}
+
+                      {!signupAwaitingEmail && (
+                        <>
+                          {/* Conteúdo do passo */}
+                          <div key={currentStep} className="animate-fade-in">
+                            {/* STEP 1 */}
+                            {currentStep === 1 && (
+                              <>
+                                <div className="space-y-2">
+                                  <Label htmlFor="fullName">Nome Completo</Label>
+                                  <Input
+                                    id="fullName"
+                                    type="text"
+                                    placeholder="Seu nome"
+                                    value={formData.fullName}
+                                    onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                    className="bg-background/50 border-border"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="email">E-mail</Label>
+                                  <Input
+                                    id="email"
+                                    type="email"
+                                    placeholder="voce@email.com"
+                                    value={formData.email}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    className="bg-background/50 border-border"
+                                  />
+                                </div>
+
+                                <div className="space-y-2">
+                                  <Label htmlFor="password">Senha</Label>
+                                  <div className="relative">
+                                    <Input
+                                      id="password"
+                                      type={showSignupPassword ? "text" : "password"}
+                                      placeholder="Sua senha"
+                                      value={formData.password}
+                                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                                      className="bg-background/50 border-border pr-10"
+                                    />
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => setShowSignupPassword((v) => !v)}
+                                      className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                                      aria-label={showSignupPassword ? "Ocultar senha" : "Mostrar senha"}
+                                    >
+                                      {showSignupPassword ? (
+                                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                                      ) : (
+                                        <Eye className="h-4 w-4 text-muted-foreground" />
+                                      )}
+                                    </Button>
+                                  </div>
+                                </div>
+                              </>
+                            )}
+
+                            {/* STEP 2 */}
+                            {currentStep === 2 && (
+                              <div className="space-y-4 pt-2">
+                                <div className="space-y-2">
+                                  <Label htmlFor="username">Username</Label>
+                                  <Input
+                                    id="username"
+                                    type="text"
+                                    placeholder="seu_username"
+                                    value={formData.username}
+                                    onChange={(e) =>
+                                      setFormData({
+                                        ...formData,
+                                        username: e.target.value.toLowerCase().replace(/\s/g, ""),
+                                      })
+                                    }
+                                    className="bg-background/50 border-border"
+                                  />
+                                </div>
+
+                                <div className="space-y-3">
+                                  <Label>Tipo de Conta</Label>
+                                  <RadioGroup
+                                    value={formData.role}
+                                    onValueChange={(value: "player" | "organizer") =>
+                                      setFormData({ ...formData, role: value })
+                                    }
+                                    className="flex gap-4"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="player" id="player" />
+                                      <Label htmlFor="player" className="cursor-pointer">
+                                        Jogador
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="organizer" id="organizer" />
+                                      <Label htmlFor="organizer" className="cursor-pointer">
+                                        Organizador
+                                      </Label>
+                                    </div>
+                                  </RadioGroup>
+                                </div>
+
+                                {formData.role === "organizer" && (
+                                  <div className="space-y-2">
+                                    <Label htmlFor="inviteCode">Código de Indicação</Label>
+                                    <Input
+                                      id="inviteCode"
+                                      type="text"
+                                      placeholder="Digite o código de indicação"
+                                      value={formData.inviteCode}
+                                      onChange={(e) =>
+                                        setFormData({ ...formData, inviteCode: e.target.value })
+                                      }
+                                      className="bg-background/50 border-border"
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* STEP 3 */}
+                            {currentStep === 3 && (
+                              <div className="space-y-5 pt-2">
+                                <div className="space-y-3">
+                                  <Label>Jogos favoritos</Label>
+                                  <ToggleGroup
+                                    type="multiple"
+                                    value={formData.preferredGames}
+                                    onValueChange={(value) => setPreferredGames(value)}
+                                    className="grid grid-cols-1 gap-3"
+                                  >
+                                    {GAMES.map((game) => (
+                                      <ToggleGroupItem
+                                        key={game.id}
+                                        value={game.id}
+                                        aria-label={game.name}
+                                        className="w-full justify-start gap-3 px-3 py-3 h-auto rounded-lg border border-border bg-background/30 data-[state=on]:border-primary data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                                      >
+                                        <img
+                                          src={game.logo}
+                                          alt={game.name}
+                                          loading="lazy"
+                                          className="w-8 h-8 rounded object-cover"
+                                        />
+                                        <span className="flex-1 font-medium text-left">{game.name}</span>
+                                      </ToggleGroupItem>
+                                    ))}
+                                  </ToggleGroup>
+                                </div>
+
+                                <div className="flex items-start gap-3 rounded-lg border border-border bg-background/30 p-3">
+                                  <Checkbox
+                                    id="terms"
+                                    checked={acceptedTerms}
+                                    onCheckedChange={(v) => setAcceptedTerms(Boolean(v))}
+                                    className="mt-1"
+                                  />
+                                  <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
+                                    Aceito os termos e diretrizes da plataforma
+                                  </Label>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Navegação do wizard */}
+                          <div className="mt-6 flex items-center gap-3">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={goToPrevStep}
+                              disabled={currentStep === 1 || loading}
+                              className="flex-1"
+                            >
+                              <ArrowLeft className="h-4 w-4 mr-2" />
+                              Voltar
+                            </Button>
+
+                            {currentStep < 3 ? (
+                              <Button
+                                type="button"
+                                onClick={goToNextStep}
+                                disabled={loading}
+                                className="flex-1"
+                              >
+                                Prosseguir
+                              </Button>
+                            ) : (
+                              <Button
+                                type="submit"
+                                disabled={loading}
+                                className="flex-1 bg-primary hover:bg-primary/90"
+                              >
+                                {loading ? "Criando..." : "Criar conta"}
+                              </Button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
+                </form>
+
+                <div className="mt-6 space-y-3 text-center">
+                  {isLogin && !forgotPassword && (
+                    <button
+                      type="button"
+                      onClick={() => setForgotPassword(true)}
+                      className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  )}
+
+                  {!forgotPassword && (
+                    <button
+                      type="button"
+                      onClick={() => setAuthMode(isLogin ? "signup" : "login")}
+                      className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
+                    >
+                      {isLogin ? "Não tem conta? Criar conta" : "Já tem conta? Fazer login"}
+                    </button>
+                  )}
+
+                  {forgotPassword && (
+                    <button
+                      type="button"
+                      onClick={() => setForgotPassword(false)}
+                      className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
+                    >
+                      Voltar ao login
+                    </button>
+                  )}
                 </div>
-
-                {/* Navegação do wizard */}
-                <div className="mt-6 flex items-center justify-between gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="flex-1"
-                    disabled={currentStep === 1 || loading}
-                    onClick={() => setCurrentStep((prev) => (prev > 1 ? ((prev - 1) as 1 | 2 | 3) : prev))}
-                  >
-                    Voltar
-                  </Button>
-
-                  <Button
-                    type={currentStep === 3 ? "submit" : "button"}
-                    className="flex-1 bg-primary hover:bg-primary/90 transition-colors"
-                    disabled={loading}
-                    onClick={async () => {
-                      if (currentStep === 1) {
-                        // Validação básica da etapa 1
-                        if (!formData.fullName.trim()) {
-                          toast.error("Informe seu nome completo");
-                          return;
-                        }
-                        if (!formData.email.trim()) {
-                          toast.error("Informe um e-mail válido");
-                          return;
-                        }
-                        if (!formData.password.trim()) {
-                          toast.error("Defina uma senha");
-                          return;
-                        }
-                        setCurrentStep(2);
-                      } else if (currentStep === 2) {
-                        // Validação da etapa 2
-                        if (!formData.username || formData.username.trim().length < 3) {
-                          toast.error("Defina um username com pelo menos 3 caracteres");
-                          return;
-                        }
-                        if (formData.role === "organizer") {
-                          if (
-                            !formData.inviteCode ||
-                            !VALID_ORGANIZER_CODES.includes(formData.inviteCode.toUpperCase())
-                          ) {
-                            toast.error("Código de indicação inválido para conta de organizador");
-                            return;
-                          }
-                        }
-                        setCurrentStep(3);
-                      }
-                      // currentStep === 3 deixa o submit seguir normalmente para handleAuth
-                    }}
-                  >
-                    {currentStep === 3
-                      ? loading
-                        ? "Criando conta..."
-                        : "Confirmar e criar conta"
-                      : "Próximo"}
-                  </Button>
-                </div>
-              </>
-            )}
-          </form>
-
-          <div className="mt-6 space-y-3 text-center">
-            {isLogin && !forgotPassword && (
-              <button
-                onClick={() => setForgotPassword(true)}
-                className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
-              >
-                Esqueci minha senha
-              </button>
-            )}
-            
-            {!forgotPassword && (
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
-              >
-                {isLogin
-                  ? "Não tem conta? Criar conta"
-                  : "Já tem conta? Fazer login"}
-              </button>
-            )}
-
-            {forgotPassword && (
-              <button
-                onClick={() => setForgotPassword(false)}
-                className="text-sm text-primary hover:text-primary/80 transition-colors block w-full"
-              >
-                Voltar ao login
-              </button>
-            )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </MainLayout>
   );
 };
 

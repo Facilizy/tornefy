@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
@@ -25,7 +25,7 @@ interface Team {
   logo_url: string | null;
   banner_url: string | null;
   bio: string | null;
-  is_external: boolean;
+  is_external: boolean | null;
   is_verified: boolean;
   is_recruiting: boolean;
   region: string;
@@ -34,32 +34,67 @@ interface Team {
   primary_color: string;
 }
 
+type PlayerProfile = {
+  id: string;
+  username: string | null;
+  full_name: string | null;
+  avatar_url: string | null;
+};
+
 const Teams = () => {
   const navigate = useNavigate();
   const [teams, setTeams] = useState<Team[]>([]);
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([]);
+  const [players, setPlayers] = useState<PlayerProfile[]>([]);
+  const [filteredPlayers, setFilteredPlayers] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [recruitingOnly, setRecruitingOnly] = useState(false);
-  const [viewMode, setViewMode] = useState<"ranking" | "explore">("explore");
+  const [viewMode, setViewMode] = useState<"players" | "explore">("explore");
+
+  const rtRefetchTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    fetchTeams();
+    Promise.all([fetchTeams(), fetchPlayers()]).finally(() => setLoading(false));
+
+    const schedule = () => {
+      if (rtRefetchTimeoutRef.current) window.clearTimeout(rtRefetchTimeoutRef.current);
+      rtRefetchTimeoutRef.current = window.setTimeout(async () => {
+        await Promise.all([fetchTeams(), fetchPlayers()]);
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel("rt-teams-and-players")
+      .on("postgres_changes", { event: "*", schema: "public", table: "teams" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_members" }, schedule)
+      .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, schedule)
+      .subscribe();
+
+    return () => {
+      if (rtRefetchTimeoutRef.current) window.clearTimeout(rtRefetchTimeoutRef.current);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    filterTeams();
-  }, [teams, searchTerm, typeFilter, recruitingOnly, viewMode]);
+    filterTeamsAndPlayers();
+  }, [teams, players, searchTerm, typeFilter, recruitingOnly, viewMode]);
 
   const fetchTeams = async () => {
     try {
       const { data, error } = await supabase
         .from("teams")
-        .select(`
+        .select(
+          `
           *,
           team_members(count)
-        `)
+        `
+        )
+        // show only real teams; older rows may have is_external = NULL
+        .or("is_external.is.null,is_external.eq.false")
         .order("rating", { ascending: false });
 
       if (error) throw error;
@@ -73,17 +108,30 @@ const Teams = () => {
       setTeams(teamsWithCount || []);
     } catch (error) {
       console.error("Error fetching teams:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const filterTeams = () => {
-    let filtered = [...teams];
+  const fetchPlayers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPlayers((data || []) as PlayerProfile[]);
+    } catch (error) {
+      console.error("Error fetching players:", error);
+    }
+  };
+
+  const filterTeamsAndPlayers = () => {
+    // Teams
+    let filteredT = [...teams];
 
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(
+      filteredT = filteredT.filter(
         (team) =>
           team.name.toLowerCase().includes(term) ||
           team.tag.toLowerCase().includes(term)
@@ -91,20 +139,26 @@ const Teams = () => {
     }
 
     if (typeFilter !== "all") {
-      filtered = filtered.filter((team) =>
-        typeFilter === "verified" ? team.is_verified : !team.is_verified
-      );
+      filteredT = filteredT.filter((team) => team.is_verified);
     }
 
     if (recruitingOnly) {
-      filtered = filtered.filter((team) => team.is_recruiting);
+      filteredT = filteredT.filter((team) => team.is_recruiting);
     }
 
-    if (viewMode === "ranking") {
-      filtered.sort((a, b) => b.rating - a.rating);
-    }
+    setFilteredTeams(filteredT);
 
-    setFilteredTeams(filtered);
+    // Players
+    let filteredP = [...players];
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filteredP = filteredP.filter((p) => {
+        const uname = (p.username || "").toLowerCase();
+        const fname = (p.full_name || "").toLowerCase();
+        return uname.includes(term) || fname.includes(term);
+      });
+    }
+    setFilteredPlayers(filteredP);
   };
 
   if (loading) {
@@ -139,17 +193,14 @@ const Teams = () => {
       <main className="container mx-auto px-4 pb-10">
         {/* Top bar */}
         <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
-          <Tabs
-            value={viewMode}
-            onValueChange={(v) => setViewMode(v as "ranking" | "explore")}
-          >
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
             <TabsList className="bg-card/50">
               <TabsTrigger
-                value="ranking"
+                value="players"
                 className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <Trophy className="w-4 h-4" />
-                Ranking
+                <Users className="w-4 h-4" />
+                Jogadores
               </TabsTrigger>
               <TabsTrigger
                 value="explore"
@@ -163,7 +214,9 @@ const Teams = () => {
 
           <p className="text-sm text-muted-foreground md:text-right">
             <Filter className="w-4 h-4 inline mr-1" />
-            {filteredTeams.length} equipe{filteredTeams.length !== 1 ? "s" : ""}
+            {viewMode === "players"
+              ? `${filteredPlayers.length} jogador${filteredPlayers.length !== 1 ? "es" : ""}`
+              : `${filteredTeams.length} equipe${filteredTeams.length !== 1 ? "s" : ""}`}
           </p>
         </section>
 
@@ -187,7 +240,6 @@ const Teams = () => {
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
                 <SelectItem value="verified">Verificadas</SelectItem>
-                <SelectItem value="external">Outras</SelectItem>
               </SelectContent>
             </Select>
 
@@ -204,16 +256,53 @@ const Teams = () => {
           </div>
         </section>
 
-        {/* Teams Grid */}
-        {filteredTeams.length === 0 ? (
+        {/* Content */}
+        {viewMode === "players" ? (
+          filteredPlayers.length === 0 ? (
+            <div className="text-center py-16">
+              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-semibold mb-2">Nenhum jogador encontrado</h3>
+              <p className="text-muted-foreground">Tente ajustar a busca</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredPlayers.map((p) => (
+                <Card
+                  key={p.id}
+                  className="p-4 bg-card border-border hover:border-primary/30 transition-all cursor-pointer"
+                  onClick={() => navigate(`/profile/${p.id}`)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden flex items-center justify-center">
+                      {p.avatar_url ? (
+                        <img
+                          src={p.avatar_url}
+                          alt={p.full_name ? `Avatar de ${p.full_name}` : "Avatar do jogador"}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <Users className="w-6 h-6 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold uppercase truncate">
+                        {p.full_name || "Jogador"}
+                      </div>
+                      <div className="text-sm text-muted-foreground truncate">
+                        @{p.username || "sem-username"}
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )
+        ) : filteredTeams.length === 0 ? (
           <div className="text-center py-16">
             <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">
-              Nenhuma equipe encontrada
-            </h3>
-            <p className="text-muted-foreground">
-              Tente ajustar os filtros de busca
-            </p>
+            <h3 className="text-lg font-semibold mb-2">Nenhuma equipe encontrada</h3>
+            <p className="text-muted-foreground">Tente ajustar os filtros de busca</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -228,11 +317,11 @@ const Teams = () => {
                 }}
               >
                 {/* Banner */}
-                <div 
+                <div
                   className="h-24 relative"
                   style={{
-                    background: team.banner_url 
-                      ? `url(${team.banner_url}) center/cover` 
+                    background: team.banner_url
+                      ? `url(${team.banner_url}) center/cover`
                       : `linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.6) 100%)`,
                   }}
                 >
@@ -266,6 +355,7 @@ const Teams = () => {
                           src={team.logo_url}
                           alt={team.name}
                           className="w-full h-full object-cover"
+                          loading="lazy"
                         />
                       ) : (
                         <Users className="w-8 h-8 text-muted-foreground" />
@@ -280,7 +370,7 @@ const Teams = () => {
                     {team.name}
                   </h3>
                   <p className="text-muted-foreground text-sm">[{team.tag}]</p>
-                  
+
                   {team.bio && (
                     <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
                       {team.bio}

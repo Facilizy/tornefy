@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { X, ChevronUp, Calendar, Clock, Users, Gamepad2 } from "lucide-react";
+import { getGameLabel } from "@/lib/games";
 
 
 interface UpcomingScrim {
@@ -145,11 +146,7 @@ export const UpcomingScrimWidget = () => {
               </h3>
               {scrim.game && (
                 <p className="text-xs text-primary font-semibold mt-1 uppercase">
-                  {scrim.game === "free_fire" && "Free Fire"}
-                  {scrim.game === "blood_strike" && "Blood Strike"}
-                  {scrim.game === "farlight_84" && "Farlight 84"}
-                  {scrim.game === "prime_rush" && "Prime Rush"}
-                  {scrim.game === "battlefield_6" && "Battlefield 6"}
+                  {getGameLabel(scrim.game)}
                 </p>
               )}
               <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">

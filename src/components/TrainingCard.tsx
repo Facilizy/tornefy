@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Calendar, Users, Monitor, Gamepad2, Handshake, Layers } from "lucide-react";
+import { getGameLabel, getGameLogo } from "@/lib/games";
 
 import { useNavigate } from "react-router-dom";
 
@@ -32,21 +33,6 @@ interface TrainingCardProps {
   };
 }
 
-const GAME_LABELS: Record<string, string> = {
-  free_fire: "Free Fire",
-  blood_strike: "Blood Strike",
-  farlight_84: "Farlight 84",
-  prime_rush: "Prime Rush",
-  battlefield_6: "Battlefield 6",
-};
-
-const GAME_LOGOS: Record<string, string> = {
-  free_fire: "/game-logos/free-fire.png",
-  blood_strike: "/game-logos/blood-strike.png",
-  farlight_84: "/game-logos/farlight-84.png",
-  prime_rush: "/game-logos/prime-rush.png",
-  battlefield_6: "/game-logos/battlefield-6.png",
-};
 
 const TrainingCard = ({ training }: TrainingCardProps) => {
   const navigate = useNavigate();
@@ -79,8 +65,8 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
     }
   };
 
-  const gameLabel = training.game ? GAME_LABELS[training.game] : undefined;
-  const gameLogo = training.game ? GAME_LOGOS[training.game] : undefined;
+  const gameLabel = training.game ? getGameLabel(training.game) : undefined;
+  const gameLogo = training.game ? getGameLogo(training.game) : undefined;
   const organizerLabel = training.organizer_name ? `Criado por ${training.organizer_name}` : undefined;
 
   return (

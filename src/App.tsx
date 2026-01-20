@@ -19,6 +19,7 @@ const ProfileEdit = lazy(() => import("./pages/ProfileEdit"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Scrims = lazy(() => import("./pages/Scrims"));
 const Ranking = lazy(() => import("./pages/Ranking"));
+const Players = lazy(() => import("./pages/Players"));
 const Terms = lazy(() => import("./pages/Terms"));
 const PendingInvites = lazy(() => import("./pages/PendingInvites"));
 const SentInvites = lazy(() => import("./pages/SentInvites"));
@@ -48,9 +49,9 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/dashboard" element={<PlayerDashboard />} />
             <Route path="/scrims" element={<Scrims />} />
+            <Route path="/players" element={<Players />} />
             <Route path="/ranking" element={<Ranking />} />
             <Route path="/equipes" element={<Teams />} />
-            <Route path="/terms" element={<Terms />} />
             <Route path="/profile/edit" element={<ProfileEdit />} />
             <Route path="/training/:id" element={<TrainingDetails />} />
             <Route path="/my-team" element={<MyTeam />} />
