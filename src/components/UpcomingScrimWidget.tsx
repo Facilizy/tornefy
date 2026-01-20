@@ -86,7 +86,7 @@ export const UpcomingScrimWidget = () => {
       .limit(1);
 
     if (preferredGames && preferredGames.length > 0) {
-      query = query.in("game", preferredGames);
+      query = query.in("game", preferredGames as any);
     }
 
     const { data, error } = await query.maybeSingle();

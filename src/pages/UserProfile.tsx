@@ -106,7 +106,7 @@ const UserProfile = () => {
           .eq("user_id", targetUserId)
           .eq("role", "organizer")
           .maybeSingle(),
-        supabase
+        (supabase as any)
           .from("user_roles")
           .select("role")
           .eq("user_id", targetUserId)

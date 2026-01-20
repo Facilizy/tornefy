@@ -280,6 +280,35 @@ export type Database = {
           },
         ]
       }
+      team_lines: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_lines_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       team_members: {
         Row: {
           created_at: string
@@ -287,8 +316,10 @@ export type Database = {
           function: Database["public"]["Enums"]["player_function"]
           game_id: string
           id: string
+          line_id: string | null
           player_name: string
           team_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
@@ -296,8 +327,10 @@ export type Database = {
           function: Database["public"]["Enums"]["player_function"]
           game_id: string
           id?: string
+          line_id?: string | null
           player_name: string
           team_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
@@ -305,10 +338,19 @@ export type Database = {
           function?: Database["public"]["Enums"]["player_function"]
           game_id?: string
           id?: string
+          line_id?: string | null
           player_name?: string
           team_id?: string
+          user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "team_members_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "team_lines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "team_members_team_id_fkey"
             columns: ["team_id"]
@@ -439,6 +481,42 @@ export type Database = {
             columns: ["owner_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_checkins: {
+        Row: {
+          checked_in_at: string
+          id: string
+          team_id: string
+          training_id: string
+        }
+        Insert: {
+          checked_in_at?: string
+          id?: string
+          team_id: string
+          training_id: string
+        }
+        Update: {
+          checked_in_at?: string
+          id?: string
+          team_id?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_checkins_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_checkins_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
             referencedColumns: ["id"]
           },
         ]
@@ -683,6 +761,7 @@ export type Database = {
       training_registrations: {
         Row: {
           id: string
+          line_id: string | null
           registered_at: string
           slot_number: number | null
           team_id: string
@@ -690,6 +769,7 @@ export type Database = {
         }
         Insert: {
           id?: string
+          line_id?: string | null
           registered_at?: string
           slot_number?: number | null
           team_id: string
@@ -697,12 +777,20 @@ export type Database = {
         }
         Update: {
           id?: string
+          line_id?: string | null
           registered_at?: string
           slot_number?: number | null
           team_id?: string
           training_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "training_registrations_line_id_fkey"
+            columns: ["line_id"]
+            isOneToOne: false
+            referencedRelation: "team_lines"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "training_registrations_team_id_fkey"
             columns: ["team_id"]
@@ -821,6 +909,45 @@ export type Database = {
             columns: ["organizer_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_waitlist: {
+        Row: {
+          created_at: string
+          id: string
+          position: number
+          team_id: string
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          position?: number
+          team_id: string
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          position?: number
+          team_id?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_waitlist_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_waitlist_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
             referencedColumns: ["id"]
           },
         ]
