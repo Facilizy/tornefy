@@ -31,7 +31,7 @@ interface TeamMember {
   game_id: string;
   discord: string | null;
   function: string;
-  user_id: string | null;
+  user_id?: string | null;
 }
 
 const TeamProfile = () => {

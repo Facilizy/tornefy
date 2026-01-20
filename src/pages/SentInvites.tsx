@@ -12,7 +12,7 @@ interface SentInvite {
   id: string;
   invited_user_id: string | null;
   invited_username: string | null;
-  is_external: string | null;
+  is_external: boolean;
   external_player_name: string | null;
   external_discord: string | null;
   external_game_id: string | null;
@@ -186,7 +186,7 @@ const SentInvites = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-bold text-lg uppercase truncate">
-                        {invite.is_external === "true"
+                        {invite.is_external === true
                           ? invite.external_player_name || "Jogador Externo"
                           : invite.invited_username
                             ? `@${invite.invited_username}`
@@ -213,7 +213,7 @@ const SentInvites = () => {
                       </Badge>
                     </div>
 
-                    {invite.is_external === "true" && (
+                    {invite.is_external === true && (
                       <p className="text-xs text-muted-foreground mt-1">
                         Externo · {invite.external_player_name || "Sem nome"}
                         {invite.external_discord && ` · Discord: ${invite.external_discord}`}

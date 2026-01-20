@@ -461,7 +461,7 @@ export function ScoreManagementDialog({
           kills: s.kills,
           position_points: pts.posPoints,
           kill_points: pts.killPoints,
-          bonus_points: String(s.bonus_points ?? 0),
+          bonus_points: Number(s.bonus_points ?? 0),
           total_points: pts.total,
         };
       });
