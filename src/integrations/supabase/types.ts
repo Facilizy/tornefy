@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievements: {
+        Row: {
+          badge_icon: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          target_value: number
+        }
+        Insert: {
+          badge_icon?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          target_value?: number
+        }
+        Update: {
+          badge_icon?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          target_value?: number
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -71,6 +98,27 @@ export type Database = {
           organizer_id?: string
           reason?: string | null
           team_tag?: string
+        }
+        Relationships: []
+      }
+      organizer_follows: {
+        Row: {
+          created_at: string
+          follower_id: string
+          id: string
+          organizer_id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          id?: string
+          organizer_id: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          id?: string
+          organizer_id?: string
         }
         Relationships: []
       }
@@ -577,6 +625,61 @@ export type Database = {
           },
         ]
       }
+      training_player_stats: {
+        Row: {
+          created_at: string
+          id: string
+          is_mvp: boolean
+          kills: number
+          match_id: string
+          player_name: string
+          team_id: string
+          team_member_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_mvp?: boolean
+          kills?: number
+          match_id: string
+          player_name: string
+          team_id: string
+          team_member_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_mvp?: boolean
+          kills?: number
+          match_id?: string
+          player_name?: string
+          team_id?: string
+          team_member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_player_stats_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "training_matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_player_stats_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_player_stats_team_member_id_fkey"
+            columns: ["team_member_id"]
+            isOneToOne: false
+            referencedRelation: "team_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_registrations: {
         Row: {
           id: string
@@ -820,6 +923,33 @@ export type Database = {
           },
         ]
       }
+      user_achievements: {
+        Row: {
+          achievement_id: string
+          created_at: string
+          id: string
+          progress: number
+          unlocked_at: string | null
+          user_id: string
+        }
+        Insert: {
+          achievement_id: string
+          created_at?: string
+          id?: string
+          progress?: number
+          unlocked_at?: string | null
+          user_id: string
+        }
+        Update: {
+          achievement_id?: string
+          created_at?: string
+          id?: string
+          progress?: number
+          unlocked_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -848,6 +978,10 @@ export type Database = {
     Functions: {
       count_active_blacklists_from_different_organizers: {
         Args: { _team_tag: string }
+        Returns: number
+      }
+      get_organizer_follow_count: {
+        Args: { _organizer_id: string }
         Returns: number
       }
       has_role: {
