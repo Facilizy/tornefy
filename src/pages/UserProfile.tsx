@@ -98,7 +98,7 @@ const UserProfile = () => {
     setIsOwnProfile(currentUserId === targetUserId);
 
     try {
-      const [profileData, roleRow, verifiedRow] = await Promise.all([
+      const [profileData, roleRow] = await Promise.all([
         fetchProfile(targetUserId),
         supabase
           .from("user_roles")
@@ -106,26 +106,21 @@ const UserProfile = () => {
           .eq("user_id", targetUserId)
           .eq("role", "organizer")
           .maybeSingle(),
-        (supabase as any)
-          .from("user_roles")
-          .select("role")
-          .eq("user_id", targetUserId)
-          .eq("role", "organizer_verified")
-          .maybeSingle(),
       ]);
 
       setProfile(profileData);
 
-      const organizer = !!roleRow.data;
+      // Verifica se é organizador pela tabela user_roles OU pelo campo role na tabela profiles
+      const organizerByRoleTable = !!roleRow.data;
+      const organizerByProfileRole = profileData?.role === "organizer";
+      const organizer = organizerByRoleTable || organizerByProfileRole;
       setIsOrganizer(organizer);
-
-      // Verificado por papel OU por volume de treinos (regras iguais ao painel)
-      const organizerIsVerifiedByRole = !!verifiedRow.data;
 
       if (organizer) {
         const trainings = await fetchOrganizerTrainings(targetUserId);
         setOrganizerTrainings(trainings);
-        const organizerIsVerified = organizerIsVerifiedByRole || trainings.length >= 10;
+        // Verificado se tiver 10+ treinos criados
+        const organizerIsVerified = trainings.length >= 10;
         setOrganizerVerified(organizerIsVerified);
       } else {
         await fetchPlayerStats(targetUserId);
