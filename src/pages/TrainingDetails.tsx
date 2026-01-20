@@ -50,6 +50,7 @@ import { TrainingSettingsTab } from "@/components/TrainingSettingsTab";
 import { PointsTableCard } from "@/components/training/PointsTableCard";
 import { MvpListCard } from "@/components/training/MvpListCard";
 import { MinimumTeamsProgress } from "@/components/training/MinimumTeamsProgress";
+import { LoginRequiredCard } from "@/components/LoginRequiredCard";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -903,35 +904,31 @@ const TrainingDetails = () => {
               <span>Visão Geral</span>
             </TabsTrigger>
 
-            {isAuthed && (
-              <TabsTrigger
-                value="ranking"
-                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
-                style={
-                  activeTab === "ranking"
-                    ? { backgroundColor: eventPrimaryColor, color: "white" }
-                    : { color: eventPrimaryColor }
-                }
-              >
-                <Medal className="w-4 h-4" />
-                <span>Ranking</span>
-              </TabsTrigger>
-            )}
+            <TabsTrigger
+              value="ranking"
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+              style={
+                activeTab === "ranking"
+                  ? { backgroundColor: eventPrimaryColor, color: "white" }
+                  : { color: eventPrimaryColor }
+              }
+            >
+              <Medal className="w-4 h-4" />
+              <span>Ranking</span>
+            </TabsTrigger>
 
-            {isAuthed && (
-              <TabsTrigger
-                value="teams"
-                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
-                style={
-                  activeTab === "teams"
-                    ? { backgroundColor: eventPrimaryColor, color: "white" }
-                    : { color: eventPrimaryColor }
-                }
-              >
-                <Users className="w-4 h-4" />
-                <span>Equipes</span>
-              </TabsTrigger>
-            )}
+            <TabsTrigger
+              value="teams"
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+              style={
+                activeTab === "teams"
+                  ? { backgroundColor: eventPrimaryColor, color: "white" }
+                  : { color: eventPrimaryColor }
+              }
+            >
+              <Users className="w-4 h-4" />
+              <span>Equipes</span>
+            </TabsTrigger>
 
             <TabsTrigger
               value="matches"
@@ -1658,52 +1655,56 @@ const TrainingDetails = () => {
           </TabsContent>
 
            {/* Ranking Tab */}
-           {isAuthed && (
-              <TabsContent value="ranking" className="space-y-6">
-                {!hasAnyScores ? (
-                  <Card className="p-6 bg-card/80 border-border">
-                    <div className="flex items-start gap-3">
-                      <div className="mt-0.5">
-                        <Info className="w-5 h-5 text-primary" />
-                      </div>
-                      <div>
-                        <div className="font-semibold">Por enquanto não há dados</div>
-                        <div className="text-sm text-muted-foreground">
-                          O ranking aparece automaticamente quando algum placar for lançado.
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ) : registeredTeams.length > 0 ? (
-                  <>
-                    <Scoreboard
-                      trainingId={id!}
-                      teams={registeredTeams.map((r: any) => ({
-                        id: r.teams.id,
-                        name: r.teams.name,
-                        tag: r.teams.tag,
-                        logo_url: r.teams.logo_url,
-                      }))}
-                      primaryColor={eventPrimaryColor}
-                    />
+           <TabsContent value="ranking" className="space-y-6">
+             {!isAuthed ? (
+               <LoginRequiredCard
+                 title="Login necessário"
+                 message="Faça login para visualizar o ranking completo do evento."
+                 primaryColor={eventPrimaryColor}
+               />
+             ) : !hasAnyScores ? (
+               <Card className="p-6 bg-card/80 border-border">
+                 <div className="flex items-start gap-3">
+                   <div className="mt-0.5">
+                     <Info className="w-5 h-5 text-primary" />
+                   </div>
+                   <div>
+                     <div className="font-semibold">Por enquanto não há dados</div>
+                     <div className="text-sm text-muted-foreground">
+                       O ranking aparece automaticamente quando algum placar for lançado.
+                     </div>
+                   </div>
+                 </div>
+               </Card>
+             ) : registeredTeams.length > 0 ? (
+               <>
+                 <Scoreboard
+                   trainingId={id!}
+                   teams={registeredTeams.map((r: any) => ({
+                     id: r.teams.id,
+                     name: r.teams.name,
+                     tag: r.teams.tag,
+                     logo_url: r.teams.logo_url,
+                   }))}
+                   primaryColor={eventPrimaryColor}
+                 />
 
-                    <MvpListCard
-                      trainingId={id!}
-                      teams={registeredTeams.map((r: any) => ({
-                        id: r.teams.id,
-                        name: r.teams.name,
-                        tag: r.teams.tag,
-                        logo_url: r.teams.logo_url,
-                      }))}
-                    />
-                  </>
-                ) : (
-                  <Card className="p-6 bg-card/80 border-border">
-                    <div className="text-sm text-muted-foreground">Nenhuma equipe inscrita ainda.</div>
-                  </Card>
-                )}
-              </TabsContent>
-           )}
+                 <MvpListCard
+                   trainingId={id!}
+                   teams={registeredTeams.map((r: any) => ({
+                     id: r.teams.id,
+                     name: r.teams.name,
+                     tag: r.teams.tag,
+                     logo_url: r.teams.logo_url,
+                   }))}
+                 />
+               </>
+             ) : (
+               <Card className="p-6 bg-card/80 border-border">
+                 <div className="text-sm text-muted-foreground">Nenhuma equipe inscrita ainda.</div>
+               </Card>
+             )}
+           </TabsContent>
 
           {/* Settings tab - organizer only */}
           {isOrganizer && (
@@ -1722,8 +1723,14 @@ const TrainingDetails = () => {
 
 
           {/* Teams Tab */}
-          {isAuthed && (
-            <TabsContent value="teams">
+          <TabsContent value="teams">
+            {!isAuthed ? (
+              <LoginRequiredCard
+                title="Login necessário"
+                message="Faça login para visualizar as equipes inscritas neste evento."
+                primaryColor={eventPrimaryColor}
+              />
+            ) : (
               <Card className="p-6 bg-card/80 border-border">
                 <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                   <h2 className="text-xl font-bold" style={{ color: eventPrimaryColor }}>
@@ -1771,14 +1778,15 @@ const TrainingDetails = () => {
                   </div>
                 )}
               </Card>
-            </TabsContent>
-          )}
+            )}
+          </TabsContent>
 
           {/* Matches Tab */}
           <TabsContent value="matches">
             <MatchesTab 
               trainingId={id!} 
               isOrganizer={isOrganizer}
+              isAuthenticated={isAuthed}
               teams={registeredTeams.map((r: any) => ({
                 id: r.teams.id,
                 name: r.teams.name,
