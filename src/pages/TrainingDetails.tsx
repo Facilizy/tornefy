@@ -1188,6 +1188,81 @@ const TrainingDetails = () => {
                   )}
                 </Card>
 
+                {/* Organizer Card */}
+                {organizerProfile && (
+                  <Card className="p-6 bg-card/80 border-border">
+                    <h3 className="font-semibold mb-4 flex items-center gap-2">
+                      <Users className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                      Organizador
+                    </h3>
+                    
+                    <div className="flex items-center gap-3 mb-4">
+                      {organizerProfile.avatar_url ? (
+                        <img
+                          src={organizerProfile.avatar_url}
+                          alt={organizerProfile.full_name || "Organizador"}
+                          className="w-12 h-12 rounded-lg object-cover border-2"
+                          style={{ borderColor: eventPrimaryColor }}
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div 
+                          className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
+                          style={{ backgroundColor: eventPrimaryColor }}
+                        >
+                          {(organizerProfile.full_name || "O").charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold truncate">{organizerProfile.full_name || "Organizador"}</p>
+                          {isVerifiedOrganizer && <VerifiedBadge variant="icon" size="sm" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          {followOrganizer.loading ? "—" : `${followOrganizer.followersCount} seguidores`}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => navigate(`/profile/${organizerProfile.id}`)}
+                      >
+                        Ver perfil completo
+                      </Button>
+                      
+                      {organizerProfile.id !== user?.id && (
+                        <Button
+                          variant={followOrganizer.isFollowing ? "outline" : "default"}
+                          className="w-full"
+                          style={!followOrganizer.isFollowing ? { backgroundColor: eventPrimaryColor } : undefined}
+                          onClick={async () => {
+                            if (!user) {
+                              toast.error("Faça login para seguir organizadores");
+                              navigate("/auth");
+                              return;
+                            }
+                            try {
+                              await followOrganizer.toggle();
+                              toast.success(
+                                followOrganizer.isFollowing
+                                  ? "Você deixou de seguir o organizador."
+                                  : "Agora você está seguindo o organizador!"
+                              );
+                            } catch (e: any) {
+                              toast.error(e?.message || "Erro ao seguir organizador");
+                            }
+                          }}
+                          disabled={followOrganizer.loading}
+                        >
+                          {followOrganizer.isFollowing ? "Deixar de seguir" : "Seguir"}
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                )}
                 {training.is_private &&
                   Array.isArray(training.invited_tags) &&
                   training.invited_tags.length > 0 && (
