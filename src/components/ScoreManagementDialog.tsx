@@ -160,7 +160,7 @@ export function ScoreManagementDialog({
 
   const loadPlayersForTeam = async (teamId: string, matchId: string) => {
     try {
-      const { data: registration } = await supabase
+      const { data: registration } = await (supabase as any)
         .from("training_registrations")
         .select("line_id")
         .eq("training_id", trainingId)
@@ -169,13 +169,13 @@ export function ScoreManagementDialog({
 
       const lineId = registration?.line_id ?? null;
 
-      const { data: members } = await supabase
+      const { data: members } = await (supabase as any)
         .from("team_members")
         .select("id, player_name, line_id, team_id, user_id")
         .eq("team_id", teamId)
         .in("line_id", lineId ? [lineId] : [null, lineId]);
 
-      const { data: existingStats } = await supabase
+      const { data: existingStats } = await (supabase as any)
         .from("training_player_stats")
         .select("*")
         .eq("match_id", matchId)
@@ -446,7 +446,7 @@ export function ScoreManagementDialog({
         .delete()
         .eq("match_id", selectedMatch);
 
-      await supabase
+      await (supabase as any)
         .from("training_player_stats")
         .delete()
         .eq("match_id", selectedMatch);
@@ -491,7 +491,7 @@ export function ScoreManagementDialog({
       );
 
       if (playerStatsToInsert.length > 0) {
-        const { error } = await supabase
+        const { error } = await (supabase as any)
           .from("training_player_stats")
           .insert(playerStatsToInsert);
 

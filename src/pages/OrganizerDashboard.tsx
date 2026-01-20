@@ -208,7 +208,7 @@ const OrganizerDashboard = () => {
       const [{ data: trainingsData, error: trainingsError }, { data: verifiedRow }] =
         await Promise.all([
           supabase.from("trainings").select("id").eq("organizer_id", user.id),
-          supabase
+          (supabase as any)
             .from("user_roles")
             .select("role")
             .eq("user_id", user.id)

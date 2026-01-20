@@ -231,7 +231,7 @@ const TrainingDetails = () => {
               .from("trainings")
               .select("id", { count: "exact", head: true })
               .eq("organizer_id", organizerId),
-            supabase
+            (supabase as any)
               .from("user_roles")
               .select("role")
               .eq("user_id", organizerId)
@@ -531,7 +531,7 @@ const TrainingDetails = () => {
 
     try {
       // waitlist count is public to team admins only, but we only show it to authed users anyway
-      const { count } = await supabase
+      const { count } = await (supabase as any)
         .from("training_waitlist")
         .select("id", { count: "exact", head: true })
         .eq("training_id", id)
@@ -545,14 +545,14 @@ const TrainingDetails = () => {
       }
 
       const [{ data: w }, { data: c }] = await Promise.all([
-        supabase
+        (supabase as any)
           .from("training_waitlist")
           .select("id")
           .eq("training_id", id)
           .eq("team_id", myTeam.id)
           .eq("status", "active")
           .maybeSingle(),
-        supabase
+        (supabase as any)
           .from("training_checkins")
           .select("id")
           .eq("training_id", id)
