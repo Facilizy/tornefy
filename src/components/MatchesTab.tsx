@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
-import { Swords, Trophy, Target, ChevronRight } from "lucide-react";
+import { Swords, Trophy, Target, ChevronRight, LogIn } from "lucide-react";
 
 interface Team {
   id: string;
@@ -46,6 +47,7 @@ interface MatchScore {
 interface MatchesTabProps {
   trainingId: string;
   isOrganizer: boolean;
+  isAuthenticated?: boolean;
   teams: Team[];
   pointsPerKill: number;
   pointsPerPosition: PositionPoint[];
@@ -57,6 +59,7 @@ interface MatchesTabProps {
 export function MatchesTab({
   trainingId,
   isOrganizer,
+  isAuthenticated = true,
   teams,
   pointsPerKill,
   pointsPerPosition,
@@ -64,6 +67,7 @@ export function MatchesTab({
   onScoresUpdated,
   primaryColor = "#9146FF",
 }: MatchesTabProps) {
+  const navigate = useNavigate();
   const [rounds, setRounds] = useState<Round[]>([]);
   const [matches, setMatches] = useState<Match[]>([]);
   const [scores, setScores] = useState<MatchScore[]>([]);
@@ -148,6 +152,32 @@ export function MatchesTab({
       <Card className="p-6 bg-card/80 border-border">
         <div className="flex items-center justify-center py-12">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </Card>
+    );
+  }
+
+  // Login required card for unauthenticated users
+  if (!isAuthenticated) {
+    return (
+      <Card className="p-8 bg-card/80 border-border">
+        <div className="flex flex-col items-center justify-center text-center space-y-4">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: `${primaryColor}20` }}
+          >
+            <LogIn className="w-8 h-8" style={{ color: primaryColor }} />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold mb-1">Login necessário</h3>
+            <p className="text-sm text-muted-foreground">
+              Faça login para visualizar as partidas e resultados deste evento.
+            </p>
+          </div>
+          <Button onClick={() => navigate("/auth")} style={{ backgroundColor: primaryColor }}>
+            <LogIn className="w-4 h-4 mr-2" />
+            Fazer login
+          </Button>
         </div>
       </Card>
     );
