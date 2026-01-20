@@ -4,8 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { X, ChevronUp, Calendar, Clock, Users, Gamepad2 } from "lucide-react";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+
 
 interface UpcomingScrim {
   id: string;
@@ -13,6 +12,7 @@ interface UpcomingScrim {
   datetime: string;
   max_slots: number;
   registrations: number;
+  game?: string;
 }
 
 export const UpcomingScrimWidget = () => {
@@ -50,19 +50,45 @@ export const UpcomingScrimWidget = () => {
   }, [scrim]);
 
   const fetchNextScrim = async () => {
-    const { data, error } = await supabase
+    const { data: sessionData } = await supabase.auth.getSession();
+
+    let preferredGames: string[] | null = null;
+
+    if (sessionData.session?.user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("preferred_games")
+        .eq("id", sessionData.session.user.id)
+        .maybeSingle();
+
+      if (profile && Array.isArray(profile.preferred_games)) {
+        preferredGames = profile.preferred_games.filter(
+          (g: any): g is string => typeof g === "string"
+        );
+      }
+    }
+
+    let query = supabase
       .from("trainings")
-      .select(`
+      .select(
+        `
         id,
         name,
         datetime,
         max_slots,
+        game,
         training_registrations(count)
-      `)
+      `
+      )
       .gt("datetime", new Date().toISOString())
       .order("datetime", { ascending: true })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (preferredGames && preferredGames.length > 0) {
+      query = query.in("game", preferredGames);
+    }
+
+    const { data, error } = await query.maybeSingle();
 
     if (data && !error) {
       setScrim({
@@ -71,6 +97,7 @@ export const UpcomingScrimWidget = () => {
         datetime: data.datetime,
         max_slots: data.max_slots,
         registrations: data.training_registrations?.[0]?.count || 0,
+        game: data.game || undefined,
       });
     }
   };
@@ -113,15 +140,35 @@ export const UpcomingScrimWidget = () => {
           <div className="p-4 space-y-4">
             {/* Scrim Info */}
             <div>
-              <h3 className="font-bold text-foreground line-clamp-1">{scrim.name}</h3>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-1">
+              <h3 className="font-bold text-foreground line-clamp-1">
+                {scrim.name}
+              </h3>
+              {scrim.game && (
+                <p className="text-xs text-primary font-semibold mt-1 uppercase">
+                  {scrim.game === "free_fire" && "Free Fire"}
+                  {scrim.game === "blood_strike" && "Blood Strike"}
+                  {scrim.game === "farlight_84" && "Farlight 84"}
+                  {scrim.game === "prime_rush" && "Prime Rush"}
+                  {scrim.game === "battlefield_6" && "Battlefield 6"}
+                </p>
+              )}
+              <div className="flex items-center gap-4 text-xs text-muted-foreground mt-2">
                 <span className="flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  {format(scrimDate, "dd MMM", { locale: ptBR })}
+                  {new Intl.DateTimeFormat("pt-BR", {
+                    timeZone: "America/Sao_Paulo",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                  }).format(scrimDate)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
-                  {format(scrimDate, "HH:mm")}
+                  {new Intl.DateTimeFormat("pt-BR", {
+                    timeZone: "America/Sao_Paulo",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }).format(scrimDate)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="w-3 h-3" />

@@ -43,8 +43,23 @@ export function NotificationList({
 
     // Navigate based on notification type
     if (notification.related_id) {
-      if (notification.type === 'new_training' || notification.type === 'status_change' || notification.type === 'live_status' || notification.type === 'team_registration' || notification.type === 'team_unregistration') {
+      if (
+        notification.type === "new_training" ||
+        notification.type === "status_change" ||
+        notification.type === "live_status" ||
+        notification.type === "team_registration" ||
+        notification.type === "team_unregistration"
+      ) {
         navigate(`/training/${notification.related_id}`);
+        onClose();
+      } else if (notification.type === "team_invite") {
+        navigate("/invites");
+        onClose();
+      } else if (
+        notification.type === "invite_accepted" ||
+        notification.type === "invite_rejected"
+      ) {
+        navigate("/sent-invites");
         onClose();
       }
     }
@@ -52,20 +67,26 @@ export function NotificationList({
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'new_training':
-        return '🎮';
-      case 'status_change':
-        return '📢';
-      case 'chat_message':
-        return '💬';
-      case 'live_status':
-        return '🔴';
-      case 'team_registration':
-        return '✅';
-      case 'team_unregistration':
-        return '❌';
+      case "new_training":
+        return "🎮";
+      case "status_change":
+        return "📢";
+      case "chat_message":
+        return "💬";
+      case "live_status":
+        return "🔴";
+      case "team_registration":
+        return "✅";
+      case "team_unregistration":
+        return "❌";
+      case "team_invite":
+        return "👥";
+      case "invite_accepted":
+        return "✅";
+      case "invite_rejected":
+        return "❌";
       default:
-        return '🔔';
+        return "🔔";
     }
   };
 

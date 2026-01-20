@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, CheckCircle, Filter, Loader2, Trophy, UserPlus } from "lucide-react";
+import { Search, Users, Filter, Loader2, Trophy, UserPlus } from "lucide-react";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface Team {
   id: string;
@@ -119,57 +119,69 @@ const Teams = () => {
 
   return (
     <MainLayout>
-      {/* Purple Header Banner */}
-      <div className="relative py-16 mb-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
+      <header className="relative py-14 mb-8 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
         <div className="container mx-auto px-4 relative z-10 text-center">
-          <h1 className="text-3xl md:text-5xl font-black uppercase text-primary mb-2">
-            Equipes
-          </h1>
+          <div className="inline-flex items-center justify-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+              <Users className="w-5 h-5 text-primary" />
+            </div>
+            <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight">
+              Equipes
+            </h1>
+          </div>
           <p className="text-muted-foreground max-w-md mx-auto">
             Explore as melhores equipes competitivas da plataforma
           </p>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-4 pb-8">
-        {/* Tabs */}
-        <div className="flex items-center justify-between mb-6">
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as "ranking" | "explore")}>
+      <main className="container mx-auto px-4 pb-10">
+        {/* Top bar */}
+        <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+          <Tabs
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as "ranking" | "explore")}
+          >
             <TabsList className="bg-card/50">
-              <TabsTrigger value="ranking" className="flex items-center gap-2">
+              <TabsTrigger
+                value="ranking"
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
                 <Trophy className="w-4 h-4" />
                 Ranking
               </TabsTrigger>
-              <TabsTrigger value="explore" className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+              <TabsTrigger
+                value="explore"
+                className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              >
                 <Users className="w-4 h-4" />
                 Explorar
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground md:text-right">
             <Filter className="w-4 h-4 inline mr-1" />
-            {filteredTeams.length} equipes encontradas
+            {filteredTeams.length} equipe{filteredTeams.length !== 1 ? "s" : ""}
           </p>
-        </div>
+        </section>
 
         {/* Filters */}
-        <div className="mb-8 bg-card/50 border border-border rounded-xl p-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
+        <section className="mb-8 bg-card/50 border border-border rounded-xl p-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-3 md:gap-4 items-center">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar por nome ou tag..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-background/50"
+                className="pl-10 bg-background/40"
               />
             </div>
 
             <Select value={typeFilter} onValueChange={setTypeFilter}>
-              <SelectTrigger className="w-full md:w-40 bg-background/50">
+              <SelectTrigger className="w-full bg-background/40">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -179,18 +191,18 @@ const Teams = () => {
               </SelectContent>
             </Select>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 justify-between md:justify-start">
+              <Label htmlFor="recruiting" className="text-sm whitespace-nowrap">
+                Só recrutando
+              </Label>
               <Switch
                 id="recruiting"
                 checked={recruitingOnly}
                 onCheckedChange={setRecruitingOnly}
               />
-              <Label htmlFor="recruiting" className="text-sm whitespace-nowrap">
-                Só recrutando
-              </Label>
             </div>
           </div>
-        </div>
+        </section>
 
         {/* Teams Grid */}
         {filteredTeams.length === 0 ? (
@@ -226,15 +238,15 @@ const Teams = () => {
                 >
                   {/* Rating Badge */}
                   <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded bg-background/80 backdrop-blur-sm">
-                    <Trophy className="w-3 h-3 text-yellow-500" />
+                    <Trophy className="w-3 h-3 text-primary" />
                     <span className="text-xs font-bold">{team.rating}</span>
                   </div>
 
                   {/* Badges */}
                   <div className="absolute top-2 right-2 flex items-center gap-1">
                     {team.is_verified && (
-                      <Badge className="bg-green-500/90 text-white border-0 text-xs">
-                        <CheckCircle className="w-3 h-3 mr-1" />
+                      <Badge className="bg-card/80 text-foreground border-border text-xs backdrop-blur-sm">
+                        <VerifiedBadge />
                         Verificado
                       </Badge>
                     )}
@@ -289,7 +301,7 @@ const Teams = () => {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </MainLayout>
   );
 };

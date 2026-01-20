@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, initial-scale=1" />
+    <title>Tornefy Overlay - Por Queda</title>
+    <style>
+      :root {
+        --bg: transparent;
+        --text: hsl(0 0% 98%);
+        --muted: hsl(240 5% 70%);
+        --primary: hsl(264 100% 64%);
+        --gap: 48px;
+        --row-font: 18px;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        width: 1920px;
+        height: 300px;
+        overflow: hidden;
+        margin: 0;
+        padding: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      }
+
+      .root {
+        width: 100%;
+        height: 100%;
+        padding: 0;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+      }
+
+      .split {
+        width: 100%;
+        height: 100%;
+        display: grid;
+        gap: var(--gap);
+        align-items: start;
+      }
+      .split.cols-1 { grid-template-columns: 1fr; }
+      .split.cols-2 { grid-template-columns: 1fr 1fr; }
+
+      .panel { width: 100%; }
+
+      .table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+      }
+
+      .table thead th {
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.18em;
+        color: var(--muted);
+        font-weight: 800;
+        padding: 10px 0 12px 0;
+        border-bottom: 1px solid hsl(220 10% 18% / 0.35);
+      }
+
+      .table tbody td {
+        padding: 12px 0;
+        border-bottom: 1px solid hsl(220 10% 18% / 0.18);
+        font-size: var(--row-font);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .col-rank { width: 90px; }
+      .col-team { width: auto; }
+      .col-pts { width: 150px; text-align: right; }
+      .col-kills { width: 150px; text-align: right; }
+      .col-extra { width: 150px; text-align: right; }
+
+      .team {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .logo {
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
+        overflow: hidden;
+        flex: 0 0 auto;
+      }
+      .logo img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+
+      .name { font-weight: 900; letter-spacing: 0.02em; }
+      .tag { color: var(--muted); font-size: 12px; margin-left: 10px; }
+
+      .rankBadge {
+        display: inline-flex;
+        align-items: baseline;
+        justify-content: flex-start;
+        font-weight: 900;
+        font-size: var(--row-font);
+      }
+
+      tr.first .rankBadge {
+        color: var(--primary);
+        text-shadow: 0 0 22px hsl(264 100% 64% / 0.28);
+      }
+
+      .num { font-weight: 950; }
+
+      ::-webkit-scrollbar { width: 0; height: 0; }
+    </style>
+  </head>
+  <body>
+    <div class="root">
+      <div class="split cols-1" id="split">
+        <div class="panel">
+          <table class="table" aria-label="Queda (coluna 1)">
+            <thead><tr id="thead-1"></tr></thead>
+            <tbody id="rows-1"></tbody>
+          </table>
+        </div>
+
+        <div class="panel" id="panel-2">
+          <table class="table" aria-label="Queda (coluna 2)">
+            <thead><tr id="thead-2"></tr></thead>
+            <tbody id="rows-2"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+
+      // CONFIG
+      const SUPABASE_URL = "https://nulmcireyubejpxiozhj.supabase.co";
+      const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im51bG1jaXJleXViZWpweGlvemhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMzIzNzIsImV4cCI6MjA4MzkwODM3Mn0.53WegCdnega80GDvCPJ5SOFIsjbgcUJrk2GFGbXIrlQ";
+      const VIEW_NAME = "vw_tornefy_ranking";
+      const POLL_MS = 10_000;
+
+      const qs = new URLSearchParams(location.search);
+
+      const treinoId = qs.get("treino_id");
+      const quedaId = qs.get("queda_id");
+
+      const limitRaw = Number(qs.get("limit") || "16");
+      const limit = Number.isFinite(limitRaw) ? Math.max(1, Math.min(32, limitRaw)) : 16;
+
+      const colsRaw = Number(qs.get("cols") || "1");
+      const cols = colsRaw === 2 ? 2 : 1;
+
+      const gapRaw = Number(qs.get("gap") || "48");
+      const gap = Number.isFinite(gapRaw) ? Math.max(0, Math.min(200, gapRaw)) : 48;
+
+      const fontRaw = Number(qs.get("font") || "18");
+      const font = Number.isFinite(fontRaw) ? Math.max(12, Math.min(28, fontRaw)) : 18;
+
+      const showLogo = (qs.get("logo") ?? "1") !== "0";
+
+      const showMatches = (qs.get("matches") ?? "0") === "1";
+      const showWins = (qs.get("wins") ?? "0") === "1";
+      const matchesCol = qs.get("matches_col") || "";
+      const winsCol = qs.get("wins_col") || "";
+      const isSafeIdent = (s) => /^[a-zA-Z0-9_]{1,60}$/.test(String(s || ""));
+
+      const shouldMatches = showMatches && isSafeIdent(matchesCol);
+      const shouldWins = showWins && isSafeIdent(winsCol);
+
+      document.documentElement.style.setProperty("--gap", `${gap}px`);
+      document.documentElement.style.setProperty("--row-font", `${font}px`);
+
+      const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const elSplit = document.getElementById("split");
+      const elPanel2 = document.getElementById("panel-2");
+      const elHead1 = document.getElementById("thead-1");
+      const elHead2 = document.getElementById("thead-2");
+      const elRows1 = document.getElementById("rows-1");
+      const elRows2 = document.getElementById("rows-2");
+
+      let lastHash = "";
+
+      const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+      }[c]));
+
+      const colLabel = (key) => {
+        if (key === "rank") return "RANK";
+        if (key === "team") return "EQUIPE";
+        if (key === "points") return "PTS";
+        if (key === "kills") return "ELIMS";
+        if (key === "matches") return "PJ";
+        if (key === "wins") return "VIT";
+        return key.toUpperCase();
+      };
+
+      function renderHeader(headEl) {
+        const colsDef = [
+          { key: "rank", cls: "col-rank" },
+          { key: "team", cls: "col-team" },
+          { key: "points", cls: "col-pts" },
+          { key: "kills", cls: "col-kills" },
+        ];
+        if (showMatches) colsDef.push({ key: "matches", cls: "col-extra" });
+        if (showWins) colsDef.push({ key: "wins", cls: "col-extra" });
+
+        headEl.innerHTML = colsDef
+          .map((c) => `<th class="${c.cls}">${esc(colLabel(c.key))}</th>`)
+          .join("");
+      }
+
+      function rowHtml(r, isFirst) {
+        const logo = showLogo
+          ? (r.team_logo
+              ? `<div class="logo"><img src="${esc(r.team_logo)}" alt="Logo ${esc(r.team_name)}" /></div>`
+              : `<div class="logo"></div>`)
+          : "";
+
+        const tag = r.team_tag ? `<span class="tag">[${esc(r.team_tag)}]</span>` : "";
+
+        const extras = [];
+        if (showMatches) extras.push(`<td class="col-extra"><span class="num">${esc(r._matches ?? "—")}</span></td>`);
+        if (showWins) extras.push(`<td class="col-extra"><span class="num">${esc(r._wins ?? "—")}</span></td>`);
+
+        return `
+          <tr class="${isFirst ? "first" : ""}">
+            <td class="col-rank"><span class="rankBadge">${String(esc(r.rank)).padStart(2, "0")}.</span></td>
+            <td class="col-team">
+              <div class="team">
+                ${logo}
+                <div style="min-width:0; overflow:hidden; text-overflow:ellipsis;">
+                  <span class="name">${esc(r.team_name)}</span>
+                  ${tag}
+                </div>
+              </div>
+            </td>
+            <td class="col-pts"><span class="num">${esc(r.points)}</span></td>
+            <td class="col-kills"><span class="num">${esc(r.kills)}</span></td>
+            ${extras.join("")}
+          </tr>
+        `;
+      }
+
+      const hashRows = (rows) => JSON.stringify(rows.map(r => [r.rank, r.team_tag, r.points, r.kills, r.team_logo, r._matches, r._wins]));
+
+      async function fetchAndUpdate() {
+        try {
+          elSplit.className = `split cols-${cols}`;
+          elPanel2.style.display = cols === 2 ? "block" : "none";
+
+          renderHeader(elHead1);
+          renderHeader(elHead2);
+
+          if (!treinoId || !quedaId) {
+            elRows1.innerHTML = "";
+            elRows2.innerHTML = "";
+            return;
+          }
+
+          const selectParts = ["team_name", "team_tag", "team_logo", "rank", "points", "kills", "treino_id", "queda_id"];
+          if (shouldMatches) selectParts.push(matchesCol);
+          if (shouldWins) selectParts.push(winsCol);
+
+          let query = supabase
+            .from(VIEW_NAME)
+            .select(selectParts.join(","))
+            .eq("treino_id", treinoId)
+            .eq("queda_id", quedaId);
+
+          const { data, error } = await query.limit(limit);
+          if (error) throw error;
+
+          const raw = Array.isArray(data) ? data : [];
+          const rows = raw.map((r) => ({
+            ...r,
+            _matches: shouldMatches ? r[matchesCol] : undefined,
+            _wins: shouldWins ? r[winsCol] : undefined,
+          }));
+
+          const h = hashRows(rows);
+          if (h !== lastHash) {
+            lastHash = h;
+            const half = cols === 2 ? Math.ceil(rows.length / 2) : rows.length;
+            const left = rows.slice(0, half);
+            const right = cols === 2 ? rows.slice(half) : [];
+
+            elRows1.innerHTML = left.map((r, idx) => rowHtml(r, idx === 0)).join("");
+            elRows2.innerHTML = right.map((r, idx) => rowHtml(r, idx === 0 && left.length === 0)).join("");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      fetchAndUpdate();
+      setInterval(fetchAndUpdate, POLL_MS);
+    </script>
+  </body>
+</html>

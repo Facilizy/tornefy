@@ -88,11 +88,18 @@ export const GamePreferencesDialog = ({
           {GAMES.map((game) => {
             const selected = selectedGames.includes(game.id);
             return (
-              <button
+              <div
                 key={game.id}
-                type="button"
+                role="button"
+                tabIndex={0}
                 aria-pressed={selected}
                 onClick={() => toggleGame(game.id)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleGame(game.id);
+                  }
+                }}
                 className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors text-left w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
                   selected
                     ? "border-primary bg-primary/10"
@@ -112,7 +119,7 @@ export const GamePreferencesDialog = ({
                   className="w-8 h-8 rounded object-cover"
                 />
                 <span className="flex-1 font-medium">{game.name}</span>
-              </button>
+              </div>
             );
           })}
         </div>

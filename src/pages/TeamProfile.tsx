@@ -23,13 +23,15 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import TeamBadges from "@/components/TeamBadges";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface TeamMember {
   id: string;
   player_name: string;
   game_id: string;
-  discord: string;
+  discord: string | null;
   function: string;
+  user_id: string | null;
 }
 
 const TeamProfile = () => {
@@ -209,10 +211,9 @@ const TeamProfile = () => {
                 
                 <div className="flex flex-wrap items-center gap-3 mb-3">
                   {team.is_verified && (
-                    <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-                      <CheckCircle className="w-3 h-3 mr-1" />
-                      Verificado
-                    </Badge>
+                    <span className="inline-flex items-center gap-2">
+                      <VerifiedBadge variant="pill" />
+                    </span>
                   )}
                   <span className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" />
@@ -359,16 +360,34 @@ const TeamProfile = () => {
                     className="flex items-center justify-between p-3 rounded-lg bg-background/50 border border-border"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                        {member.player_name.substring(0, 2).toUpperCase()}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{member.player_name}</span>
-                          {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
+                      <button
+                        type="button"
+                        className="flex items-center gap-3 text-left group"
+                        onClick={() => {
+                          if (member.user_id) {
+                            navigate(`/profile/${member.user_id}`);
+                          }
+                        }}
+                      >
+                        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-sm font-bold group-hover:bg-primary/20">
+                          {member.player_name.substring(0, 2).toUpperCase()}
                         </div>
-                        <p className="text-xs text-muted-foreground">{member.game_id}</p>
-                      </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={
+                                member.user_id
+                                  ? "font-semibold text-primary group-hover:underline"
+                                  : "font-semibold"
+                              }
+                            >
+                              {member.player_name}
+                            </span>
+                            {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{member.game_id}</p>
+                        </div>
+                      </button>
                     </div>
                     <Badge className={getFunctionBadge(member.function)}>
                       {member.function === "CAPITÃO" ? "Flex" : member.function}

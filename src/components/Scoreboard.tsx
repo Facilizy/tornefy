@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -53,13 +53,76 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
   const [selectedRound, setSelectedRound] = useState<string>("all");
   const [loading, setLoading] = useState(true);
 
+  const matchIdsRef = useRef<Set<string>>(new Set());
+  const refetchTimeoutRef = useRef<number | null>(null);
+
+  const scheduleRefetch = () => {
+    if (refetchTimeoutRef.current) window.clearTimeout(refetchTimeoutRef.current);
+    refetchTimeoutRef.current = window.setTimeout(() => {
+      fetchStandings();
+    }, 250);
+  };
+
+  const fetchMatchIds = async () => {
+    const { data } = await supabase
+      .from("training_matches")
+      .select("id")
+      .eq("training_id", trainingId);
+
+    matchIdsRef.current = new Set((data || []).map((m: any) => m.id));
+  };
+
   useEffect(() => {
     fetchRounds();
-    fetchStandings();
+    fetchMatchIds().then(() => fetchStandings());
+
+    // Realtime: update ranking when matches/scores change
+    const matchesChannel = supabase
+      .channel(`rt-training-matches-${trainingId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "training_matches",
+          filter: `training_id=eq.${trainingId}`,
+        },
+        async () => {
+          await fetchMatchIds();
+          scheduleRefetch();
+        }
+      )
+      .subscribe();
+
+    const scoresChannel = supabase
+      .channel(`rt-training-scores-${trainingId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "training_match_scores",
+        },
+        (payload) => {
+          const matchId = (payload as any)?.new?.match_id ?? (payload as any)?.old?.match_id;
+          if (matchId && matchIdsRef.current.has(matchId)) {
+            scheduleRefetch();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      if (refetchTimeoutRef.current) window.clearTimeout(refetchTimeoutRef.current);
+      supabase.removeChannel(matchesChannel);
+      supabase.removeChannel(scoresChannel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trainingId]);
 
   useEffect(() => {
     fetchStandings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRound]);
 
   const fetchRounds = async () => {

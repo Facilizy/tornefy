@@ -50,9 +50,7 @@ interface TrainingWizardProps {
 const STEPS = [
   { id: 1, label: "Básico", icon: Gamepad2 },
   { id: 2, label: "Data & Vagas", icon: Calendar },
-  { id: 3, label: "Pontuação", icon: Target },
-  { id: 4, label: "Regras", icon: FileText },
-  { id: 5, label: "Preview", icon: Eye },
+  { id: 3, label: "Visual & Links", icon: Eye },
 ];
 
 const GAMES = [
@@ -82,6 +80,7 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
     rules: "1. Proibido uso de hackers, cheats, exploits ou qualquer programa de vantagem ilegal.\n2. Proibido stream snipe, toxicidade e comportamento antidesportivo.\n3. É obrigatório que todas as equipes estejam preparadas no horário marcado.\n4. Queda iniciada não será reiniciada, exceto em casos de falhas gerais do servidor.\n5. Caso algum jogador caia da partida (crash), a queda continuará normalmente.\n6. Somente valem pontos das equipes confirmadas no treinamento.\n7. É proibido atrasar a partida intencionalmente ou travar o jogo de outros jogadores.\n8. Nome da equipe e dos jogadores devem estar iguais ao formulário de inscrição.\n9. Em caso de empate, o critério de desempate será:\n   a) Maior número de abates no treino\n   b) Melhor colocação na última queda\n10. O descumprimento de qualquer regra pode resultar em punição ou desclassificação.",
     prize: "",
     discord_link: "",
+    whatsapp_link: "",
     important_info: "",
     is_private: false,
     banner_url: "",
@@ -134,28 +133,39 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
         bannerUrl = await uploadFile(bannerFile, "training-banners", fileName);
       }
 
-      const { error } = await supabase.from("trainings").insert([{
-        name: form.name,
-        game: form.game as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
-        mode: form.mode,
-        platform: form.platform as "PC" | "Mobile" | "console" | "Misto",
-        datetime: form.datetime,
-        max_slots: form.max_slots,
-        rounds: form.rounds,
-        points_per_kill: form.points_per_kill,
-        points_per_position: [],
-        points_per_position_text: form.points_per_position_text,
-        rules: form.rules,
-        prize: form.prize || null,
-        discord_link: form.discord_link || null,
-        important_info: form.important_info || null,
-        is_private: form.is_private,
-        banner_url: bannerUrl || null,
-        organizer_id: userId,
-        status: "INSCRIÇÕES ABERTAS",
-        primary_color: form.primary_color,
-        secondary_color: form.secondary_color,
-      }]);
+      const trainingId = crypto.randomUUID();
+
+      const { error } = await supabase.from("trainings").insert([
+        {
+          id: trainingId,
+          name: form.name,
+          game: form.game as
+            | "free_fire"
+            | "blood_strike"
+            | "farlight_84"
+            | "prime_rush"
+            | "battlefield_6",
+          mode: form.mode,
+          platform: form.platform as "PC" | "Mobile" | "console" | "Misto",
+          datetime: form.datetime,
+          max_slots: form.max_slots,
+          rounds: form.rounds,
+          points_per_kill: form.points_per_kill,
+          points_per_position: [],
+          points_per_position_text: form.points_per_position_text,
+          rules: form.rules,
+          prize: form.prize || null,
+          discord_link: form.discord_link || null,
+          whatsapp_link: form.whatsapp_link || null,
+          important_info: form.important_info || null,
+          is_private: form.is_private,
+          banner_url: bannerUrl || null,
+          organizer_id: userId,
+          status: "INSCRIÇÕES ABERTAS",
+          primary_color: form.primary_color,
+          secondary_color: form.secondary_color,
+        },
+      ]);
 
       if (error) throw error;
 
@@ -185,6 +195,7 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
       rules: "1. Proibido uso de hackers, cheats, exploits ou qualquer programa de vantagem ilegal.\n2. Proibido stream snipe, toxicidade e comportamento antidesportivo.\n3. É obrigatório que todas as equipes estejam preparadas no horário marcado.\n4. Queda iniciada não será reiniciada, exceto em casos de falhas gerais do servidor.\n5. Caso algum jogador caia da partida (crash), a queda continuará normalmente.\n6. Somente valem pontos das equipes confirmadas no treinamento.\n7. É proibido atrasar a partida intencionalmente ou travar o jogo de outros jogadores.\n8. Nome da equipe e dos jogadores devem estar iguais ao formulário de inscrição.\n9. Em caso de empate, o critério de desempate será:\n   a) Maior número de abates no treino\n   b) Melhor colocação na última queda\n10. O descumprimento de qualquer regra pode resultar em punição ou desclassificação.",
       prize: "",
       discord_link: "",
+      whatsapp_link: "",
       important_info: "",
       is_private: false,
       banner_url: "",
@@ -383,62 +394,9 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
             </div>
           )}
 
-          {/* Step 3: Scoring */}
+          {/* Step 3: Visual & Links */}
           {step === 3 && (
             <div className="space-y-6 animate-fade-in">
-              <div>
-                <Label htmlFor="points_per_kill" className="text-base">Pontos por Abate</Label>
-                <Input
-                  id="points_per_kill"
-                  type="number"
-                  min={0}
-                  value={form.points_per_kill}
-                  onChange={(e) => setForm({ ...form, points_per_kill: parseInt(e.target.value) || 0 })}
-                  className="mt-2"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="points_per_position_text" className="text-base">Pontos por Colocação</Label>
-                <p className="text-xs text-muted-foreground mb-2">Descreva os pontos por posição</p>
-                <Textarea
-                  id="points_per_position_text"
-                  value={form.points_per_position_text}
-                  onChange={(e) => setForm({ ...form, points_per_position_text: e.target.value })}
-                  rows={8}
-                  className="mt-1 font-mono text-sm"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="prize" className="text-base">Premiação (opcional)</Label>
-                <Textarea
-                  id="prize"
-                  value={form.prize}
-                  onChange={(e) => setForm({ ...form, prize: e.target.value })}
-                  placeholder="Ex: 1º lugar: R$100 PIX\n2º lugar: R$50 PIX"
-                  rows={3}
-                  className="mt-2"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Rules */}
-          {step === 4 && (
-            <div className="space-y-6 animate-fade-in">
-              <div>
-                <Label htmlFor="rules" className="text-base">Regras do Treino</Label>
-                <p className="text-xs text-muted-foreground mb-2">As regras serão exibidas para os participantes</p>
-                <Textarea
-                  id="rules"
-                  value={form.rules}
-                  onChange={(e) => setForm({ ...form, rules: e.target.value })}
-                  rows={10}
-                  className="mt-1 font-mono text-sm"
-                />
-              </div>
-
               <div>
                 <Label htmlFor="important_info" className="text-base">Informações Importantes (opcional)</Label>
                 <Textarea
@@ -451,15 +409,27 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="discord_link" className="text-base">Link do Discord (opcional)</Label>
-                <Input
-                  id="discord_link"
-                  value={form.discord_link}
-                  onChange={(e) => setForm({ ...form, discord_link: e.target.value })}
-                  placeholder="https://discord.gg/..."
-                  className="mt-2"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="discord_link" className="text-base">Link do Discord (opcional)</Label>
+                  <Input
+                    id="discord_link"
+                    value={form.discord_link}
+                    onChange={(e) => setForm({ ...form, discord_link: e.target.value })}
+                    placeholder="https://discord.gg/..."
+                    className="mt-2"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="whatsapp_link" className="text-base">Link do WhatsApp (opcional)</Label>
+                  <Input
+                    id="whatsapp_link"
+                    value={form.whatsapp_link}
+                    onChange={(e) => setForm({ ...form, whatsapp_link: e.target.value })}
+                    placeholder="https://chat.whatsapp.com/..."
+                    className="mt-2"
+                  />
+                </div>
               </div>
 
               {/* Color Customization */}
@@ -533,96 +503,7 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
             </div>
           )}
 
-          {/* Step 5: Preview */}
-          {step === 5 && (
-            <div className="space-y-6 animate-fade-in">
-              <div className="text-center mb-4">
-                <h3 className="text-lg font-semibold">Revise as informações</h3>
-                <p className="text-sm text-muted-foreground">Confirme se está tudo certo antes de criar</p>
-              </div>
 
-              {/* Color Preview Header */}
-              <div 
-                className="rounded-lg overflow-hidden"
-                style={{
-                  background: `linear-gradient(135deg, ${form.primary_color}, ${form.secondary_color})`,
-                }}
-              >
-                <div className="p-4 flex items-center gap-4">
-                  <img 
-                    src={GAMES.find(g => g.id === form.game)?.logo} 
-                    alt="" 
-                    className="w-12 h-12 rounded-lg object-cover bg-black/20"
-                  />
-                  <div className="flex-1 text-white">
-                    <h4 className="font-bold text-lg drop-shadow">{form.name || "Sem nome"}</h4>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      <Badge className="bg-white/20 text-white border-white/30">{GAMES.find(g => g.id === form.game)?.name}</Badge>
-                      <Badge className="bg-white/20 text-white border-white/30">{form.mode}</Badge>
-                      <Badge className="bg-white/20 text-white border-white/30">{form.platform}</Badge>
-                      {form.is_private && <Badge variant="destructive">Privado</Badge>}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <Card className="p-4 bg-muted/30">
-                <div className="space-y-4">
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Data</p>
-                      <p className="font-medium">
-                        {form.datetime 
-                          ? format(new Date(form.datetime), "dd/MM/yyyy", { locale: ptBR })
-                          : "-"
-                        }
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Horário</p>
-                      <p className="font-medium">
-                        {form.datetime 
-                          ? format(new Date(form.datetime), "HH:mm", { locale: ptBR })
-                          : "-"
-                        }
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Vagas</p>
-                      <p className="font-medium">{form.max_slots} equipes</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Rodadas</p>
-                      <p className="font-medium">{form.rounds}</p>
-                    </div>
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-muted-foreground">Pts/Abate</p>
-                      <p className="font-medium text-primary">{form.points_per_kill} pt(s)</p>
-                    </div>
-                    <div>
-                      <p className="text-muted-foreground">Regras</p>
-                      <p className="font-medium">{form.rules ? `${form.rules.split('\n').length} regras` : "Nenhuma"}</p>
-                    </div>
-                  </div>
-
-                  {form.prize && (
-                    <>
-                      <Separator />
-                      <div>
-                        <p className="text-muted-foreground text-sm mb-1">Premiação</p>
-                        <p className="text-sm whitespace-pre-wrap">{form.prize}</p>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Card>
-            </div>
-          )}
         </div>
 
         {/* Footer */}

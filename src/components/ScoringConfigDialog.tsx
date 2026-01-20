@@ -108,9 +108,9 @@ export function ScoringConfigDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="flex-1 gap-2">
+        <Button size="sm" variant="outline" className="w-full justify-center gap-2">
           <Award className="w-4 h-4" />
-          Pontuação
+          Editar Pontuação
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">

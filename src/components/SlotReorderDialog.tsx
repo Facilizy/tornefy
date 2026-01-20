@@ -127,7 +127,7 @@ export function SlotReorderDialog({ trainingId, onSlotsUpdated }: SlotReorderDia
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="gap-2">
+        <Button size="sm" variant="outline" className="w-full justify-center gap-2">
           <ArrowUpDown className="w-4 h-4" />
           Reorganizar Slots
         </Button>

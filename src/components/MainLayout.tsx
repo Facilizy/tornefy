@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Bell } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 
@@ -65,6 +65,15 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
       .eq("id", userId)
       .single();
     setProfile(data);
+
+    // Force onboarding for OAuth users without username
+    if (
+      data &&
+      (!data.username || String(data.username).trim().length < 3) &&
+      !location.pathname.startsWith("/auth")
+    ) {
+      navigate("/auth?complete=1");
+    }
   };
 
   const handleLogout = async () => {
@@ -81,6 +90,29 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
     { name: "Ranking", href: "/ranking", icon: Award },
     { name: "Equipes", href: "/equipes", icon: Users },
   ];
+
+  // Light prefetch to speed up route transitions (no behavior changes)
+  const prefetchRoute = (href: string) => {
+    // Avoid prefetching the current route
+    if (isActiveRoute(href)) return;
+
+    switch (href) {
+      case "/":
+        import("@/pages/Home");
+        break;
+      case "/scrims":
+        import("@/pages/Scrims");
+        break;
+      case "/ranking":
+        import("@/pages/Ranking");
+        break;
+      case "/equipes":
+        import("@/pages/Teams");
+        break;
+      default:
+        break;
+    }
+  };
 
   const isActiveRoute = (href: string) => {
     if (href === "/") return location.pathname === "/";
@@ -103,6 +135,8 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
               <Link
                 key={item.name}
                 to={item.href}
+                onMouseEnter={() => prefetchRoute(item.href)}
+                onFocus={() => prefetchRoute(item.href)}
                 className={`text-sm font-medium transition-colors uppercase tracking-wide ${
                   isActiveRoute(item.href)
                     ? "text-primary"
@@ -119,13 +153,13 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
             {user ? (
               <>
                 {/* Desktop: Notifications */}
-                <div className="hidden md:block">
+                <div className="hidden xl:block">
                   <NotificationBell userId={user.id} />
                 </div>
                 
                 {/* Desktop User Menu */}
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild className="hidden md:flex">
+                  <DropdownMenuTrigger asChild className="hidden xl:flex">
                     <Button variant="ghost" className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       <span className="text-sm">{profile?.full_name || 'Usuário'}</span>
@@ -161,7 +195,7 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                   href="https://discord.gg/bHgPsBfN7r"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hidden md:flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  className="hidden xl:flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                   title="Entre no Nosso Discord"
                 >
                   <DiscordIcon className="w-5 h-5" />
@@ -227,14 +261,14 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
                         <>
                           <div className="h-px bg-border my-4" />
                           
-                          {/* Notifications inside mobile menu */}
+                          {/* Convites dentro do menu mobile */}
                           <Link
-                            to="/notifications"
+                            to="/invites"
                             onClick={() => setMobileMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
                           >
-                            <Bell className="w-5 h-5" />
-                            <span className="font-medium">Notificações</span>
+                            <Mail className="w-5 h-5" />
+                            <span className="font-medium">Convites de Equipe</span>
                           </Link>
                           
                           <Link

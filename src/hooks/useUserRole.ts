@@ -28,7 +28,8 @@ export const useUserRole = (userId: string | undefined) => {
       if (error) throw error;
 
       console.log('[useUserRole] Role fetched:', data?.role);
-      setRole(data?.role || null);
+      const nextRole = data?.role === 'player' || data?.role === 'organizer' ? data.role : null;
+      setRole(nextRole);
     } catch (error) {
       console.error('Error fetching user role:', error);
     } finally {

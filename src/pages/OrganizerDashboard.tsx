@@ -43,6 +43,8 @@ import {
   Users,
   Trophy,
   Award,
+  Tv,
+  ExternalLink,
 } from "lucide-react";
 import { RegisteredTeamsDialog } from "@/components/RegisteredTeamsDialog";
 import { EventLogsDialog } from "@/components/EventLogsDialog";
@@ -55,37 +57,71 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUserRole } from "@/hooks/useUserRole";
 
+
 const OrganizerDashboard = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [trainings, setTrainings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    status: "all" as
+      | "all"
+      | "INSCRIÇÕES ABERTAS"
+      | "INSCRIÇÕES ENCERRADAS"
+      | "EM ANDAMENTO"
+      | "FINALIZADO",
+    platform: "all" as "all" | "PC" | "Mobile" | "Misto",
+    game: "all" as
+      | "all"
+      | "free_fire"
+      | "blood_strike"
+      | "farlight_84"
+      | "prime_rush"
+      | "battlefield_6",
+    dateFrom: "", // YYYY-MM-DD
+    dateTo: "", // YYYY-MM-DD
+  });
   const { role, loading: roleLoading } = useUserRole(user?.id);
+  const [isVerifiedByRole, setIsVerifiedByRole] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTraining, setEditingTraining] = useState<any>(null);
+  const [organizerStats, setOrganizerStats] = useState({
+    totalTrainings: 0,
+    completedMatches: 0,
+    uniquePlayersImpacted: 0,
+    achievements: [] as {
+      id: string;
+      name: string;
+      description: string | null;
+      progress: number;
+      targetValue: number;
+      unlocked: boolean;
+    }[],
+  });
 
   const [trainingForm, setTrainingForm] = useState({
     name: "",
     banner_url: "",
     datetime: "",
-    rounds: 1,
+    rounds: 3,
     points_per_kill: 1,
     points_per_position: "[]",
-    points_per_position_text: "",
     platform: "PC" as "PC" | "Mobile" | "Misto",
     mode: "Squad" as "Solo" | "Duo" | "Squad",
     game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
-    rules: "",
     discord_link: "",
-    live_link: "",
+    whatsapp_link: "",
     max_slots: 20,
-    is_live: false,
-    status: "INSCRIÇÕES ABERTAS" as "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO",
-    table_image_url: "",
+    status: "INSCRIÇÕES ABERTAS" as
+      | "INSCRIÇÕES ABERTAS"
+      | "INSCRIÇÕES ENCERRADAS"
+      | "EM ANDAMENTO"
+      | "FINALIZADO",
     important_info: "",
-    prize: "",
     is_private: false,
     invited_tags: [] as string[],
+    table_image_url: "",
+    is_live: false,
   });
 
   const [bannerFile, setBannerFile] = useState<File | null>(null);
@@ -117,8 +153,9 @@ const OrganizerDashboard = () => {
       
       // Se o role é organizer, permitir acesso
       if (role === "organizer") {
-        console.log('[OrganizerDashboard] Access granted, fetching trainings');
+        console.log('[OrganizerDashboard] Access granted, fetching trainings and stats');
         fetchTrainings();
+        fetchOrganizerStats();
       }
     }
   }, [user, role, roleLoading]);
@@ -163,6 +200,128 @@ const OrganizerDashboard = () => {
     }
   };
 
+  const fetchOrganizerStats = async () => {
+    if (!user) return;
+
+    try {
+      // Carregar treinos do organizador
+      const [{ data: trainingsData, error: trainingsError }, { data: verifiedRow }] =
+        await Promise.all([
+          supabase.from("trainings").select("id").eq("organizer_id", user.id),
+          supabase
+            .from("user_roles")
+            .select("role")
+            .eq("user_id", user.id)
+            .eq("role", "organizer_verified")
+            .maybeSingle(),
+        ]);
+
+      if (trainingsError) throw trainingsError;
+      setIsVerifiedByRole(!!verifiedRow);
+
+      const trainingIds = (trainingsData || []).map((t: any) => t.id);
+
+      let completedMatches = 0;
+      let uniquePlayersImpacted = 0;
+
+      if (trainingIds.length > 0) {
+        // Quedas completadas nesses treinos
+        const { data: matches, error: matchesError } = await supabase
+          .from("training_matches")
+          .select("id, status, training_id")
+          .in("training_id", trainingIds);
+
+        if (matchesError) throw matchesError;
+
+        completedMatches = (matches || []).filter(
+          (m: any) => m.status === "completed"
+        ).length;
+
+        // Jogadores impactados: todos os membros das equipes inscritas nesses treinos
+        const { data: registrations, error: regError } = await supabase
+          .from("training_registrations")
+          .select("team_id")
+          .in("training_id", trainingIds);
+
+        if (regError) throw regError;
+
+        const teamIds = Array.from(
+          new Set((registrations || []).map((r: any) => r.team_id).filter(Boolean))
+        );
+
+        if (teamIds.length > 0) {
+          const { data: members, error: membersError } = await supabase
+            .from("team_members")
+            .select("id")
+            .in("team_id", teamIds);
+
+          if (membersError) throw membersError;
+
+          uniquePlayersImpacted = new Set((members || []).map((m: any) => m.id)).size;
+        }
+      }
+
+      // Conquistas de organizador
+      const { data: userAchievements, error: uaError } = await supabase
+        .from("user_achievements")
+        .select("id, achievement_id, progress, unlocked_at")
+        .eq("user_id", user.id);
+
+      if (uaError) throw uaError;
+
+      let achievements: {
+        id: string;
+        name: string;
+        description: string | null;
+        progress: number;
+        targetValue: number;
+        unlocked: boolean;
+      }[] = [];
+
+      if (userAchievements && userAchievements.length > 0) {
+        const achievementIds = userAchievements.map((ua: any) => ua.achievement_id);
+
+        const { data: achievementsData, error: achError } = await supabase
+          .from("achievements")
+          .select("id, name, description, target_value, audience")
+          .in("id", achievementIds);
+
+        if (achError) throw achError;
+
+        const achById = new Map((achievementsData || []).map((a: any) => [a.id, a]));
+
+        achievements = userAchievements
+          .map((ua: any) => {
+            const ach = achById.get(ua.achievement_id);
+            if (!ach || (ach.audience && ach.audience !== "organizer")) return null;
+
+            const target = ach?.target_value ?? 1;
+            const progress = ua.progress ?? 0;
+            const unlocked = !!ua.unlocked_at;
+
+            return {
+              id: ua.id,
+              name: ach?.name || "Conquista",
+              description: ach?.description || null,
+              progress,
+              targetValue: target,
+              unlocked,
+            };
+          })
+          .filter(Boolean) as any[];
+      }
+
+      setOrganizerStats({
+        totalTrainings: trainingsData?.length || 0,
+        completedMatches,
+        uniquePlayersImpacted,
+        achievements,
+      });
+    } catch (error) {
+      console.error("Erro ao carregar estatísticas do organizador:", error);
+    }
+  };
+
   const uploadFile = async (file: File, bucket: string, path: string) => {
     // Validar tamanho do arquivo (máximo 5MB)
     if (file.size > 5 * 1024 * 1024) {
@@ -190,45 +349,42 @@ const OrganizerDashboard = () => {
 
     try {
       setUploading(true);
-      
+
       let bannerUrl = trainingForm.banner_url;
       let tableImageUrl = trainingForm.table_image_url;
 
       // Upload banner if file selected
       if (bannerFile) {
         const fileName = `${user.id}/${Date.now()}_${bannerFile.name}`;
-        bannerUrl = await uploadFile(bannerFile, 'training-banners', fileName);
+        bannerUrl = await uploadFile(bannerFile, "training-banners", fileName);
       }
 
       // Upload table image if file selected
       if (tableFile) {
         const fileName = `${user.id}/${Date.now()}_${tableFile.name}`;
-        tableImageUrl = await uploadFile(tableFile, 'training-tables', fileName);
+        tableImageUrl = await uploadFile(tableFile, "training-tables", fileName);
       }
 
       const trainingData: any = {
         name: trainingForm.name,
         banner_url: bannerUrl || null,
-        datetime: trainingForm.datetime,
+        // datetime-local ("YYYY-MM-DDTHH:mm") precisa virar ISO com timezone,
+        // senão o banco interpreta como UTC e o horário aparece deslocado.
+        datetime: trainingForm.datetime ? new Date(trainingForm.datetime).toISOString() : null,
         rounds: trainingForm.rounds,
         points_per_kill: trainingForm.points_per_kill,
-        points_per_position: JSON.parse(trainingForm.points_per_position || "[]"),
-        points_per_position_text: trainingForm.points_per_position_text || null,
         platform: trainingForm.platform,
         mode: trainingForm.mode,
         game: trainingForm.game,
-        rules: trainingForm.rules || null,
         discord_link: trainingForm.discord_link || null,
-        live_link: trainingForm.live_link || null,
+        whatsapp_link: trainingForm.whatsapp_link || null,
         max_slots: trainingForm.max_slots,
-        is_live: trainingForm.is_live,
         status: trainingForm.status,
-        table_image_url: tableImageUrl || null,
         important_info: trainingForm.important_info || null,
-        prize: trainingForm.prize || null,
         is_private: trainingForm.is_private,
         invited_tags: trainingForm.invited_tags,
         organizer_id: user.id,
+        table_image_url: tableImageUrl || null,
       };
 
       if (editingTraining) {
@@ -240,7 +396,10 @@ const OrganizerDashboard = () => {
         if (error) throw error;
         toast.success("Treino atualizado!");
       } else {
-        const { error } = await supabase.from("trainings").insert(trainingData);
+        const trainingId = crypto.randomUUID();
+        const { error } = await supabase
+          .from("trainings")
+          .insert({ ...trainingData, id: trainingId });
 
         if (error) throw error;
         toast.success("Treino criado!");
@@ -277,12 +436,14 @@ const OrganizerDashboard = () => {
   const openEditDialog = (training: any) => {
     setEditingTraining(training);
     
-    // Converter datetime do formato ISO para datetime-local
+    // Converter ISO (armazenado) para datetime-local (input)
     let formattedDatetime = "";
     if (training.datetime) {
       const date = new Date(training.datetime);
-      // Formato: YYYY-MM-DDTHH:mm
-      formattedDatetime = date.toISOString().slice(0, 16);
+      // converter para "local" antes de cortar, senão fica deslocado
+      formattedDatetime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+        .toISOString()
+        .slice(0, 16);
     }
 
     setTrainingForm({
@@ -292,21 +453,23 @@ const OrganizerDashboard = () => {
       rounds: training.rounds,
       points_per_kill: training.points_per_kill,
       points_per_position: JSON.stringify(training.points_per_position || []),
-      points_per_position_text: training.points_per_position_text || "",
       platform: training.platform as "PC" | "Mobile" | "Misto",
       mode: training.mode as "Solo" | "Duo" | "Squad",
-      game: training.game as "free_fire" | "blood_strike" | "farlight_84",
-      rules: training.rules || "",
+      game: training.game as
+        | "free_fire"
+        | "blood_strike"
+        | "farlight_84"
+        | "prime_rush"
+        | "battlefield_6",
       discord_link: training.discord_link || "",
-      live_link: training.live_link || "",
+      whatsapp_link: training.whatsapp_link || "",
       max_slots: training.max_slots,
-      is_live: training.is_live,
-      status: training.status || "ABERTO",
-      table_image_url: training.table_image_url || "",
+      status: training.status || "INSCRIÇÕES ABERTAS",
       important_info: training.important_info || "",
-      prize: training.prize || "",
       is_private: training.is_private || false,
       invited_tags: training.invited_tags || [],
+      table_image_url: training.table_image_url || "",
+      is_live: training.is_live || false,
     });
     setBannerFile(null);
     setTableFile(null);
@@ -318,24 +481,25 @@ const OrganizerDashboard = () => {
       name: "",
       banner_url: "",
       datetime: "",
-      rounds: 1,
+      rounds: 3,
       points_per_kill: 1,
       points_per_position: "[]",
-      points_per_position_text: "",
       platform: "PC" as "PC" | "Mobile" | "Misto",
       mode: "Squad" as "Solo" | "Duo" | "Squad",
-      game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84",
-      rules: "",
+      game: "free_fire" as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
       discord_link: "",
-      live_link: "",
+      whatsapp_link: "",
       max_slots: 20,
-      is_live: false,
-      status: "INSCRIÇÕES ABERTAS" as "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO",
-      table_image_url: "",
+      status: "INSCRIÇÕES ABERTAS" as
+        | "INSCRIÇÕES ABERTAS"
+        | "INSCRIÇÕES ENCERRADAS"
+        | "EM ANDAMENTO"
+        | "FINALIZADO",
       important_info: "",
-      prize: "",
       is_private: false,
       invited_tags: [],
+      table_image_url: "",
+      is_live: false,
     });
     setBannerFile(null);
     setTableFile(null);
@@ -351,70 +515,94 @@ const OrganizerDashboard = () => {
     );
   }
 
+  const isVerifiedOrganizer = organizerStats.totalTrainings >= 10 || isVerifiedByRole;
+
+  const filteredTrainings = trainings.filter((t) => {
+    if (filters.status !== "all" && t.status !== filters.status) return false;
+    if (filters.platform !== "all" && t.platform !== filters.platform) return false;
+    if (filters.game !== "all" && t.game !== filters.game) return false;
+
+    const dt = t.datetime ? new Date(t.datetime) : null;
+    if (filters.dateFrom) {
+      const from = new Date(`${filters.dateFrom}T00:00:00`);
+      if (!dt || dt < from) return false;
+    }
+    if (filters.dateTo) {
+      const to = new Date(`${filters.dateTo}T23:59:59`);
+      if (!dt || dt > to) return false;
+    }
+
+    return true;
+  });
+
   return (
     <MainLayout>
       <main className="container mx-auto px-4 py-8">
-        {/* Dashboard Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card className="p-4 bg-card/80 border-border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Trophy className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{trainings.length}</p>
-                <p className="text-xs text-muted-foreground">Treinos Criados</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4 bg-card/80 border-border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-500/10">
-                <Calendar className="w-5 h-5 text-green-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{trainings.filter(t => t.status === "INSCRIÇÕES ABERTAS").length}</p>
-                <p className="text-xs text-muted-foreground">Abertos</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4 bg-card/80 border-border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-destructive/10">
-                <Users className="w-5 h-5 text-destructive" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{trainings.reduce((acc, t) => acc + t.registrations, 0)}</p>
-                <p className="text-xs text-muted-foreground">Total Inscritos</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4 bg-card/80 border-border">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-yellow-500/10">
-                <Award className="w-5 h-5 text-yellow-500" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{trainings.filter(t => t.is_live).length}</p>
-                <p className="text-xs text-muted-foreground">Ao Vivo</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Header - Mobile Responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8 animate-fade-in">
+        {/* Header */}
+        <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold mb-1">
+            <h1 className="text-2xl sm:text-3xl font-black uppercase flex items-center gap-2">
               Painel do Organizador
+              {isVerifiedOrganizer && (
+                <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-semibold uppercase tracking-wide">
+                  Verificado
+                </span>
+              )}
             </h1>
             <p className="text-muted-foreground text-sm">
-              Gerencie seus treinos e inscrições
+              Seus treinos, inscrições e ações rápidas em um lugar só.
             </p>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
-            <Button 
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="w-full sm:w-auto">
+                  <Tv className="w-4 h-4 mr-2" />
+                  Tornefy TV
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Tornefy TV</DialogTitle>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Serviços de transmissão para elevar seus treinos e campeonatos.
+                  </p>
+
+                  <Card className="p-4 bg-card/80 border-border">
+                    <p className="font-semibold uppercase">Pacote Base</p>
+                    <ul className="mt-2 text-sm text-muted-foreground list-disc pl-5 space-y-1">
+                      <li>Overlay profissional</li>
+                      <li>Transmissão ao vivo</li>
+                      <li>Clipes e destaques</li>
+                    </ul>
+                    <p className="mt-3 text-sm">
+                      <span className="font-semibold">Valores:</span> sob consulta
+                    </p>
+                  </Card>
+
+                  <Button asChild className="w-full">
+                    <a
+                      href="https://wa.me/5511930107478"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Chamar no WhatsApp
+                      <ExternalLink className="w-4 h-4 ml-2" />
+                    </a>
+                  </Button>
+
+                  <p className="text-xs text-muted-foreground">
+                    WhatsApp: (11) 93010-7478
+                  </p>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            <Button
               variant="outline"
               size="sm"
               className="w-full sm:w-auto"
@@ -423,6 +611,7 @@ const OrganizerDashboard = () => {
               <Users className="w-4 h-4 mr-2" />
               Equipes Externas
             </Button>
+
             <Dialog
               open={dialogOpen}
               onOpenChange={(open) => {
@@ -437,205 +626,210 @@ const OrganizerDashboard = () => {
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
-                  Criar Avançado
+                  Criar Treino
                 </Button>
               </DialogTrigger>
               <DialogContent className="bg-card border-border max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingTraining ? "Editar Treino" : "Criar Treino"}
-                </DialogTitle>
-              </DialogHeader>
-              
-              {/* Use Template Button */}
-              {!editingTraining && user && (
-                <UseTemplateDialog
-                  organizerId={user.id}
-                  onSelectTemplate={(template) => {
-                    setTrainingForm({
-                      ...trainingForm,
-                      game: template.game as "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6",
-                      mode: template.mode as "Solo" | "Duo" | "Squad",
-                      platform: template.platform as "PC" | "Mobile" | "Misto",
-                      max_slots: template.max_slots,
-                      rounds: template.rounds,
-                      points_per_kill: template.points_per_kill,
-                      points_per_position: JSON.stringify(template.points_per_position || []),
-                      points_per_position_text: template.points_per_position_text || "",
-                      rules: template.rules || "",
-                      prize: template.prize || "",
-                      important_info: template.important_info || "",
-                      discord_link: template.discord_link || "",
-                    });
-                  }}
-                />
-              )}
-              
-              <form onSubmit={handleSaveTraining} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Nome do Treino</Label>
-                  <Input
-                    id="name"
-                    value={trainingForm.name}
-                    onChange={(e) =>
-                      setTrainingForm({ ...trainingForm, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingTraining ? "Editar Treino" : "Criar Treino"}
+                  </DialogTitle>
+                </DialogHeader>
 
-                <div>
-                  <Label htmlFor="game">Jogo</Label>
-                  <Select
-                    value={trainingForm.game}
-                    onValueChange={(value: "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6") =>
-                      setTrainingForm({ ...trainingForm, game: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="free_fire">Free Fire</SelectItem>
-                      <SelectItem value="blood_strike">Blood Strike</SelectItem>
-                      <SelectItem value="farlight_84">Farlight 84</SelectItem>
-                      <SelectItem value="prime_rush">Prime Rush</SelectItem>
-                      <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="banner">Banner do Treino</Label>
-                  <Input
-                    id="banner"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setBannerFile(e.target.files?.[0] || null)}
+                {/* Use Template Button */}
+                {!editingTraining && user && (
+                  <UseTemplateDialog
+                    organizerId={user.id}
+                    onSelectTemplate={(template) => {
+                      setTrainingForm({
+                        ...trainingForm,
+                        game: template.game as
+                          | "free_fire"
+                          | "blood_strike"
+                          | "farlight_84"
+                          | "prime_rush"
+                          | "battlefield_6",
+                        mode: template.mode as "Solo" | "Duo" | "Squad",
+                        platform: template.platform as "PC" | "Mobile" | "Misto",
+                        max_slots: template.max_slots,
+                        rounds: template.rounds,
+                        points_per_kill: template.points_per_kill,
+                        points_per_position: JSON.stringify(
+                          template.points_per_position || []
+                        ),
+                        important_info: template.important_info || "",
+                        discord_link: template.discord_link || "",
+                      });
+                    }}
                   />
-                  {trainingForm.banner_url && !bannerFile && (
+                )}
+
+                <form onSubmit={handleSaveTraining} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Nome do Treino</Label>
+                    <Input
+                      id="name"
+                      value={trainingForm.name}
+                      onChange={(e) =>
+                        setTrainingForm({ ...trainingForm, name: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="game">Jogo</Label>
+                    <Select
+                      value={trainingForm.game}
+                      onValueChange={(value: "free_fire" | "blood_strike" | "farlight_84" | "prime_rush" | "battlefield_6") =>
+                        setTrainingForm({ ...trainingForm, game: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free_fire">Free Fire</SelectItem>
+                        <SelectItem value="blood_strike">Blood Strike</SelectItem>
+                        <SelectItem value="farlight_84">Farlight 84</SelectItem>
+                        <SelectItem value="prime_rush">Prime Rush</SelectItem>
+                        <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="banner">Banner do Treino</Label>
+                    <Input
+                      id="banner"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => setBannerFile(e.target.files?.[0] || null)}
+                    />
+                    {trainingForm.banner_url && !bannerFile && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Banner atual carregado
+                      </p>
+                    )}
                     <p className="text-xs text-muted-foreground mt-1">
-                      Banner atual carregado
+                      Recomendado: 1920x400px (4.8:1) | Máximo: 5MB
                     </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Recomendado: 1920x400px (4.8:1) | Máximo: 5MB
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="datetime">Data e Hora</Label>
-                    <Input
-                      id="datetime"
-                      type="datetime-local"
-                      value={trainingForm.datetime}
-                      onChange={(e) =>
-                        setTrainingForm({
-                          ...trainingForm,
-                          datetime: e.target.value,
-                        })
-                      }
-                      required
-                    />
                   </div>
 
-                  <div>
-                    <Label htmlFor="max_slots">Limite de Vagas</Label>
-                    <Input
-                      id="max_slots"
-                      type="number"
-                      min="1"
-                      value={trainingForm.max_slots}
-                      onChange={(e) =>
-                        setTrainingForm({
-                          ...trainingForm,
-                          max_slots: parseInt(e.target.value),
-                        })
-                      }
-                      required
-                    />
-                  </div>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="datetime">Data e Hora</Label>
+                      <Input
+                        id="datetime"
+                        type="datetime-local"
+                        value={trainingForm.datetime}
+                        onChange={(e) =>
+                          setTrainingForm({
+                            ...trainingForm,
+                            datetime: e.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="platform">Plataforma</Label>
-                    <Select
-                      value={trainingForm.platform}
-                      onValueChange={(value: "PC" | "Mobile" | "Misto") =>
-                        setTrainingForm({ ...trainingForm, platform: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="PC">PC</SelectItem>
-                        <SelectItem value="Mobile">Mobile</SelectItem>
-                        <SelectItem value="Misto">Misto</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div>
+                      <Label htmlFor="max_slots">Limite de Vagas</Label>
+                      <Input
+                        id="max_slots"
+                        type="number"
+                        min="1"
+                        value={trainingForm.max_slots}
+                        onChange={(e) =>
+                          setTrainingForm({
+                            ...trainingForm,
+                            max_slots: parseInt(e.target.value),
+                          })
+                        }
+                        required
+                      />
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="mode">Modo</Label>
-                    <Select
-                      value={trainingForm.mode}
-                      onValueChange={(value: "Solo" | "Duo" | "Squad") =>
-                        setTrainingForm({ ...trainingForm, mode: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Solo">Solo</SelectItem>
-                        <SelectItem value="Duo">Duo</SelectItem>
-                        <SelectItem value="Squad">Squad</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="platform">Plataforma</Label>
+                      <Select
+                        value={trainingForm.platform}
+                        onValueChange={(value: "PC" | "Mobile" | "Misto") =>
+                          setTrainingForm({ ...trainingForm, platform: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="PC">PC</SelectItem>
+                          <SelectItem value="Mobile">Mobile</SelectItem>
+                          <SelectItem value="Misto">Misto</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="status">Status do Treino</Label>
-                    <Select
-                      value={trainingForm.status}
-                      onValueChange={(value: "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO") =>
-                        setTrainingForm({ ...trainingForm, status: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="INSCRIÇÕES ABERTAS">INSCRIÇÕES ABERTAS</SelectItem>
-                        <SelectItem value="INSCRIÇÕES ENCERRADAS">INSCRIÇÕES ENCERRADAS</SelectItem>
-                        <SelectItem value="EM ANDAMENTO">EM ANDAMENTO</SelectItem>
-                        <SelectItem value="FINALIZADO">FINALIZADO</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div>
+                      <Label htmlFor="mode">Modo</Label>
+                      <Select
+                        value={trainingForm.mode}
+                        onValueChange={(value: "Solo" | "Duo" | "Squad") =>
+                          setTrainingForm({ ...trainingForm, mode: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Solo">Solo</SelectItem>
+                          <SelectItem value="Duo">Duo</SelectItem>
+                          <SelectItem value="Squad">Squad</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
 
-                  <div>
-                    <Label htmlFor="rounds">Quantidade de Quedas</Label>
-                    <Input
-                      id="rounds"
-                      type="number"
-                      min="1"
-                      value={trainingForm.rounds}
-                      onChange={(e) =>
-                        setTrainingForm({
-                          ...trainingForm,
-                          rounds: parseInt(e.target.value),
-                        })
-                      }
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="status">Status do Treino</Label>
+                      <Select
+                        value={trainingForm.status}
+                        onValueChange={(value: "INSCRIÇÕES ABERTAS" | "INSCRIÇÕES ENCERRADAS" | "EM ANDAMENTO" | "FINALIZADO") =>
+                          setTrainingForm({ ...trainingForm, status: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="INSCRIÇÕES ABERTAS">INSCRIÇÕES ABERTAS</SelectItem>
+                          <SelectItem value="INSCRIÇÕES ENCERRADAS">INSCRIÇÕES ENCERRADAS</SelectItem>
+                          <SelectItem value="EM ANDAMENTO">EM ANDAMENTO</SelectItem>
+                          <SelectItem value="FINALIZADO">FINALIZADO</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="rounds">Quantidade de Quedas</Label>
+                      <Input
+                        id="rounds"
+                        type="number"
+                        min="1"
+                        value={trainingForm.rounds}
+                        onChange={(e) =>
+                          setTrainingForm({
+                            ...trainingForm,
+                            rounds: parseInt(e.target.value),
+                          })
+                        }
+                        required
+                      />
+                    </div>
                   </div>
-                </div>
+
 
                 <div>
                   <Label htmlFor="points_per_kill">Pontos por Abate</Label>
@@ -655,40 +849,7 @@ const OrganizerDashboard = () => {
                 </div>
 
                 <div>
-                  <Label htmlFor="points_per_position_text">
-                    Pontos por Colocação (texto livre)
-                  </Label>
-                  <Textarea
-                    id="points_per_position_text"
-                    rows={4}
-                    placeholder="Ex: 1º Lugar - 10 pontos&#10;2º Lugar - 8 pontos&#10;3º Lugar - 6 pontos..."
-                    value={trainingForm.points_per_position_text}
-                    onChange={(e) =>
-                      setTrainingForm({
-                        ...trainingForm,
-                        points_per_position_text: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="rules">Regras do Treino</Label>
-                  <Textarea
-                    id="rules"
-                    rows={4}
-                    placeholder="Descreva as regras do treino..."
-                    value={trainingForm.rules}
-                    onChange={(e) =>
-                      setTrainingForm({ ...trainingForm, rules: e.target.value })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="important_info">
-                    Informações Importantes
-                  </Label>
+                  <Label htmlFor="important_info">Informações Importantes</Label>
                   <Textarea
                     id="important_info"
                     rows={4}
@@ -703,71 +864,38 @@ const OrganizerDashboard = () => {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="prize">Premiação (opcional)</Label>
-                  <Textarea
-                    id="prize"
-                    placeholder="Ex: 1º Lugar - R$ 500, 2º Lugar - R$ 300..."
-                    value={trainingForm.prize}
-                    onChange={(e) =>
-                      setTrainingForm({
-                        ...trainingForm,
-                        prize: e.target.value,
-                      })
-                    }
-                  />
-                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="discord_link">Link do Discord</Label>
+                    <Input
+                      id="discord_link"
+                      type="url"
+                      placeholder="https://discord.gg/..."
+                      value={trainingForm.discord_link}
+                      onChange={(e) =>
+                        setTrainingForm({
+                          ...trainingForm,
+                          discord_link: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="table_image">
-                    Tabela de Resultados (opcional)
-                  </Label>
-                  <Input
-                    id="table_image"
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setTableFile(e.target.files?.[0] || null)}
-                  />
-                  {trainingForm.table_image_url && !tableFile && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Tabela atual carregada
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Máximo: 5MB
-                  </p>
-                </div>
-
-                <div>
-                  <Label htmlFor="discord_link">Link do Discord</Label>
-                  <Input
-                    id="discord_link"
-                    type="url"
-                    placeholder="https://discord.gg/..."
-                    value={trainingForm.discord_link}
-                    onChange={(e) =>
-                      setTrainingForm({
-                        ...trainingForm,
-                        discord_link: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="live_link">Link da Live (opcional)</Label>
-                  <Input
-                    id="live_link"
-                    type="url"
-                    placeholder="https://..."
-                    value={trainingForm.live_link}
-                    onChange={(e) =>
-                      setTrainingForm({
-                        ...trainingForm,
-                        live_link: e.target.value,
-                      })
-                    }
-                  />
+                  <div>
+                    <Label htmlFor="whatsapp_link">Link do WhatsApp</Label>
+                    <Input
+                      id="whatsapp_link"
+                      type="url"
+                      placeholder="https://chat.whatsapp.com/..."
+                      value={trainingForm.whatsapp_link}
+                      onChange={(e) =>
+                        setTrainingForm({
+                          ...trainingForm,
+                          whatsapp_link: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -786,7 +914,7 @@ const OrganizerDashboard = () => {
                     <div>
                       <Label htmlFor="is_private">Treino Privado (somente convidados)</Label>
                       <p className="text-xs text-muted-foreground">
-                        Se ativado, apenas equipes convidadas poderão se inscrever
+                        Se ativado, apenas equipes com TAGs listadas abaixo podem se inscrever
                       </p>
                     </div>
                     <Switch
@@ -808,8 +936,8 @@ const OrganizerDashboard = () => {
                         onChange={(e) => {
                           const tags = e.target.value
                             .split(/[\s,]+/)
-                            .map(tag => tag.trim().toUpperCase())
-                            .filter(tag => tag.length > 0);
+                            .map((tag) => tag.trim().toUpperCase())
+                            .filter((tag) => tag.length > 0);
                           setTrainingForm({
                             ...trainingForm,
                             invited_tags: tags,
@@ -817,7 +945,7 @@ const OrganizerDashboard = () => {
                         }}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
-                        Separe as TAGs por vírgula ou espaço
+                        Separe as TAGs por vírgula ou espaço (ex: ABC, XYZ)
                       </p>
                     </div>
                   )}
@@ -858,132 +986,277 @@ const OrganizerDashboard = () => {
           </Dialog>
           <BlacklistDialog />
         </div>
-        </div>
+        </section>
 
         {trainings.length === 0 ? (
           <Card className="p-12 text-center backdrop-blur-sm bg-card/80 border-border">
             <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h2 className="text-2xl font-bold mb-2">
-              Você ainda não criou nenhum treino
-            </h2>
-            <p className="text-muted-foreground">
-              Comece criando seu primeiro treino
-            </p>
+            <h2 className="text-2xl font-bold mb-2">Você ainda não criou nenhum treino</h2>
+            <p className="text-muted-foreground">Comece criando seu primeiro treino</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {trainings.map((training) => (
-              <Card
-                key={training.id}
-                className="overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all"
-              >
-                <div className="relative h-32 bg-gradient-primary">
-                  {training.banner_url ? (
-                    <img
-                      src={training.banner_url}
-                      alt={training.name}
-                      className="w-full h-full object-cover"
+          <>
+            {/* Filtros */}
+            <Card className="p-4 bg-card/80 border-border mb-4">
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { key: "all", label: "Todos" },
+                    { key: "INSCRIÇÕES ABERTAS", label: "Abertas" },
+                    { key: "INSCRIÇÕES ENCERRADAS", label: "Encerradas" },
+                    { key: "EM ANDAMENTO", label: "Em andamento" },
+                    { key: "FINALIZADO", label: "Finalizados" },
+                  ].map((tab) => (
+                    <Button
+                      key={tab.key}
+                      variant={filters.status === tab.key ? "default" : "outline"}
+                      size="sm"
+                      className={
+                        filters.status === tab.key
+                          ? "bg-primary text-primary-foreground"
+                          : "border-border"
+                      }
+                      onClick={() =>
+                        setFilters((prev) => ({
+                          ...prev,
+                          status: tab.key as any,
+                        }))
+                      }
+                    >
+                      {tab.label}
+                    </Button>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div className="space-y-1">
+                    <Label>Jogo</Label>
+                    <Select
+                      value={filters.game}
+                      onValueChange={(value) =>
+                        setFilters((prev) => ({ ...prev, game: value as any }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todos" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todos</SelectItem>
+                        <SelectItem value="free_fire">Free Fire</SelectItem>
+                        <SelectItem value="blood_strike">Blood Strike</SelectItem>
+                        <SelectItem value="farlight_84">Farlight 84</SelectItem>
+                        <SelectItem value="prime_rush">Prime Rush</SelectItem>
+                        <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label>Plataforma</Label>
+                    <Select
+                      value={filters.platform}
+                      onValueChange={(value) =>
+                        setFilters((prev) => ({ ...prev, platform: value as any }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Todas" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas</SelectItem>
+                        <SelectItem value="PC">PC</SelectItem>
+                        <SelectItem value="Mobile">Mobile</SelectItem>
+                        <SelectItem value="Misto">Misto</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label>De</Label>
+                    <Input
+                      type="date"
+                      value={filters.dateFrom}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, dateFrom: e.target.value }))
+                      }
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <Trophy className="w-12 h-12 text-white/20" />
-                    </div>
-                  )}
-                  {training.is_live && (
-                    <Badge className="absolute top-2 right-2 bg-destructive animate-glow-pulse">
-                      AO VIVO
-                    </Badge>
-                  )}
-                  <Badge
-                    className="absolute top-2 left-2"
-                    variant={training.status === "ABERTO" ? "default" : "destructive"}
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label>Até</Label>
+                    <Input
+                      type="date"
+                      value={filters.dateTo}
+                      onChange={(e) =>
+                        setFilters((prev) => ({ ...prev, dateTo: e.target.value }))
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-muted-foreground">
+                    Mostrando <span className="font-semibold">{filteredTrainings.length}</span> de {trainings.length}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setFilters({
+                        status: "all",
+                        platform: "all",
+                        game: "all",
+                        dateFrom: "",
+                        dateTo: "",
+                      } as any)
+                    }
                   >
-                    {training.status || "ABERTO"}
-                  </Badge>
+                    Limpar filtros
+                  </Button>
                 </div>
+              </div>
+            </Card>
 
-                <div className="p-4 space-y-3">
-                  <h3 className="font-semibold text-lg line-clamp-1 uppercase">
-                    {training.name}
-                  </h3>
-
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>
-                      {format(
-                        new Date(training.datetime),
-                        "dd/MM/yyyy 'às' HH:mm"
-                      )}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 text-sm">
-                    <Users className="w-4 h-4 text-primary" />
-                    <span>
-                      <span className="font-semibold">
-                        {training.registrations}
-                      </span>
-                      /{training.max_slots} equipes inscritas
-                    </span>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Badge variant="secondary">{training.platform}</Badge>
-                    <Badge variant="outline">{training.mode}</Badge>
-                  </div>
-
-                  <Separator />
-
-                  <div className="flex flex-col gap-2 mb-2">
-                    <div className="grid grid-cols-3 gap-1 sm:gap-2">
-                      <RegisteredTeamsDialog 
-                        trainingId={training.id}
-                        trainingName={training.name}
-                      />
-                      <EventLogsDialog
-                        trainingId={training.id}
-                        trainingName={training.name}
-                      />
-                      <ScoringConfigDialog
-                        trainingId={training.id}
-                        currentPointsPerKill={training.points_per_kill}
-                        currentPointsPerPosition={training.points_per_position || []}
-                        onConfigUpdated={fetchTrainings}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-1 sm:gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/training/${training.id}`)}
-                      className="flex-1 text-xs sm:text-sm"
-                    >
-                      <span className="hidden sm:inline">Ver Detalhes</span>
-                      <span className="sm:hidden">Ver</span>
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openEditDialog(training)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDeleteTraining(training.id)}
-                      className="hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
+            {filteredTrainings.length === 0 ? (
+              <Card className="p-10 text-center bg-card/80 border-border">
+                <Trophy className="w-12 h-12 mx-auto mb-3 text-muted-foreground" />
+                <h2 className="text-xl font-bold mb-2">Nenhum treino encontrado</h2>
+                <p className="text-muted-foreground text-sm">
+                  Ajuste os filtros acima para ver seus treinos.
+                </p>
               </Card>
-            ))}
-          </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                {filteredTrainings.map((training) => (
+                  <Card
+                    key={training.id}
+                    className="overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all"
+                  >
+                    <div className="relative h-32 bg-gradient-primary">
+                      {training.banner_url ? (
+                        <img
+                          src={training.banner_url}
+                          alt={training.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Trophy className="w-12 h-12 text-white/20" />
+                        </div>
+                      )}
+                      {training.is_live && (
+                        <Badge className="absolute top-2 right-2 bg-destructive animate-glow-pulse">
+                          AO VIVO
+                        </Badge>
+                      )}
+                      <Badge
+                        className="absolute top-2 left-2"
+                        variant={
+                          training.status === "INSCRIÇÕES ABERTAS" ? "default" : "destructive"
+                        }
+                      >
+                        {training.status || "INSCRIÇÕES ABERTAS"}
+                      </Badge>
+                    </div>
+
+                    <div className="p-4 space-y-3">
+                      <h3 className="font-semibold text-lg line-clamp-1 uppercase">
+                        {training.name}
+                      </h3>
+
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span>
+                          {format(new Date(training.datetime), "dd/MM/yyyy 'às' HH:mm")}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm">
+                        <Users className="w-4 h-4 text-primary" />
+                        <span>
+                          <span className="font-semibold">{training.registrations}</span>/{training.max_slots} equipes inscritas
+                        </span>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <Badge variant="secondary">{training.platform}</Badge>
+                        <Badge variant="outline">{training.mode}</Badge>
+                      </div>
+
+                      <Separator />
+
+                      <div className="flex flex-col gap-2 mb-2">
+                        <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                          <RegisteredTeamsDialog trainingId={training.id} trainingName={training.name} />
+                          <EventLogsDialog trainingId={training.id} trainingName={training.name} />
+                          <ScoringConfigDialog
+                            trainingId={training.id}
+                            currentPointsPerKill={training.points_per_kill}
+                            currentPointsPerPosition={training.points_per_position || []}
+                            onConfigUpdated={fetchTrainings}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-1 sm:gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/training/${training.id}`)}
+                          className="flex-1 text-xs sm:text-sm"
+                        >
+                          <span className="hidden sm:inline">Ver Detalhes</span>
+                          <span className="sm:hidden">Ver</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEditDialog(training)}
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDeleteTraining(training.id)}
+                          className="hover:text-destructive"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
         )}
+
+        {/* Guia rápido (agora abaixo dos treinos) */}
+        <Card className="p-6 bg-card/80 border-border mt-8">
+          <h2 className="font-bold uppercase mb-3">Guia rápido do Organizador</h2>
+          <div className="grid gap-4 md:grid-cols-3 text-sm">
+            <div className="space-y-1">
+              <p className="font-semibold">Metas & selo verificado</p>
+              <p className="text-muted-foreground">
+                Organize treinos regularmente para destravar conquistas. A partir de um certo volume (ex: 10+ treinos) você ganha o selo de
+                <span className="font-semibold"> Organizador Verificado</span>, destacado no painel.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold">Treinos privados & convidados</p>
+              <p className="text-muted-foreground">
+                Ative <span className="font-semibold">Treino Privado</span> e preencha as <span className="font-semibold">TAGs</span> das equipes convidadas. Só essas TAGs conseguem se inscrever.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold">Links de Discord & WhatsApp</p>
+              <p className="text-muted-foreground">
+                Informe links de <span className="font-semibold">Discord</span> e <span className="font-semibold">WhatsApp</span> ao criar/editar o treino para facilitar contato.
+              </p>
+            </div>
+          </div>
+        </Card>
       </main>
 
       {/* Dialog para Pontuação em Desenvolvimento */}

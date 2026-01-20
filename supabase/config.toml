@@ -1,1 +1,4 @@
-project_id = "dtczwqbbziwiqccljryc"
+project_id = "nulmcireyubejpxiozhj"
+
+[functions.training-maintenance]
+verify_jwt = false

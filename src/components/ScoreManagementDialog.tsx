@@ -21,6 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { Plus, Trophy, Target, Trash2, Save, Loader2 } from "lucide-react";
 
@@ -57,6 +58,15 @@ interface PositionPoint {
   points: number;
 }
 
+interface PlayerStat {
+  team_id: string;
+  line_id: string | null;
+  team_member_id: string | null;
+  player_name: string;
+  kills: number;
+  is_mvp: boolean;
+}
+
 interface ScoreManagementDialogProps {
   trainingId: string;
   teams: Team[];
@@ -78,6 +88,7 @@ export function ScoreManagementDialog({
   const [selectedRound, setSelectedRound] = useState<string>("");
   const [selectedMatch, setSelectedMatch] = useState<string>("");
   const [scores, setScores] = useState<MatchScore[]>([]);
+  const [playerStatsByTeam, setPlayerStatsByTeam] = useState<Record<string, PlayerStat[]>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -111,7 +122,6 @@ export function ScoreManagementDialog({
       fetchScores(selectedMatch);
     }
   }, [selectedMatch]);
-
 
   const fetchRounds = async () => {
     setLoading(true);
@@ -148,6 +158,69 @@ export function ScoreManagementDialog({
     }
   };
 
+  const loadPlayersForTeam = async (teamId: string, matchId: string) => {
+    try {
+      const { data: registration } = await supabase
+        .from("training_registrations")
+        .select("line_id")
+        .eq("training_id", trainingId)
+        .eq("team_id", teamId)
+        .maybeSingle();
+
+      const lineId = registration?.line_id ?? null;
+
+      const { data: members } = await supabase
+        .from("team_members")
+        .select("id, player_name, line_id, team_id, user_id")
+        .eq("team_id", teamId)
+        .in("line_id", lineId ? [lineId] : [null, lineId]);
+
+      const { data: existingStats } = await supabase
+        .from("training_player_stats")
+        .select("*")
+        .eq("match_id", matchId)
+        .eq("team_id", teamId);
+
+      const statsByMemberId: Record<string, { kills: number; is_mvp: boolean }> = {};
+      (existingStats || []).forEach((s) => {
+        if (s.team_member_id) {
+          statsByMemberId[s.team_member_id] = {
+            kills: s.kills,
+            is_mvp: s.is_mvp,
+          };
+        }
+      });
+
+      const playerStats: PlayerStat[] = (members || [])
+        .filter((m: any) => !!m.user_id) // ignora jogadores externos sem conta
+        .map((m: any) => {
+          const existing = statsByMemberId[m.id] || { kills: 0, is_mvp: false };
+          return {
+            team_id: teamId,
+            line_id: m.line_id,
+            team_member_id: m.id,
+            player_name: m.player_name,
+            kills: existing.kills,
+            is_mvp: existing.is_mvp,
+          };
+        });
+
+      setPlayerStatsByTeam((prev) => ({
+        ...prev,
+        [teamId]: playerStats,
+      }));
+
+      const totalKills = playerStats.reduce((sum, p) => sum + p.kills, 0);
+      if (totalKills > 0) {
+        setScores((prev) =>
+          prev.map((s) => (s.team_id === teamId ? { ...s, kills: totalKills } : s))
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao carregar jogadores da line:", error);
+    }
+  };
+
   const fetchScores = async (matchId: string) => {
     const { data, error } = await supabase
       .from("training_match_scores")
@@ -155,14 +228,20 @@ export function ScoreManagementDialog({
       .eq("match_id", matchId);
 
     if (!error && data) {
-      setScores(data.map(s => ({
+      const loadedScores = data.map((s) => ({
         team_id: s.team_id,
         position: s.position,
         kills: s.kills,
-        bonus_points: (s as any).bonus_points || 0,
-      })));
+        bonus_points: Number((s as any).bonus_points ?? 0),
+      }));
+      setScores(loadedScores);
+
+      await Promise.all(
+        loadedScores.map((s) => loadPlayersForTeam(s.team_id, matchId))
+      );
     } else {
       setScores([]);
+      setPlayerStatsByTeam({});
     }
   };
 
@@ -290,17 +369,22 @@ export function ScoreManagementDialog({
   };
 
   const updateTeamKills = (teamId: string, kills: number) => {
-    setScores(scores.map(s => 
+    setScores(scores.map((s) =>
       s.team_id === teamId ? { ...s, kills } : s
     ));
   };
 
   const removeTeamScore = (teamId: string) => {
-    setScores(scores.filter(s => s.team_id !== teamId));
+    setScores(scores.filter((s) => s.team_id !== teamId));
+    setPlayerStatsByTeam((prev) => {
+      const clone = { ...prev };
+      delete clone[teamId];
+      return clone;
+    });
   };
 
   const updateTeamBonusPoints = (teamId: string, bonus: number) => {
-    setScores(scores.map(s => 
+    setScores(scores.map((s) =>
       s.team_id === teamId ? { ...s, bonus_points: bonus } : s
     ));
   };
@@ -309,6 +393,42 @@ export function ScoreManagementDialog({
     const posPoints = positionPointsMap[position] || 0;
     const killPoints = kills * pointsPerKill;
     return { posPoints, killPoints, bonusPoints, total: posPoints + killPoints + bonusPoints };
+  };
+
+  const updatePlayerKills = (teamId: string, teamMemberId: string | null, kills: number) => {
+    setPlayerStatsByTeam((prev) => {
+      const teamPlayers = prev[teamId] || [];
+      const updated = teamPlayers.map((p) =>
+        p.team_member_id === teamMemberId ? { ...p, kills } : p
+      );
+
+      const totalKills = updated.reduce((sum, p) => sum + p.kills, 0);
+      setScores((currentScores) =>
+        currentScores.map((s) =>
+          s.team_id === teamId ? { ...s, kills: totalKills } : s
+        )
+      );
+
+      return {
+        ...prev,
+        [teamId]: updated,
+      };
+    });
+  };
+
+  const toggleMvp = (teamId: string, teamMemberId: string | null) => {
+    setPlayerStatsByTeam((prev) => {
+      const teamPlayers = prev[teamId] || [];
+      const updated = teamPlayers.map((p) => ({
+        ...p,
+        is_mvp: p.team_member_id === teamMemberId,
+      }));
+
+      return {
+        ...prev,
+        [teamId]: updated,
+      };
+    });
   };
 
   const saveScores = async () => {
@@ -320,14 +440,19 @@ export function ScoreManagementDialog({
     setSaving(true);
 
     try {
-      // Delete existing scores for this match
+      // Delete existing scores and player stats for this match
       await supabase
         .from("training_match_scores")
         .delete()
         .eq("match_id", selectedMatch);
 
+      await supabase
+        .from("training_player_stats")
+        .delete()
+        .eq("match_id", selectedMatch);
+
       // Insert new scores
-      const scoresToInsert = scores.map(s => {
+      const scoresToInsert = scores.map((s) => {
         const pts = calculatePoints(s.position, s.kills, s.bonus_points);
         return {
           match_id: selectedMatch,
@@ -336,7 +461,7 @@ export function ScoreManagementDialog({
           kills: s.kills,
           position_points: pts.posPoints,
           kill_points: pts.killPoints,
-          bonus_points: s.bonus_points,
+          bonus_points: String(s.bonus_points ?? 0),
           total_points: pts.total,
         };
       });
@@ -349,15 +474,52 @@ export function ScoreManagementDialog({
         if (error) throw error;
       }
 
+      // Insert player stats
+      const playerStatsToInsert = Object.entries(playerStatsByTeam).flatMap(
+        ([teamId, players]) =>
+          players
+            .filter((p) => p.kills > 0 || p.is_mvp)
+            .map((p) => ({
+              match_id: selectedMatch,
+              team_id: teamId,
+              line_id: p.line_id,
+              team_member_id: p.team_member_id,
+              player_name: p.player_name,
+              kills: p.kills,
+              is_mvp: p.is_mvp,
+            }))
+      );
+
+      if (playerStatsToInsert.length > 0) {
+        const { error } = await supabase
+          .from("training_player_stats")
+          .insert(playerStatsToInsert);
+
+        if (error) throw error;
+      }
+
       // Update match status
       await supabase
         .from("training_matches")
         .update({ status: "completed" })
         .eq("id", selectedMatch);
 
+      // Dispara atualização de conquistas (jogadores + organizador)
+      try {
+        await supabase.functions.invoke("update-achievements", {
+          body: {
+            matchId: selectedMatch,
+            trainingId,
+          },
+        });
+      } catch (invokeError) {
+        console.error("Erro ao chamar update-achievements:", invokeError);
+      }
+
       toast.success("Pontuação salva com sucesso!");
       onScoresUpdated();
     } catch (error) {
+      console.error("Erro ao salvar pontuação:", error);
       toast.error("Erro ao salvar pontuação");
     } finally {
       setSaving(false);
@@ -370,7 +532,7 @@ export function ScoreManagementDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full gap-2">
+        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
           <Trophy className="w-4 h-4" />
           Gerenciar Pontuação
         </Button>

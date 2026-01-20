@@ -82,13 +82,14 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
 
       // Fetch blacklist count and report count for each team
       const teamsWithStats = await Promise.all(
-        (registrations || []).map(async (reg) => {
-          const teamTag = reg.teams.tag;
+        (registrations || []).map(async (reg: any) => {
+          const team = reg.teams as any;
+          const teamTag = team.tag;
 
           // Count active blacklists from different organizers
-          const { data: blacklistCount } = await supabase
+          const { data: blacklistCount } = await (supabase as any)
             .rpc("count_active_blacklists_from_different_organizers", {
-              _team_tag: teamTag
+              _team_tag: teamTag,
             });
 
           // Count reports from current organizer
@@ -99,14 +100,14 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
             .eq("team_tag", teamTag);
 
           return {
-            id: reg.teams.id,
-            name: reg.teams.name,
-            tag: reg.teams.tag,
-            logo_url: reg.teams.logo_url,
-            members: reg.teams.team_members || [],
+            id: team.id,
+            name: team.name,
+            tag: team.tag,
+            logo_url: team.logo_url,
+            members: team.team_members || [],
             blacklist_count: blacklistCount || 0,
             report_count: reports?.length || 0,
-            is_external: reg.teams.is_external || false,
+            is_external: team.is_external || false,
           };
         })
       );

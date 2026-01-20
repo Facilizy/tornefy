@@ -22,6 +22,9 @@ interface RegistrationConfirmDialogProps {
   training: any;
   teamName: string;
   loading: boolean;
+  lines?: { id: string; name: string }[];
+  selectedLineId?: string;
+  onChangeLine?: (lineId: string) => void;
 }
 
 export const RegistrationConfirmDialog = ({
@@ -31,6 +34,9 @@ export const RegistrationConfirmDialog = ({
   training,
   teamName,
   loading,
+  lines = [],
+  selectedLineId,
+  onChangeLine,
 }: RegistrationConfirmDialogProps) => {
   const [agreed, setAgreed] = useState(false);
 
@@ -127,6 +133,37 @@ export const RegistrationConfirmDialog = ({
               </span>
             </div>
           </div>
+
+          <Separator />
+
+          {/* Line selection (optional) */}
+          {lines.length > 0 && (
+            <div className="space-y-2">
+              <Label className="text-sm">Selecione a line que irá jogar</Label>
+              <div className="grid grid-cols-1 gap-2">
+                {lines.map((line) => {
+                  const selected = selectedLineId === line.id;
+                  return (
+                    <button
+                      key={line.id}
+                      type="button"
+                      onClick={() => onChangeLine && onChangeLine(line.id)}
+                      className={`flex items-center justify-between px-3 py-2 rounded-md border text-sm transition-colors ${
+                        selected
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
+                      <span>{line.name}</span>
+                      {selected && (
+                        <span className="text-xs text-primary font-medium">Selecionada</span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           <Separator />
 

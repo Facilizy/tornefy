@@ -87,7 +87,7 @@ const PendingInvites = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setInvites(data || []);
+      setInvites(((data || []) as unknown) as TeamInvite[]);
     } catch (error: any) {
       toast.error("Erro ao carregar convites");
     } finally {
@@ -145,7 +145,8 @@ const PendingInvites = () => {
           type: "invite_accepted",
           title: "Convite Aceito!",
           message: `${profile?.full_name || "Um jogador"} aceitou seu convite para ${team.name}`,
-          related_id: invite.team_id
+          related_id: invite.team_id,
+          created_at: new Date().toISOString(),
         });
       }
 
@@ -182,7 +183,8 @@ const PendingInvites = () => {
           type: "invite_rejected",
           title: "Convite Recusado",
           message: `${profile?.full_name || "Um jogador"} recusou seu convite para ${team.name}`,
-          related_id: invite.team_id
+          related_id: invite.team_id,
+          created_at: new Date().toISOString(),
         });
       }
 

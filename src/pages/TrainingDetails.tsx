@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
+import { useMemo, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useOrganizerFollow } from "@/hooks/useOrganizerFollow";
 import {
   Calendar,
+  Clock,
   Users,
   Monitor,
   Gamepad2,
@@ -23,22 +26,21 @@ import {
   Medal,
   Swords,
   Radio,
+  Settings,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { TrainingChat } from "@/components/TrainingChat";
 import { RegistrationConfirmDialog } from "@/components/RegistrationConfirmDialog";
-import { ExternalTeamDialog } from "@/components/ExternalTeamDialog";
-import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalTeamDialog";
-import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
 import { Scoreboard } from "@/components/Scoreboard";
-import { SlotReorderDialog } from "@/components/SlotReorderDialog";
 import { MatchesTab } from "@/components/MatchesTab";
-import { SaveTemplateDialog } from "@/components/SaveTemplateDialog";
 import { FloatingChat } from "@/components/FloatingChat";
 import { EventInfoSection } from "@/components/EventInfoSection";
-import { TrainingColorEditor } from "@/components/TrainingColorEditor";
+import { TrainingSettingsTab } from "@/components/TrainingSettingsTab";
+import { PointsTableCard } from "@/components/training/PointsTableCard";
+import { MvpListCard } from "@/components/training/MvpListCard";
+import { MinimumTeamsProgress } from "@/components/training/MinimumTeamsProgress";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -52,47 +54,59 @@ const TrainingDetails = () => {
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [training, setTraining] = useState<any>(null);
+  const [organizerProfile, setOrganizerProfile] = useState<any>(null);
+  const followOrganizer = useOrganizerFollow(organizerProfile?.id);
+  const [organizerUpcomingTrainings, setOrganizerUpcomingTrainings] = useState<any[]>([]);
+  const [isVerifiedOrganizer, setIsVerifiedOrganizer] = useState(false);
+  const [isVerifiedOrganizerRole, setIsVerifiedOrganizerRole] = useState(false);
   const [registeredTeams, setRegisteredTeams] = useState<any[]>([]);
+  const [registeredTeamsCount, setRegisteredTeamsCount] = useState(0);
+  const [hasAnyScores, setHasAnyScores] = useState(false);
   const [myTeam, setMyTeam] = useState<any>(null);
+  const [myTeamLines, setMyTeamLines] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [selectedLineId, setSelectedLineId] = useState<string>("");
+  const [confirmMode, setConfirmMode] = useState<"register" | "claim">("register");
+
+  const [waitlistCount, setWaitlistCount] = useState(0);
+  const [isInWaitlist, setIsInWaitlist] = useState(false);
+  const [hasCheckedIn, setHasCheckedIn] = useState(false);
+
+  const isAuthed = !!user;
+  const confirmedTeamsCount = registeredTeamsCount;
+  const isFull = confirmedTeamsCount >= (training?.max_slots || 0);
 
   useEffect(() => {
-    checkUser();
-  }, []);
+    const init = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
 
-  useEffect(() => {
-    if (user && id) {
-      fetchTrainingDetails();
-      fetchMyTeam();
-    }
-  }, [user, id]);
+      const sessionUser = session?.user ?? null;
+      setUser(sessionUser);
 
-  const checkUser = async () => {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (session?.user) {
-      setUser(session.user);
-      await fetchProfile(session.user.id);
-    } else {
-      navigate("/auth");
-    }
-  };
+      if (sessionUser) {
+        await fetchProfile(sessionUser.id);
+        await Promise.all([fetchTrainingDetails(sessionUser.id), fetchMyTeam(sessionUser.id)]);
+      } else {
+        await fetchTrainingDetails();
+      }
+    };
+
+    if (id) init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
     setProfile(data);
   };
 
-  const fetchTrainingDetails = async () => {
+  const fetchTrainingDetails = async (userId?: string) => {
     try {
       setLoading(true);
       const { data: trainingData, error: trainingError } = await supabase
@@ -104,11 +118,87 @@ const TrainingDetails = () => {
       if (trainingError) throw trainingError;
       setTraining(trainingData);
 
-      const { data: registrationsData, error: registrationsError } =
-        await supabase
-          .from("training_registrations")
+      // detect if there is any score registered for this training
+      try {
+        const { count } = await supabase
+          .from("training_match_scores")
           .select(
-            `
+            `id,
+            training_matches!inner (
+              id,
+              training_id
+            )`,
+            { count: "exact", head: true }
+          )
+          .eq("training_matches.training_id", id);
+
+        setHasAnyScores((count || 0) > 0);
+      } catch {
+        setHasAnyScores(false);
+      }
+
+      // Organizer info (perfil + selo verificado) + próximos treinos do organizador
+      if (trainingData?.organizer_id) {
+        const organizerId = trainingData.organizer_id as string;
+
+        const [organizerInfo, upcomingRes] = await Promise.all([
+          Promise.all([
+            supabase
+              .from("profiles")
+              .select("id, username, full_name")
+              .eq("id", organizerId)
+              .maybeSingle(),
+            supabase
+              .from("trainings")
+              .select("id", { count: "exact", head: true })
+              .eq("organizer_id", organizerId),
+            supabase
+              .from("user_roles")
+              .select("role")
+              .eq("user_id", organizerId)
+              .eq("role", "organizer_verified")
+              .maybeSingle(),
+          ]),
+          supabase
+            .from("trainings")
+            .select("id, name, datetime, status, platform, mode, game")
+            .eq("organizer_id", organizerId)
+            .neq("id", id)
+            .gt("datetime", new Date().toISOString())
+            .order("datetime", { ascending: true })
+            .limit(3),
+        ]);
+
+        const [{ data: organizerP }, { count: totalTrainings }, { data: verifiedRow }] = organizerInfo;
+
+        setOrganizerProfile(organizerP);
+        setIsVerifiedOrganizer((totalTrainings || 0) >= 10);
+        setIsVerifiedOrganizerRole(!!verifiedRow);
+        setOrganizerUpcomingTrainings(upcomingRes.data || []);
+      } else {
+        setOrganizerProfile(null);
+        setIsVerifiedOrganizer(false);
+        setIsVerifiedOrganizerRole(false);
+        setOrganizerUpcomingTrainings([]);
+      }
+
+      // Public visitors: fetch only the count of confirmed teams so we can show progress/UI.
+      if (!userId) {
+        const { count } = await supabase
+          .from("training_registrations")
+          .select("id", { count: "exact", head: true })
+          .eq("training_id", id);
+
+        setRegisteredTeamsCount(count || 0);
+        setRegisteredTeams([]);
+        setIsRegistered(false);
+        return;
+      }
+
+      const { data: registrationsData, error: registrationsError } = await supabase
+        .from("training_registrations")
+        .select(
+          `
           *,
           teams (
             id,
@@ -126,18 +216,15 @@ const TrainingDetails = () => {
             )
           )
         `
-          )
-          .eq("training_id", id);
+        )
+        .eq("training_id", id);
 
       if (registrationsError) throw registrationsError;
       setRegisteredTeams(registrationsData || []);
+      setRegisteredTeamsCount((registrationsData || []).length);
 
-      if (user) {
-        const myRegistration = registrationsData?.find((reg: any) =>
-          reg.teams?.owner_id === user.id
-        );
-        setIsRegistered(!!myRegistration);
-      }
+      const myRegistration = registrationsData?.find((reg: any) => reg.teams?.owner_id === userId);
+      setIsRegistered(!!myRegistration);
     } catch (error: any) {
       toast.error("Erro ao carregar detalhes do treino");
     } finally {
@@ -145,14 +232,20 @@ const TrainingDetails = () => {
     }
   };
 
-  const fetchMyTeam = async () => {
-    const { data } = await supabase
-      .from("teams")
-      .select("*")
-      .eq("owner_id", user.id)
-      .maybeSingle();
+  const fetchMyTeam = async (userId: string) => {
+    const { data } = await supabase.from("teams").select("*").eq("owner_id", userId).maybeSingle();
 
     setMyTeam(data);
+
+    if (data) {
+      const { data: lines } = await supabase
+        .from("team_lines")
+        .select("*")
+        .eq("team_id", data.id)
+        .order("created_at", { ascending: true });
+
+      setMyTeamLines(lines || []);
+    }
   };
 
   const handleRegisterClick = async () => {
@@ -175,10 +268,12 @@ const TrainingDetails = () => {
       return;
     }
 
-    const { data: blacklistCount, error: countError } = await supabase
-      .rpc("count_active_blacklists_from_different_organizers", {
-        _team_tag: myTeam.tag
-      });
+    const { data: blacklistCount, error: countError } = await (supabase as any).rpc(
+      "count_active_blacklists_from_different_organizers",
+      {
+        _team_tag: myTeam.tag,
+      }
+    );
 
     if (!countError && blacklistCount && blacklistCount >= 3) {
       toast.error("⚠️ ATENÇÃO: Sua equipe possui 3 ou mais blacklists de organizadores diferentes.", {
@@ -186,10 +281,7 @@ const TrainingDetails = () => {
       });
     }
 
-    const { data: members } = await supabase
-      .from("team_members")
-      .select("*")
-      .eq("team_id", myTeam.id);
+    const { data: members } = await supabase.from("team_members").select("*").eq("team_id", myTeam.id);
 
     const minMembers: { [key: string]: number } = {
       Solo: 1,
@@ -199,9 +291,7 @@ const TrainingDetails = () => {
 
     const required = minMembers[training.mode] || 1;
     if (!members || members.length < required) {
-      toast.error(
-        `Sua equipe precisa ter pelo menos ${required} jogador(es) para o modo ${training.mode}!`
-      );
+      toast.error(`Sua equipe precisa ter pelo menos ${required} jogador(es) para o modo ${training.mode}!`);
       return;
     }
 
@@ -214,7 +304,7 @@ const TrainingDetails = () => {
       .maybeSingle();
 
     if (blacklisted) {
-      const expiresAt = blacklisted.expires_at 
+      const expiresAt = blacklisted.expires_at
         ? ` (expira em ${new Date(blacklisted.expires_at).toLocaleDateString("pt-BR")})`
         : "";
       toast.error(`Sua equipe está na blacklist deste organizador${expiresAt}!`);
@@ -226,23 +316,34 @@ const TrainingDetails = () => {
       return;
     }
 
-    if (training.status === "INSCRIÇÕES ENCERRADAS" || training.status === "EM ANDAMENTO" || training.status === "FINALIZADO") {
+    if (
+      training.status === "INSCRIÇÕES ENCERRADAS" ||
+      training.status === "EM ANDAMENTO" ||
+      training.status === "FINALIZADO"
+    ) {
       toast.error("As inscrições para este treino estão encerradas!");
       return;
     }
 
-    if (registeredTeams.length >= training.max_slots) {
+    if (confirmedTeamsCount >= training.max_slots) {
       toast.error("Este treino já está lotado!");
       return;
     }
 
+    setConfirmMode("register");
     setShowConfirmDialog(true);
+    setSelectedLineId("");
   };
 
   const handleRegisterConfirm = async () => {
+    if (confirmMode === "claim") {
+      await handleClaimSlot();
+      return;
+    }
+
     try {
       setActionLoading(true);
-      
+
       const { data: existingRegistrations } = await supabase
         .from("training_registrations")
         .select("slot_number")
@@ -252,10 +353,10 @@ const TrainingDetails = () => {
       let nextSlot = 1;
       if (existingRegistrations && existingRegistrations.length > 0) {
         const usedSlots = existingRegistrations
-          .map(r => r.slot_number)
-          .filter(s => s !== null)
+          .map((r) => r.slot_number)
+          .filter((s) => s !== null)
           .sort((a, b) => a - b);
-        
+
         for (let i = 1; i <= training.max_slots; i++) {
           if (!usedSlots.includes(i)) {
             nextSlot = i;
@@ -263,12 +364,18 @@ const TrainingDetails = () => {
           }
         }
       }
-      
-      const { error } = await supabase.from("training_registrations").insert({
+
+      const insertPayload: any = {
         training_id: id,
         team_id: myTeam.id,
-        slot_number: nextSlot
-      });
+        slot_number: nextSlot,
+      };
+
+      if (selectedLineId) {
+        insertPayload.line_id = selectedLineId;
+      }
+
+      const { error } = await supabase.from("training_registrations").insert(insertPayload);
 
       if (error) throw error;
       toast.success(`Equipe inscrita com sucesso! Slot ${nextSlot}`);
@@ -305,9 +412,161 @@ const TrainingDetails = () => {
     }
   };
 
+  const fetchMyWaitlistAndCheckin = async () => {
+    if (!id) return;
+
+    try {
+      // waitlist count is public to team admins only, but we only show it to authed users anyway
+      const { count } = await supabase
+        .from("training_waitlist")
+        .select("id", { count: "exact", head: true })
+        .eq("training_id", id)
+        .eq("status", "active");
+      setWaitlistCount(count || 0);
+
+      if (!myTeam) {
+        setIsInWaitlist(false);
+        setHasCheckedIn(false);
+        return;
+      }
+
+      const [{ data: w }, { data: c }] = await Promise.all([
+        supabase
+          .from("training_waitlist")
+          .select("id")
+          .eq("training_id", id)
+          .eq("team_id", myTeam.id)
+          .eq("status", "active")
+          .maybeSingle(),
+        supabase
+          .from("training_checkins")
+          .select("id")
+          .eq("training_id", id)
+          .eq("team_id", myTeam.id)
+          .maybeSingle(),
+      ]);
+
+      setIsInWaitlist(!!w);
+      setHasCheckedIn(!!c);
+    } catch (e: any) {
+      // avoid noisy toasts; UI will still work
+      console.warn("fetchMyWaitlistAndCheckin", e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthed) return;
+    fetchMyWaitlistAndCheckin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isAuthed, myTeam?.id, training?.datetime, registeredTeamsCount]);
+
+  const handleJoinWaitlist = async () => {
+    if (!id || !myTeam) return;
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from("training_waitlist")
+        .insert({ training_id: id, team_id: myTeam.id, status: "active" });
+      if (error) throw error;
+      toast.success("Você entrou na lista de espera!");
+      fetchMyWaitlistAndCheckin();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao entrar na waitlist");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLeaveWaitlist = async () => {
+    if (!id || !myTeam) return;
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from("training_waitlist")
+        .delete()
+        .eq("training_id", id)
+        .eq("team_id", myTeam.id);
+      if (error) throw error;
+      toast.success("Você saiu da lista de espera.");
+      fetchMyWaitlistAndCheckin();
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao sair da waitlist");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleClaimSlot = async () => {
+    if (!id || !myTeam) return;
+    try {
+      setActionLoading(true);
+      const { data, error } = await (supabase as any).rpc("claim_waitlist_slot", {
+        _training_id: id,
+        _team_id: myTeam.id,
+        _line_id: selectedLineId || null,
+      });
+      if (error) throw error;
+
+      toast.success(`Você pegou a vaga! Slot #${data?.slot_number ?? "—"}`);
+      setShowConfirmDialog(false);
+      await fetchTrainingDetails();
+      await fetchMyWaitlistAndCheckin();
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível pegar a vaga");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleOpenClaimDialog = () => {
+    setConfirmMode("claim");
+    setShowConfirmDialog(true);
+    setSelectedLineId("");
+  };
+
+  const handleCheckin = async () => {
+    if (!id || !myTeam || !user) return;
+    try {
+      setActionLoading(true);
+      const { error } = await supabase.from("training_checkins").insert({
+        training_id: id,
+        team_id: myTeam.id,
+        checked_in_by: user.id,
+      });
+      if (error) throw error;
+      toast.success("Check-in confirmado!");
+      fetchMyWaitlistAndCheckin();
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível fazer check-in");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleUndoCheckin = async () => {
+    if (!id || !myTeam) return;
+    try {
+      setActionLoading(true);
+      const { error } = await supabase
+        .from("training_checkins")
+        .delete()
+        .eq("training_id", id)
+        .eq("team_id", myTeam.id);
+      if (error) throw error;
+      toast.success("Check-in removido.");
+      fetchMyWaitlistAndCheckin();
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível remover o check-in");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const isOrganizer = profile?.role === "organizer" && training?.organizer_id === user?.id;
   const eventPrimaryColor = training?.primary_color || "#9146FF";
   const eventSecondaryColor = training?.secondary_color || "#1F2937";
+
+  const organizerVerified = isVerifiedOrganizer || isVerifiedOrganizerRole;
 
   if (loading) {
     return (
@@ -332,12 +591,42 @@ const TrainingDetails = () => {
     );
   }
 
-  const getPlatformIcon = (platform: string) => {
+  const getPlatformIcon = (
+    platform: string,
+    opts?: { className?: string; style?: React.CSSProperties }
+  ) => {
+    const className = opts?.className || "w-5 h-5";
+    const style = opts?.style;
+
     return platform === "PC" || platform === "Misto" ? (
-      <Monitor className="w-5 h-5" />
+      <Monitor className={className} style={style} />
     ) : (
-      <Gamepad2 className="w-5 h-5" />
+      <Gamepad2 className={className} style={style} />
     );
+  };
+
+  const getGameName = (game?: string) => {
+    if (!game) return "";
+    const names: Record<string, string> = {
+      free_fire: "Free Fire",
+      blood_strike: "Blood Strike",
+      farlight_84: "Farlight 84",
+      prime_rush: "Prime Rush",
+      battlefield_6: "Battlefield 6",
+    };
+    return names[game] || game;
+  };
+
+  const getGameLogo = (game?: string) => {
+    if (!game) return "";
+    const logos: Record<string, string> = {
+      free_fire: "/game-logos/free-fire.png",
+      blood_strike: "/game-logos/blood-strike.png",
+      farlight_84: "/game-logos/farlight-84.png",
+      prime_rush: "/game-logos/prime-rush.png",
+      battlefield_6: "/game-logos/battlefield-6.png",
+    };
+    return logos[game] || "";
   };
 
   return (
@@ -352,13 +641,15 @@ const TrainingDetails = () => {
           Voltar
         </Button>
 
-        {/* Banner - Fixed height 400px for page banner */}
-        <div 
-          className="relative h-[200px] sm:h-[300px] lg:h-[400px] rounded-2xl overflow-hidden mb-6"
+        {/* Banner - tamanho mais comum (mais alto) */}
+        <div
+          className="relative h-[260px] sm:h-[340px] lg:h-[420px] rounded-2xl overflow-hidden mb-6"
           style={{
-            background: !training.banner_url 
-              ? `linear-gradient(135deg, ${training.primary_color || '#9146FF'} 0%, ${training.secondary_color || '#1F2937'} 100%)`
-              : undefined
+            background: !training.banner_url
+              ? `linear-gradient(135deg, ${training.primary_color || "#9146FF"} 0%, ${
+                  training.secondary_color || "#1F2937"
+                } 100%)`
+              : undefined,
           }}
         >
           {training.banner_url ? (
@@ -366,6 +657,7 @@ const TrainingDetails = () => {
               src={training.banner_url}
               alt={training.name}
               className="w-full h-full object-cover"
+              loading="lazy"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
@@ -373,90 +665,155 @@ const TrainingDetails = () => {
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-          
-          {/* Status badges and color editor */}
+
+          {/* Status badges */}
           <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
             <div className="flex gap-2">
-              {training.status && (
-                <Badge variant="secondary" className="backdrop-blur-sm">
-                  {training.status}
-                </Badge>
-              )}
               {training.is_live && (
-                <Badge className="bg-destructive backdrop-blur-sm">
-                  ● AO VIVO
+                <Badge variant="destructive" className="backdrop-blur-sm">
+                  <Radio className="w-3 h-3" />
+                  AO VIVO
                 </Badge>
               )}
             </div>
-            {isOrganizer && (
-              <TrainingColorEditor
-                trainingId={id!}
-                currentPrimaryColor={training.primary_color || "#9146FF"}
-                currentSecondaryColor={training.secondary_color || "#1F2937"}
-                onColorsUpdated={fetchTrainingDetails}
-              />
-            )}
           </div>
-          
+
           <div className="absolute bottom-4 left-4 sm:bottom-6 sm:left-6 right-4">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-white uppercase">
               {training.name}
             </h1>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-white/80">
+              <span className="inline-flex items-center gap-2">
+                {getPlatformIcon(training.platform)}
+                <span className="font-semibold">{training.platform}</span>
+              </span>
+              <span className="text-white/40">•</span>
+              <Badge variant="secondary" className="backdrop-blur-sm">
+                {training.status || "INSCRIÇÕES ABERTAS"}
+              </Badge>
+              {training.is_live && (
+                <Badge variant="destructive" className="backdrop-blur-sm">
+                  <Radio className="w-3 h-3" />
+                  AO VIVO
+                </Badge>
+              )}
+            </div>
+
+            {training.organizer_id && (
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/80">
+                <span className="text-white/60">Criado por</span>
+                <button
+                  type="button"
+                  onClick={() => navigate(`/profile/${training.organizer_id}`)}
+                  className="inline-flex items-center gap-2 hover:text-white transition-colors"
+                >
+                  <span className="font-semibold text-white">
+                    @{organizerProfile?.username || "organizador"}
+                  </span>
+                  {organizerVerified && <VerifiedBadge label="Organizador verificado" />}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList 
-            className="w-full grid grid-cols-3 sm:grid-cols-6 bg-card/80 border border-border p-1 h-auto"
-            style={{ '--tabs-active-bg': eventPrimaryColor } as React.CSSProperties}
-          >
-            <TabsTrigger 
-              value="overview" 
-              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
-              style={activeTab === "overview" ? { backgroundColor: eventPrimaryColor } : {}}
+          <TabsList className="w-full flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-card/80 border border-border p-2 h-auto">
+            <TabsTrigger
+              value="overview"
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+              style={
+                activeTab === "overview"
+                  ? { backgroundColor: eventPrimaryColor, color: "white" }
+                  : { color: eventPrimaryColor }
+              }
             >
               <Info className="w-4 h-4" />
-              <span className="hidden sm:inline">Visão Geral</span>
+              <span>Visão Geral</span>
             </TabsTrigger>
-            <TabsTrigger 
-              value="ranking" 
-              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
-              style={activeTab === "ranking" ? { backgroundColor: eventPrimaryColor } : {}}
-            >
-              <Medal className="w-4 h-4" />
-              <span className="hidden sm:inline">Ranking</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="teams" 
-              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
-              style={activeTab === "teams" ? { backgroundColor: eventPrimaryColor } : {}}
-            >
-              <Users className="w-4 h-4" />
-              <span className="hidden sm:inline">Equipes</span>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="matches" 
-              className="gap-2 py-2 data-[state=active]:text-white transition-colors"
-              style={activeTab === "matches" ? { backgroundColor: eventPrimaryColor } : {}}
-            >
-              <Swords className="w-4 h-4" />
-              <span className="hidden sm:inline">Partidas</span>
-            </TabsTrigger>
-            {(isOrganizer || isRegistered) && (
-              <TabsTrigger 
-                value="chat" 
-                className="gap-2 py-2 data-[state=active]:text-white transition-colors"
-                style={activeTab === "chat" ? { backgroundColor: eventPrimaryColor } : {}}
+
+            {isAuthed && (
+              <TabsTrigger
+                value="ranking"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+                style={
+                  activeTab === "ranking"
+                    ? { backgroundColor: eventPrimaryColor, color: "white" }
+                    : { color: eventPrimaryColor }
+                }
               >
-                <MessageCircle className="w-4 h-4" />
-                <span className="hidden sm:inline">Chat</span>
+                <Medal className="w-4 h-4" />
+                <span>Ranking</span>
               </TabsTrigger>
             )}
+
+            {isAuthed && (
+              <TabsTrigger
+                value="teams"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+                style={
+                  activeTab === "teams"
+                    ? { backgroundColor: eventPrimaryColor, color: "white" }
+                    : { color: eventPrimaryColor }
+                }
+              >
+                <Users className="w-4 h-4" />
+                <span>Equipes</span>
+              </TabsTrigger>
+            )}
+
+            <TabsTrigger
+              value="matches"
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+              style={
+                activeTab === "matches"
+                  ? { backgroundColor: eventPrimaryColor, color: "white" }
+                  : { color: eventPrimaryColor }
+              }
+            >
+              <Swords className="w-4 h-4" />
+              <span>Partidas</span>
+            </TabsTrigger>
+
+            {isAuthed && (isOrganizer || isRegistered) && (
+              <TabsTrigger
+                value="chat"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+                style={
+                  activeTab === "chat"
+                    ? { backgroundColor: eventPrimaryColor, color: "white" }
+                    : { color: eventPrimaryColor }
+                }
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Chat</span>
+              </TabsTrigger>
+            )}
+
             {training.is_live && (
-              <TabsTrigger value="live" className="gap-2 py-2 data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground">
+              <TabsTrigger
+                value="live"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap data-[state=active]:bg-destructive data-[state=active]:text-destructive-foreground transition-colors"
+              >
                 <Radio className="w-4 h-4" />
-                <span className="hidden sm:inline">Ao Vivo</span>
+                <span>Ao Vivo</span>
+              </TabsTrigger>
+            )}
+
+            {isAuthed && isOrganizer && (
+              <TabsTrigger
+                value="settings"
+                className="flex-1 min-w-[120px] flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl whitespace-nowrap transition-colors"
+                style={
+                  activeTab === "settings"
+                    ? { backgroundColor: eventPrimaryColor, color: "white" }
+                    : { color: eventPrimaryColor }
+                }
+              >
+                <Settings className="w-4 h-4" />
+                <span>Configurações</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -464,132 +821,379 @@ const TrainingDetails = () => {
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main Info */}
+              {/* Main */}
               <div className="lg:col-span-2 space-y-6">
+                {/* Quick stats */}
                 <Card className="p-6 bg-card/80 border-border">
-                  <h2 
-                    className="text-xl font-bold mb-4"
-                    style={{ color: eventPrimaryColor }}
-                  >
-                    Informações do Treino
-                  </h2>
-                  
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                      <h2 className="text-xl font-bold">Visão Geral</h2>
+                      <p className="text-xs text-muted-foreground">
+                        Informações principais, regras e equipes confirmadas.
+                      </p>
+                    </div>
+                    {training.game && getGameLogo(training.game) && (
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getGameLogo(training.game)}
+                          alt={`Logo do jogo ${getGameName(training.game)}`}
+                          className="h-10 w-10 rounded-lg object-cover border"
+                          loading="lazy"
+                        />
+                        <div className="text-right">
+                          <div className="text-xs text-muted-foreground">Jogo</div>
+                          <div className="font-semibold text-sm uppercase">
+                            {getGameName(training.game)}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator className="my-4" />
+
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                    <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5" style={{ color: eventPrimaryColor }} />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Data</p>
-                        <p className="font-semibold text-sm">
-                          {format(new Date(training.datetime), "dd/MM/yyyy", { locale: ptBR })}
-                        </p>
+                    <div className="rounded-xl border bg-background/50 p-4">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Calendar className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                        Data
+                      </div>
+                      <div className="mt-2 font-semibold text-sm">
+                        {format(new Date(training.datetime), "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Users className="w-5 h-5" style={{ color: eventPrimaryColor }} />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Vagas</p>
-                        <p className="font-semibold text-sm">
-                          {registeredTeams.length}/{training.max_slots}
-                        </p>
+
+                    <div className="rounded-xl border bg-background/50 p-4">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                        Horário
+                      </div>
+                      <div className="mt-2 font-semibold text-sm">
+                        {format(new Date(training.datetime), "HH:mm", { locale: ptBR })}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <Trophy className="w-5 h-5" style={{ color: eventPrimaryColor }} />
-                      <div>
-                        <p className="text-xs text-muted-foreground">Rodadas</p>
-                        <p className="font-semibold text-sm">{training.rounds}</p>
+
+                    <div className="rounded-xl border bg-background/50 p-4">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Users className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                        Times confirmados
                       </div>
+                      <div className="mt-2 font-semibold text-sm">
+                        {confirmedTeamsCount}/{training.max_slots}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border bg-background/50 p-4">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Trophy className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                        Rodadas
+                      </div>
+                      <div className="mt-2 font-semibold text-sm">{training.rounds}</div>
+                    </div>
+
+                    <div className="rounded-xl border bg-background/50 p-4">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Gamepad2 className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                        Modo
+                      </div>
+                      <div className="mt-2 font-semibold text-sm">{training.mode}</div>
+                    </div>
+
+                    <div className="rounded-xl border bg-background/50 p-4">
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        {getPlatformIcon(training.platform, {
+                          className: "w-4 h-4",
+                          style: { color: eventPrimaryColor },
+                        })}
+                        Plataforma
+                      </div>
+                      <div className="mt-2 font-semibold text-sm">{training.platform}</div>
                     </div>
                   </div>
 
+                  <div className="mt-4">
+                    <MinimumTeamsProgress
+                      confirmedTeams={confirmedTeamsCount}
+                      maxTeams={training.max_slots}
+                      primaryColor={eventPrimaryColor}
+                    />
+                  </div>
                 </Card>
 
-                {training.prize && (
-                  <Card className="p-6 bg-card/80 border-border">
-                    <h3 className="font-semibold mb-3 flex items-center gap-2">
-                      <Trophy className="w-5 h-5" style={{ color: eventPrimaryColor }} />
-                      Premiação
-                    </h3>
-                    <p 
-                      className="text-muted-foreground whitespace-pre-wrap p-4 rounded-lg text-sm"
-                      style={{ 
-                        backgroundColor: `${eventPrimaryColor}10`,
-                        border: `1px solid ${eventPrimaryColor}30`
+                {/* Highlights */}
+                <Card className="p-6 bg-card/80 border-border">
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Trophy className="w-5 h-5" style={{ color: eventPrimaryColor }} />
+                    Regras
+                  </h3>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Leia com atenção antes de se inscrever.
+                  </p>
+                  <div className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-8">
+                    {training.rules || "Sem regras cadastradas ainda."}
+                  </div>
+                  <div className="pt-4">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => {
+                        const el = document.getElementById("event-info-section-anchor");
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" });
                       }}
                     >
-                      {training.prize}
-                    </p>
-                  </Card>
-                )}
+                      Abrir regras completas
+                    </Button>
+                  </div>
+                </Card>
+
+                 <PointsTableCard
+                   pointsPerKill={training.points_per_kill ?? 1}
+                   pointsPerPosition={training.points_per_position}
+                   pointsPerPositionText={training.points_per_position_text}
+                   primaryColor={eventPrimaryColor}
+                 />
 
                 {training.important_info && (
-                  <Card 
-                    className="p-6 bg-card/80 border-border border-l-4"
-                    style={{ borderLeftColor: eventPrimaryColor }}
-                  >
-                    <h3 className="font-semibold mb-3" style={{ color: eventPrimaryColor }}>
-                      ⚠️ Informações Importantes
-                    </h3>
+                  <Card className="p-6 bg-card/80 border-border">
+                    <h3 className="font-semibold mb-3">⚠️ Informações Importantes</h3>
                     <p className="text-muted-foreground whitespace-pre-wrap text-sm">
                       {training.important_info}
                     </p>
                   </Card>
                 )}
+
+                {/* Confirmed teams preview */}
+                <Card className="p-6 bg-card/80 border-border">
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <h3 className="font-semibold">Times confirmados</h3>
+                      <p className="text-xs text-muted-foreground">
+                        Prévia rápida (o completo fica na aba Equipes).
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={() => setActiveTab("teams")}>
+                      Ver todos
+                    </Button>
+                  </div>
+
+                  <Separator className="my-4" />
+
+                  {registeredTeams.length === 0 ? (
+                    <div className="text-sm text-muted-foreground">
+                      Nenhuma equipe inscrita ainda.
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {registeredTeams.slice(0, 6).map((r: any) => (
+                        <div
+                          key={r.id}
+                          className="flex items-center gap-3 rounded-lg border bg-background/50 p-3"
+                        >
+                          {r.teams?.logo_url ? (
+                            <img
+                              src={r.teams.logo_url}
+                              alt={`Logo da equipe ${r.teams.name}`}
+                              className="h-10 w-10 rounded-md object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-md border bg-muted/40 flex items-center justify-center text-xs font-bold">
+                              {(r.teams?.tag || "??").slice(0, 2)}
+                            </div>
+                          )}
+
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-sm uppercase truncate">
+                              {r.teams?.name || "Equipe"}
+                            </div>
+                            <div className="text-xs text-muted-foreground uppercase">
+                              [{r.teams?.tag}]
+                              {r.slot_number ? ` • #${r.slot_number}` : ""}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Card>
+
+                {training.is_private &&
+                  Array.isArray(training.invited_tags) &&
+                  training.invited_tags.length > 0 && (
+                    <Card className="p-6 bg-card/80 border-border">
+                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                        <Users className="w-4 h-4" style={{ color: eventPrimaryColor }} />
+                        Equipes Convidadas
+                      </h3>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Treino privado: apenas as TAGs abaixo podem se inscrever.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {training.invited_tags.map((tag: string) => (
+                          <Badge key={tag} variant="outline" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
               </div>
 
-              {/* Sidebar - Actions */}
-              <div className="space-y-4">
-                {/* Event Info Section - Regras, Pontuação, Ajuda */}
-                <EventInfoSection
-                  rules={training.rules}
-                  pointsPerKill={training.points_per_kill}
-                  pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
-                  pointsPerPositionText={training.points_per_position_text}
-                  discordLink={training.discord_link}
-                  primaryColor={eventPrimaryColor}
-                />
+              {/* Right column - sticky actions */}
+              <div className="space-y-4 lg:sticky lg:top-4 h-fit">
+                {/* Anchor so Overview buttons can scroll here */}
+                <div id="event-info-section-anchor" />
 
                 <Card className="p-6 bg-card/80 border-border">
                   <h3 className="font-semibold mb-4">Ações</h3>
 
-                  {profile?.role === "player" && (
+                  {!isAuthed ? (
+                    <div className="space-y-3">
+                      <Button
+                        onClick={() => navigate("/auth")}
+                        className="w-full"
+                        disabled={training.status !== "INSCRIÇÕES ABERTAS" || isFull}
+                      >
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        {training.status !== "INSCRIÇÕES ABERTAS"
+                          ? "Inscrições Encerradas"
+                          : isFull
+                          ? "Treino Lotado"
+                          : "Entrar para se inscrever"}
+                      </Button>
+
+                      {isFull && training.status === "INSCRIÇÕES ABERTAS" && (
+                        <Button variant="outline" className="w-full" disabled>
+                          Lista de espera (em breve)
+                        </Button>
+                      )}
+
+                      <p className="text-xs text-muted-foreground text-center">
+                        Faça login para inscrever sua equipe.
+                      </p>
+                    </div>
+                  ) : isOrganizer ? (
+                    <div className="space-y-3">
+                      <div className="rounded-lg border bg-background/50 p-3">
+                        <p className="text-xs text-muted-foreground">
+                          Você é o organizador deste treino — não é possível se inscrever.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => setActiveTab("settings")}
+                      >
+                        Abrir Configurações
+                      </Button>
+                    </div>
+                  ) : profile?.role === "player" ? (
                     <div className="space-y-3">
                       {!isRegistered ? (
-                        <Button
-                          onClick={handleRegisterClick}
-                          disabled={
-                            actionLoading ||
-                            registeredTeams.length >= training.max_slots ||
-                            training.status !== "INSCRIÇÕES ABERTAS"
-                          }
-                          className="w-full"
-                          style={{ backgroundColor: eventPrimaryColor }}
-                        >
-                          {actionLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          ) : (
-                            <CheckCircle className="w-4 h-4 mr-2" />
+                        <>
+                          <Button
+                            onClick={handleRegisterClick}
+                            disabled={
+                              actionLoading ||
+                              isFull ||
+                              training.status !== "INSCRIÇÕES ABERTAS"
+                            }
+                            className="w-full"
+                          >
+                            {actionLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4 mr-2" />
+                            )}
+                            {training.status !== "INSCRIÇÕES ABERTAS"
+                              ? "Inscrições Encerradas"
+                              : isFull
+                              ? "Treino Lotado"
+                              : "Inscrever Minha Equipe"}
+                          </Button>
+
+                          {isFull && training.status === "INSCRIÇÕES ABERTAS" && (
+                            <div className="space-y-2">
+                              {!isInWaitlist ? (
+                                <Button
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={handleJoinWaitlist}
+                                  disabled={actionLoading || !myTeam}
+                                >
+                                  Entrar na waitlist ({waitlistCount})
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={handleLeaveWaitlist}
+                                  disabled={actionLoading}
+                                >
+                                  Sair da waitlist ({waitlistCount})
+                                </Button>
+                              )}
+
+                              {isInWaitlist && !isFull && (
+                                <Button
+                                  className="w-full"
+                                  onClick={handleOpenClaimDialog}
+                                  disabled={actionLoading}
+                                >
+                                  Pegar vaga (primeiro que clicar entra)
+                                </Button>
+                              )}
+                            </div>
                           )}
-                          {training.status !== "INSCRIÇÕES ABERTAS"
-                            ? "Inscrições Encerradas"
-                            : registeredTeams.length >= training.max_slots
-                            ? "Treino Lotado"
-                            : "Inscrever Minha Equipe"}
-                        </Button>
+                        </>
                       ) : (
-                        <Button
-                          onClick={handleUnregister}
-                          disabled={actionLoading}
-                          variant="destructive"
-                          className="w-full"
-                        >
-                          {actionLoading ? (
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                          ) : (
-                            <XCircle className="w-4 h-4 mr-2" />
+                        <>
+                          <Button
+                            onClick={handleUnregister}
+                            disabled={actionLoading}
+                            variant="destructive"
+                            className="w-full"
+                          >
+                            {actionLoading ? (
+                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            ) : (
+                              <XCircle className="w-4 h-4 mr-2" />
+                            )}
+                            Cancelar Inscrição
+                          </Button>
+
+                          {/* Check-in */}
+                          {training?.datetime && (
+                            <div className="rounded-lg border bg-background/50 p-3 space-y-2">
+                              <div className="text-sm font-semibold">Check-in</div>
+                              <div className="text-xs text-muted-foreground">
+                                Abre 1h antes e fecha 10min antes do horário do treino.
+                              </div>
+
+                              {!hasCheckedIn ? (
+                                <Button
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={handleCheckin}
+                                  disabled={actionLoading}
+                                >
+                                  Confirmar check-in
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={handleUndoCheckin}
+                                  disabled={actionLoading}
+                                >
+                                  Remover check-in
+                                </Button>
+                              )}
+                            </div>
                           )}
-                          Cancelar Inscrição
-                        </Button>
+                        </>
                       )}
 
                       {!myTeam && (
@@ -598,38 +1202,75 @@ const TrainingDetails = () => {
                         </p>
                       )}
                     </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center">
+                      Seu perfil não permite inscrição.
+                    </p>
                   )}
 
-                  {isOrganizer && (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-1 gap-2">
-                        <ExternalTeamDialog 
-                          trainingId={id!}
-                          organizerId={user.id}
-                          onTeamCreated={fetchTrainingDetails}
-                        />
-                        <AddExistingExternalTeamDialog
-                          trainingId={id!}
-                          organizerId={user.id}
-                          onTeamAdded={fetchTrainingDetails}
-                        />
+                  {isFull && training.status === "INSCRIÇÕES ABERTAS" && (
+                    <div className="mt-4 space-y-3">
+                      <div className="rounded-lg border bg-background/50 p-3">
+                        <div className="text-sm font-semibold">Treino lotado</div>
+                        <div className="text-xs text-muted-foreground">
+                          0 vagas disponíveis • {confirmedTeamsCount}/{training.max_slots} times confirmados
+                        </div>
                       </div>
-                      <ScoreManagementDialog
-                        trainingId={id!}
-                        teams={registeredTeams.map((r: any) => ({
-                          id: r.teams.id,
-                          name: r.teams.name,
-                          tag: r.teams.tag,
-                          logo_url: r.teams.logo_url,
-                        }))}
-                        pointsPerKill={training.points_per_kill || 1}
-                        pointsPerPosition={Array.isArray(training.points_per_position) ? training.points_per_position : []}
-                        onScoresUpdated={fetchTrainingDetails}
-                      />
-                      <SaveTemplateDialog
-                        training={training}
-                        organizerId={user.id}
-                      />
+
+                      {organizerProfile?.id && (
+                        <Button
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => navigate(`/profile/${organizerProfile.id}`)}
+                        >
+                          Ver perfil do organizador
+                        </Button>
+                      )}
+
+                      {organizerProfile?.id && organizerProfile.id !== user?.id ? (
+                        <Button
+                          variant={followOrganizer.isFollowing ? "outline" : "default"}
+                          className="w-full"
+                          onClick={async () => {
+                            try {
+                              await followOrganizer.toggle();
+                              toast.success(
+                                followOrganizer.isFollowing
+                                  ? "Você deixou de seguir o organizador."
+                                  : "Agora você está seguindo o organizador!"
+                              );
+                            } catch (e: any) {
+                              toast.error(e?.message || "Erro ao seguir organizador");
+                            }
+                          }}
+                          disabled={followOrganizer.loading}
+                        >
+                          {followOrganizer.isFollowing ? "Deixar de seguir" : "Seguir organizador"}
+                        </Button>
+                      ) : null}
+
+                      {organizerUpcomingTrainings.length > 0 && (
+                        <div className="rounded-lg border bg-background/50 p-3">
+                          <div className="text-xs text-muted-foreground mb-2">
+                            Próximos treinos deste organizador
+                          </div>
+                          <div className="space-y-2">
+                            {organizerUpcomingTrainings.map((t: any) => (
+                              <Button
+                                key={t.id}
+                                variant="outline"
+                                className="w-full justify-between"
+                                onClick={() => navigate(`/training/${t.id}`)}
+                              >
+                                <span className="truncate">{t.name}</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {t.datetime ? format(new Date(t.datetime), "dd/MM HH:mm", { locale: ptBR }) : "—"}
+                                </span>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -637,134 +1278,191 @@ const TrainingDetails = () => {
 
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Status:</span>
-                      <Badge variant="outline" className="text-xs">
-                        {training.status || "INSCRIÇÕES ABERTAS"}
-                      </Badge>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-muted-foreground">Vagas Restantes:</span>
+                      <span className="text-muted-foreground">Vagas restantes:</span>
                       <span className="font-semibold">
-                        {training.max_slots - registeredTeams.length}
+                        {training.max_slots - confirmedTeamsCount}
                       </span>
                     </div>
+                    {training.is_private && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-muted-foreground">Privado:</span>
+                        <Badge variant="outline" className="text-xs">
+                          Sim
+                        </Badge>
+                      </div>
+                    )}
                   </div>
 
-                  {training.discord_link && (
+                  {(training.discord_link || training.whatsapp_link) && (
                     <>
                       <Separator className="my-4" />
-                      <Button
-                        variant="outline"
-                        onClick={() => window.open(training.discord_link, "_blank")}
-                        className="w-full gap-2"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        Entrar no Discord
-                      </Button>
+                      <div className="space-y-2">
+                        {training.discord_link && (
+                          <Button
+                            variant="outline"
+                            onClick={() => window.open(training.discord_link, "_blank")}
+                            className="w-full gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            Entrar no Discord
+                          </Button>
+                        )}
+                        {training.whatsapp_link && (
+                          <Button
+                            variant="outline"
+                            onClick={() => window.open(training.whatsapp_link, "_blank")}
+                            className="w-full gap-2"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            WhatsApp
+                          </Button>
+                        )}
+                      </div>
                     </>
                   )}
                 </Card>
+
+                {/* Tabela de pontos (regras) - só aparece quando já existe pontuação registrada */}
+                {hasAnyScores && (
+                  <PointsTableCard
+                    pointsPerKill={training.points_per_kill}
+                    pointsPerPosition={
+                      Array.isArray(training.points_per_position) ? training.points_per_position : []
+                    }
+                    pointsPerPositionText={training.points_per_position_text}
+                    primaryColor={eventPrimaryColor}
+                  />
+                )}
+
+                {/* Regras / Pontuação / Ajuda */}
+                <EventInfoSection
+                  rules={training.rules}
+                  pointsPerKill={training.points_per_kill}
+                  pointsPerPosition={
+                    Array.isArray(training.points_per_position) ? training.points_per_position : []
+                  }
+                  pointsPerPositionText={training.points_per_position_text}
+                  discordLink={training.discord_link}
+                  whatsappLink={training.whatsapp_link}
+                  primaryColor={eventPrimaryColor}
+                />
               </div>
             </div>
           </TabsContent>
 
-          {/* Ranking Tab */}
-          <TabsContent value="ranking">
-            <Scoreboard 
-              trainingId={id!} 
-              teams={registeredTeams.map((r: any) => ({
-                id: r.teams.id,
-                name: r.teams.name,
-                tag: r.teams.tag,
-                logo_url: r.teams.logo_url,
-              }))}
-              primaryColor={eventPrimaryColor}
-            />
-            {registeredTeams.length === 0 && (
-              <Card className="p-12 text-center bg-card/80">
-                <Medal className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-muted-foreground">Nenhuma pontuação registrada ainda</p>
-              </Card>
-            )}
-          </TabsContent>
+           {/* Ranking Tab */}
+           {isAuthed && (
+             <TabsContent value="ranking" className="space-y-6">
+               {registeredTeams.length > 0 && (
+                 <>
+                   <Scoreboard
+                     trainingId={id!}
+                     teams={registeredTeams.map((r: any) => ({
+                       id: r.teams.id,
+                       name: r.teams.name,
+                       tag: r.teams.tag,
+                       logo_url: r.teams.logo_url,
+                     }))}
+                     primaryColor={eventPrimaryColor}
+                   />
+
+                   <MvpListCard
+                     trainingId={id!}
+                     teams={registeredTeams.map((r: any) => ({
+                       id: r.teams.id,
+                       name: r.teams.name,
+                       tag: r.teams.tag,
+                       logo_url: r.teams.logo_url,
+                     }))}
+                   />
+                 </>
+               )}
+             </TabsContent>
+           )}
+
+          {/* Settings tab - organizer only */}
+          {isOrganizer && (
+            <TabsContent value="settings" className="space-y-6">
+              <TrainingSettingsTab
+                trainingId={id!}
+                userId={user.id}
+                userEmail={user.email}
+                training={training}
+                registeredTeams={registeredTeams}
+                primaryColor={eventPrimaryColor}
+                onUpdated={fetchTrainingDetails}
+              />
+            </TabsContent>
+          )}
+
 
           {/* Teams Tab */}
-          <TabsContent value="teams">
-            <Card className="p-6 bg-card/80 border-border">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 
-                  className="text-xl font-bold"
-                  style={{ color: eventPrimaryColor }}
-                >
-                  Equipes Confirmadas ({registeredTeams.length})
-                </h2>
-                {isOrganizer && (
-                  <SlotReorderDialog
-                    trainingId={id!}
-                    onSlotsUpdated={fetchTrainingDetails}
-                  />
-                )}
-              </div>
-
-              {registeredTeams.length === 0 ? (
-                <div className="text-center py-12">
-                  <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-                  <p className="text-muted-foreground">Nenhuma equipe inscrita ainda</p>
+          {isAuthed && (
+            <TabsContent value="teams">
+              <Card className="p-6 bg-card/80 border-border">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <h2 className="text-xl font-bold" style={{ color: eventPrimaryColor }}>
+                    Equipes Confirmadas ({confirmedTeamsCount})
+                  </h2>
+                  {/* Ações do organizador ficam na aba Configurações */}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {registeredTeams.map((registration: any) => (
-                    <Card key={registration.id} className="p-4 bg-background/50">
-                      <div className="flex items-start gap-3">
-                        {registration.teams.logo_url && (
-                          <img
-                            src={registration.teams.logo_url}
-                            alt={registration.teams.name}
-                            className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                          />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <h3 className="font-semibold text-sm uppercase">
-                              {registration.teams.name}
-                            </h3>
-                            {registration.slot_number && (
-                              <Badge variant="secondary" className="text-xs">
-                                #{registration.slot_number}
-                              </Badge>
-                            )}
-                            {registration.teams.is_external && (
-                              <Badge variant="outline" className="text-xs border-primary text-primary">
-                                Convidado
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground uppercase">
-                            [{registration.teams.tag}]
-                          </p>
-                          
-                          {registration.teams.team_members && registration.teams.team_members.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              {registration.teams.team_members.slice(0, 4).map((member: any) => (
-                                <p key={member.id} className="text-xs text-muted-foreground">
-                                  {member.player_name} • {member.function}
-                                </p>
-                              ))}
-                              {registration.teams.team_members.length > 4 && (
-                                <p className="text-xs text-primary">
-                                  +{registration.teams.team_members.length - 4} mais
-                                </p>
+
+                {registeredTeams.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                    <p className="text-muted-foreground">Nenhuma equipe inscrita ainda</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {registeredTeams.map((registration: any) => (
+                      <Card key={registration.id} className="p-4 bg-background/50">
+                        <div className="flex items-start gap-3">
+                          {registration.teams.logo_url && (
+                            <img
+                              src={registration.teams.logo_url}
+                              alt={registration.teams.name}
+                              className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <h3 className="font-semibold text-sm uppercase">{registration.teams.name}</h3>
+                              {registration.slot_number && (
+                                <Badge variant="secondary" className="text-xs">
+                                  #{registration.slot_number}
+                                </Badge>
+                              )}
+                              {registration.teams.is_external && (
+                                <Badge variant="outline" className="text-xs border-primary text-primary">
+                                  Convidado
+                                </Badge>
                               )}
                             </div>
-                          )}
+                            <p className="text-xs text-muted-foreground uppercase">[{registration.teams.tag}]</p>
+
+                            {registration.teams.team_members && registration.teams.team_members.length > 0 && (
+                              <div className="mt-2 space-y-1">
+                                {registration.teams.team_members.slice(0, 4).map((member: any) => (
+                                  <p key={member.id} className="text-xs text-muted-foreground">
+                                    {member.player_name} • {member.function}
+                                  </p>
+                                ))}
+                                {registration.teams.team_members.length > 4 && (
+                                  <p className="text-xs text-primary">
+                                    +{registration.teams.team_members.length - 4} mais
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </TabsContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </TabsContent>
+          )}
 
           {/* Matches Tab */}
           <TabsContent value="matches">
@@ -786,13 +1484,10 @@ const TrainingDetails = () => {
           </TabsContent>
 
           {/* Chat Tab */}
-          {(isOrganizer || isRegistered) && (
+          {isAuthed && (isOrganizer || isRegistered) && (
             <TabsContent value="chat">
               <Card className="p-0 bg-card/80 border-border overflow-hidden">
-                <div 
-                  className="p-4 flex items-center gap-2 text-white"
-                  style={{ backgroundColor: eventPrimaryColor }}
-                >
+                <div className="p-4 flex items-center gap-2 text-white" style={{ backgroundColor: eventPrimaryColor }}>
                   <MessageCircle className="w-5 h-5" />
                   <h2 className="font-semibold">Chat do Treino</h2>
                   <Badge variant="secondary" className="ml-auto">
@@ -800,10 +1495,7 @@ const TrainingDetails = () => {
                   </Badge>
                 </div>
                 <div className="p-4">
-                  <TrainingChat 
-                    trainingId={id!} 
-                    isOrganizer={isOrganizer}
-                  />
+                  <TrainingChat trainingId={id!} isOrganizer={isOrganizer} />
                 </div>
               </Card>
             </TabsContent>
@@ -833,20 +1525,28 @@ const TrainingDetails = () => {
         </Tabs>
       </main>
 
-      <RegistrationConfirmDialog
-        open={showConfirmDialog}
-        onOpenChange={setShowConfirmDialog}
-        onConfirm={handleRegisterConfirm}
-        training={training}
-        teamName={myTeam?.name || ""}
-        loading={actionLoading}
-      />
+        {isAuthed && (
+          <RegistrationConfirmDialog
+            open={showConfirmDialog}
+            onOpenChange={(open) => {
+              setShowConfirmDialog(open);
+              if (!open) setSelectedLineId("");
+            }}
+            onConfirm={handleRegisterConfirm}
+            training={training}
+            teamName={myTeam?.name || ""}
+            loading={actionLoading}
+            lines={myTeamLines}
+            selectedLineId={selectedLineId}
+            onChangeLine={setSelectedLineId}
+          />
+        )}
 
       {/* Floating Chat */}
-      {(isOrganizer || isRegistered) && (
-        <FloatingChat 
-          trainingId={id!} 
-          isOrganizer={isOrganizer} 
+      {isAuthed && (isOrganizer || isRegistered) && (
+        <FloatingChat
+          trainingId={id!}
+          isOrganizer={isOrganizer}
           primaryColor={eventPrimaryColor}
         />
       )}

@@ -1,24 +1,32 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Home from "./pages/Home";
-import Auth from "./pages/Auth";
-import PlayerDashboard from "./pages/PlayerDashboard";
-import TrainingDetails from "./pages/TrainingDetails";
-import MyTeam from "./pages/MyTeam";
-import OrganizerDashboard from "./pages/OrganizerDashboard";
-import ExternalTeams from "./pages/ExternalTeams";
-import UserProfile from "./pages/UserProfile";
-import TeamProfile from "./pages/TeamProfile";
-import Teams from "./pages/Teams";
-import ProfileEdit from "./pages/ProfileEdit";
-import NotFound from "./pages/NotFound";
-import Scrims from "./pages/Scrims";
-import Ranking from "./pages/Ranking";
-import Terms from "./pages/Terms";
-import PendingInvites from "./pages/PendingInvites";
+
+const Home = lazy(() => import("./pages/Home"));
+const Auth = lazy(() => import("./pages/Auth"));
+const PlayerDashboard = lazy(() => import("./pages/PlayerDashboard"));
+const TrainingDetails = lazy(() => import("./pages/TrainingDetails"));
+const MyTeam = lazy(() => import("./pages/MyTeam"));
+const OrganizerDashboard = lazy(() => import("./pages/OrganizerDashboard"));
+const ExternalTeams = lazy(() => import("./pages/ExternalTeams"));
+const UserProfile = lazy(() => import("./pages/UserProfile"));
+const TeamProfile = lazy(() => import("./pages/TeamProfile"));
+const Teams = lazy(() => import("./pages/Teams"));
+const ProfileEdit = lazy(() => import("./pages/ProfileEdit"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const Scrims = lazy(() => import("./pages/Scrims"));
+const Ranking = lazy(() => import("./pages/Ranking"));
+const Terms = lazy(() => import("./pages/Terms"));
+const PendingInvites = lazy(() => import("./pages/PendingInvites"));
+const SentInvites = lazy(() => import("./pages/SentInvites"));
+
+const OverlayTabelaGeral = lazy(() => import("./pages/overlays/OverlayTabelaGeral"));
+const OverlayQueda = lazy(() => import("./pages/overlays/OverlayQueda"));
+const OverlayRodada = lazy(() => import("./pages/overlays/OverlayRodada"));
+const OverlayMvp = lazy(() => import("./pages/overlays/OverlayMvp"));
 
 const queryClient = new QueryClient();
 
@@ -28,26 +36,48 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/dashboard" element={<PlayerDashboard />} />
-          <Route path="/scrims" element={<Scrims />} />
-          <Route path="/ranking" element={<Ranking />} />
-          <Route path="/equipes" element={<Teams />} />
-          <Route path="/terms" element={<Terms />} />
-          <Route path="/profile/edit" element={<ProfileEdit />} />
-          <Route path="/training/:id" element={<TrainingDetails />} />
-          <Route path="/my-team" element={<MyTeam />} />
-          <Route path="/organizer" element={<OrganizerDashboard />} />
-          <Route path="/external-teams" element={<ExternalTeams />} />
-          <Route path="/profile" element={<UserProfile />} />
-          <Route path="/profile/:userId" element={<UserProfile />} />
-          <Route path="/team/:teamId" element={<TeamProfile />} />
-          <Route path="/invites" element={<PendingInvites />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense
+          fallback={
+            <div className="min-h-[40vh] flex items-center justify-center">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          }
+        >
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/dashboard" element={<PlayerDashboard />} />
+            <Route path="/scrims" element={<Scrims />} />
+            <Route path="/ranking" element={<Ranking />} />
+            <Route path="/equipes" element={<Teams />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/profile/edit" element={<ProfileEdit />} />
+            <Route path="/training/:id" element={<TrainingDetails />} />
+            <Route path="/my-team" element={<MyTeam />} />
+            <Route path="/organizer" element={<OrganizerDashboard />} />
+            <Route path="/external-teams" element={<ExternalTeams />} />
+            <Route path="/profile" element={<UserProfile />} />
+            <Route path="/profile/:userId" element={<UserProfile />} />
+            <Route path="/team/:teamId" element={<TeamProfile />} />
+            <Route path="/invites" element={<PendingInvites />} />
+            <Route path="/sent-invites" element={<SentInvites />} />
+
+            {/* Overlays (para OBS) */}
+            <Route path="/overlays/tabela-geral" element={<OverlayTabelaGeral />} />
+            <Route path="/overlays/queda" element={<OverlayQueda />} />
+            <Route path="/overlays/rodada" element={<OverlayRodada />} />
+            <Route path="/overlays/mvp" element={<OverlayMvp />} />
+
+            {/* compat: manter urls antigas (html) funcionando via SPA */}
+            <Route path="/overlays/overlay-tabela-geral.html" element={<OverlayTabelaGeral />} />
+            <Route path="/overlays/overlay-queda.html" element={<OverlayQueda />} />
+            <Route path="/overlays/overlay-rodada.html" element={<OverlayRodada />} />
+            <Route path="/overlays/overlay-mvp.html" element={<OverlayMvp />} />
+
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

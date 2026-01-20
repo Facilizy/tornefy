@@ -121,6 +121,7 @@ export function AddExistingExternalTeamDialog({
       const { error } = await supabase
         .from('training_registrations')
         .insert({
+          id: crypto.randomUUID(),
           training_id: trainingId,
           team_id: teamId,
           slot_number: nextSlot,
@@ -150,7 +151,7 @@ export function AddExistingExternalTeamDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full justify-start gap-2">
+        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
           <UserPlus className="w-4 h-4" />
           Buscar Equipe Externa
         </Button>

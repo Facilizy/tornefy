@@ -50,7 +50,8 @@ interface Invite {
   id: string;
   invited_user_id: string | null;
   invited_username: string | null;
-  is_external: boolean;
+  /** Supabase table stores this as text ("true"/"false") */
+  is_external: string | null;
   external_player_name: string | null;
   external_discord: string | null;
   external_game_id: string | null;
@@ -75,6 +76,8 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
   const [sending, setSending] = useState(false);
   const [selectedPermission, setSelectedPermission] = useState("member");
 
+  const [teamInfo, setTeamInfo] = useState<{ name: string; tag: string } | null>(null);
+
   // External player form
   const [externalForm, setExternalForm] = useState({
     player_name: "",
@@ -85,8 +88,25 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
   useEffect(() => {
     if (open) {
       fetchInvites();
+      fetchTeamInfo();
     }
   }, [open, teamId]);
+
+  const fetchTeamInfo = async () => {
+    try {
+      const { data } = await supabase
+        .from("teams")
+        .select("name, tag")
+        .eq("id", teamId)
+        .maybeSingle();
+
+      if (data) {
+        setTeamInfo({ name: data.name || "Equipe", tag: data.tag || "" });
+      }
+    } catch (error) {
+      console.error("Error fetching team info:", error);
+    }
+  };
 
   const fetchInvites = async () => {
     try {
@@ -105,7 +125,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setInvites(data || []);
+      setInvites((data as any[]) || []);
     } catch (error) {
       console.error("Error fetching invites:", error);
     } finally {
@@ -150,16 +170,35 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
         return;
       }
 
-      const { error } = await supabase.from("team_invites").insert({
-        team_id: teamId,
-        invited_user_id: userId,
-        invited_username: username,
-        is_external: false,
-        permission: selectedPermission,
-        status: "pending",
-      });
+      const { data: inserted, error } = await supabase
+        .from("team_invites")
+        .insert([
+          {
+            team_id: teamId,
+            invited_user_id: userId,
+            invited_username: username,
+            is_external: "false",
+            permission: selectedPermission,
+            status: "pending",
+          },
+        ])
+        .select("id")
+        .single();
 
       if (error) throw error;
+
+      // Create notification for invited user
+      await supabase.from("notifications").insert({
+        user_id: userId,
+        title: "Novo convite de equipe",
+        message: teamInfo
+          ? `Você foi convidado para a equipe ${teamInfo.name} [${teamInfo.tag}]`
+          : "Você recebeu um novo convite de equipe.",
+        type: "team_invite",
+        related_id: inserted.id,
+        read: false,
+        created_at: new Date().toISOString(),
+      });
       toast.success(`Convite enviado para @${username}`);
       fetchInvites();
       setSearchTerm("");
@@ -181,15 +220,17 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
 
     try {
       setSending(true);
-      const { error } = await supabase.from("team_invites").insert({
-        team_id: teamId,
-        is_external: true,
-        external_player_name: externalForm.player_name,
-        external_discord: externalForm.discord || null,
-        external_game_id: externalForm.game_id || null,
-        permission: selectedPermission,
-        status: "accepted", // External players are auto-accepted
-      });
+      const { error } = await supabase.from("team_invites").insert([
+        {
+          team_id: teamId,
+          is_external: "true",
+          external_player_name: externalForm.player_name,
+          external_discord: externalForm.discord || null,
+          external_game_id: externalForm.game_id || null,
+          permission: selectedPermission,
+          status: "accepted", // External players are auto-accepted
+        },
+      ]);
 
       if (error) throw error;
       toast.success("Jogador externo adicionado");

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,6 +20,7 @@ interface EventInfoSectionProps {
   pointsPerPosition?: PointsPerPosition[];
   pointsPerPositionText?: string;
   discordLink?: string;
+  whatsappLink?: string;
   primaryColor?: string;
 }
 
@@ -29,16 +30,41 @@ export const EventInfoSection = ({
   pointsPerPosition,
   pointsPerPositionText,
   discordLink,
+  whatsappLink,
   primaryColor = "#9146FF",
 }: EventInfoSectionProps) => {
   const [rulesOpen, setRulesOpen] = useState(false);
   const [scoringOpen, setScoringOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
-  // Parse points_per_position array
-  const positionPoints = pointsPerPosition && Array.isArray(pointsPerPosition) 
-    ? pointsPerPosition.sort((a, b) => a.position - b.position)
-    : [];
+  // Parse points_per_position array (fallback: parse from pointsPerPositionText)
+  const positionPoints = useMemo(() => {
+    const arr = pointsPerPosition && Array.isArray(pointsPerPosition)
+      ? pointsPerPosition
+          .map((p) => ({ position: Number(p.position), points: Number(p.points) }))
+          .filter((p) => Number.isFinite(p.position) && Number.isFinite(p.points))
+      : [];
+
+    if (arr.length > 0) return [...arr].sort((a, b) => a.position - b.position);
+
+    if (pointsPerPositionText) {
+      const lines = pointsPerPositionText
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+
+      const parsed: PointsPerPosition[] = [];
+      for (const line of lines) {
+        const m = line.match(/^(\d+)(?:\s*[ºo])?(?:\s*lugar)?\s*:\s*(\d+)/i);
+        if (!m) continue;
+        parsed.push({ position: Number(m[1]), points: Number(m[2]) });
+      }
+
+      return parsed.sort((a, b) => a.position - b.position);
+    }
+
+    return [];
+  }, [pointsPerPosition, pointsPerPositionText]);
 
   // Count rules lines for badge
   const rulesLineCount = rules ? rules.split('\n').filter(line => line.trim()).length : 0;
@@ -46,10 +72,10 @@ export const EventInfoSection = ({
   return (
     <>
       {/* Button Group */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col w-full gap-3">
         <Button
           variant="outline"
-          className="gap-2 flex-1 min-w-[100px] bg-card/50 border-border hover:bg-muted/50"
+          className="gap-2 w-full bg-card/50 border-border hover:bg-muted/50 text-foreground hover:text-foreground justify-center"
           onClick={() => setRulesOpen(true)}
         >
           <FileText className="w-4 h-4" />
@@ -61,7 +87,7 @@ export const EventInfoSection = ({
         
         <Button
           variant="outline"
-          className="gap-2 flex-1 min-w-[100px] bg-card/50 border-border hover:bg-muted/50"
+          className="gap-2 w-full bg-card/50 border-border hover:bg-muted/50 text-foreground hover:text-foreground justify-center"
           onClick={() => setScoringOpen(true)}
         >
           <Target className="w-4 h-4" />
@@ -70,7 +96,7 @@ export const EventInfoSection = ({
         
         <Button
           variant="outline"
-          className="gap-2 flex-1 min-w-[100px] bg-card/50 border-border hover:bg-muted/50"
+          className="gap-2 w-full bg-card/50 border-border hover:bg-muted/50 text-foreground hover:text-foreground justify-center"
           onClick={() => setHelpOpen(true)}
         >
           <HelpCircle className="w-4 h-4" />
@@ -180,19 +206,25 @@ export const EventInfoSection = ({
             <h4 className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">
               Exemplo de Cálculo
             </h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex items-center gap-2">
-                <Trophy className="w-4 h-4 text-yellow-500" />
-                <span>Colocação: 3º lugar = {positionPoints.find(p => p.position === 3)?.points || 14} pts</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Skull className="w-4 h-4" style={{ color: primaryColor }} />
-                <span>Kills do time: 8 kills = {8 * pointsPerKill} pts</span>
-              </div>
-              <div className="border-t border-border mt-2 pt-2 font-bold">
-                Total da partida: {(positionPoints.find(p => p.position === 3)?.points || 14) + (8 * pointsPerKill)} pontos
-              </div>
-            </div>
+            {(() => {
+              const third = positionPoints.find((p) => p.position === 3)?.points ?? 0;
+              const kills = 8;
+              return (
+                <div className="space-y-1 text-sm">
+                  <div className="flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-yellow-500" />
+                    <span>Colocação: 3º lugar = {third} pts</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skull className="w-4 h-4" style={{ color: primaryColor }} />
+                    <span>Kills do time: {kills} kills = {kills * pointsPerKill} pts</span>
+                  </div>
+                  <div className="border-t border-border mt-2 pt-2 font-bold">
+                    Total da partida: {third + kills * pointsPerKill} pontos
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </DialogContent>
       </Dialog>
@@ -212,11 +244,23 @@ export const EventInfoSection = ({
           {discordLink && (
             <Button
               variant="outline"
-              className="w-fit gap-2 mb-4"
+              className="w-fit gap-2 mb-2"
               onClick={() => window.open(discordLink, "_blank")}
             >
               <MessageCircle className="w-4 h-4" />
               Entrar no Discord
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          )}
+
+          {whatsappLink && (
+            <Button
+              variant="outline"
+              className="w-fit gap-2 mb-4"
+              onClick={() => window.open(whatsappLink, "_blank")}
+            >
+              <MessageCircle className="w-4 h-4" />
+              Grupo no WhatsApp
               <ChevronRight className="w-4 h-4" />
             </Button>
           )}
@@ -257,30 +301,6 @@ export const EventInfoSection = ({
                 Os resultados são gerenciados pelo organizador. Acompanhe a aba "Partidas" para ver posições e pontuações.
               </AccordionContent>
             </AccordionItem>
-
-            <AccordionItem value="lobby" className="border rounded-lg px-4 bg-card/50">
-              <AccordionTrigger className="py-4 hover:no-underline">
-                <div className="flex items-center gap-3">
-                  <HelpCircle className="w-5 h-5" style={{ color: primaryColor }} />
-                  <span className="font-semibold uppercase text-sm">Senha do Lobby</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground text-sm pb-4">
-                O organizador compartilhará a senha e código da sala no chat do treino ou no Discord antes do início.
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="drop" className="border rounded-lg px-4 bg-card/50">
-              <AccordionTrigger className="py-4 hover:no-underline">
-                <div className="flex items-center gap-3">
-                  <HelpCircle className="w-5 h-5" style={{ color: primaryColor }} />
-                  <span className="font-semibold uppercase text-sm">Zona de Drop</span>
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground text-sm pb-4">
-                Cada time deve dropar em sua zona designada. Confira as regras do treino para mais detalhes sobre zonas de drop.
-              </AccordionContent>
-            </AccordionItem>
           </Accordion>
         </DialogContent>
       </Dialog>
@@ -288,42 +308,65 @@ export const EventInfoSection = ({
   );
 };
 
-// Helper function to parse rules into sections
 function parseRulesIntoSections(rules: string) {
   const lines = rules.split('\n').filter(line => line.trim());
   
+  // Simple fallback: show as bullet list if no structured numbering
+  const hasNumbering = lines.some(line => /^\d+\./.test(line.trim()));
+
+  if (!hasNumbering) {
+    return (
+      <ul className="list-disc list-inside space-y-1">
+        {lines.map((line, index) => (
+          <li key={index}>{line}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  // Group by top-level rule numbers (1., 2., 3., ...)
+  const sections: { title: string; items: string[] }[] = [];
+  let currentSection: { title: string; items: string[] } | null = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^(\d+)\.(.*)$/);
+
+    if (match) {
+      // New section
+      if (currentSection) {
+        sections.push(currentSection);
+      }
+      currentSection = {
+        title: trimmed,
+        items: [],
+      };
+    } else if (currentSection) {
+      currentSection.items.push(trimmed);
+    }
+  }
+
+  if (currentSection) {
+    sections.push(currentSection);
+  }
+
   return (
-    <div className="space-y-4">
-      {lines.map((line, index) => {
-        const trimmed = line.trim();
-        // Check if it's a header (starts with # or is all caps or ends with :)
-        const isHeader = trimmed.startsWith('#') || 
-                        (trimmed === trimmed.toUpperCase() && trimmed.length > 3 && !trimmed.startsWith('-') && !trimmed.startsWith('•')) ||
-                        trimmed.endsWith(':');
-        
-        if (isHeader) {
-          const cleanHeader = trimmed.replace(/^#+\s*/, '').replace(/:$/, '');
-          return (
-            <div key={index} className="mt-4 first:mt-0">
-              <h4 className="font-semibold text-foreground flex items-center gap-2 mb-2">
-                <span className="text-yellow-500">◆</span>
-                {cleanHeader}
-              </h4>
-            </div>
-          );
-        }
-        
-        // Regular list item
-        const cleanLine = trimmed.replace(/^[-•]\s*/, '');
-        return (
-          <div key={index} className="flex items-start gap-2 text-muted-foreground ml-4">
-            <span className="text-muted-foreground mt-1">•</span>
-            <span>{cleanLine}</span>
+    <div className="space-y-3">
+      {sections.map((section, index) => (
+        <div key={index} className="border border-border rounded-lg p-3 bg-card/50">
+          <div className="flex items-start gap-2 mb-1">
+            <span className="mt-0.5 text-xs font-semibold text-muted-foreground">{index + 1}.</span>
+            <p className="text-sm font-medium">{section.title.replace(/^\d+\.\s*/, "")}</p>
           </div>
-        );
-      })}
+          {section.items.length > 0 && (
+            <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
+              {section.items.map((item, idx) => (
+                <li key={idx}>{item}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
-
-export default EventInfoSection;

@@ -61,6 +61,8 @@ const MyTeam = () => {
   const [pastTrainings, setPastTrainings] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState("config");
 
+  const [teamLines, setTeamLines] = useState<any[]>([]);
+
   const [teamForm, setTeamForm] = useState({
     name: "",
     tag: "",
@@ -87,6 +89,7 @@ const MyTeam = () => {
     game_id: "",
     discord: "",
     function: "RUSH" as "RUSH" | "SUPORTE" | "CAPITÃO",
+    line_id: "",
   });
 
   useEffect(() => {
@@ -101,6 +104,7 @@ const MyTeam = () => {
 
   useEffect(() => {
     if (team) {
+      fetchTeamLines();
       fetchMembers();
       fetchUpcomingTrainings();
       fetchPastTrainings();
@@ -168,7 +172,7 @@ const MyTeam = () => {
   const fetchMembers = async () => {
     const { data } = await supabase
       .from("team_members")
-      .select("*")
+      .select("*, team_lines(id, name)")
       .eq("team_id", team.id)
       .order("created_at", { ascending: true });
 
@@ -213,6 +217,16 @@ const MyTeam = () => {
     setPastTrainings(past || []);
   };
 
+  const fetchTeamLines = async () => {
+    const { data } = await supabase
+      .from("team_lines")
+      .select("*")
+      .eq("team_id", team.id)
+      .order("created_at", { ascending: true });
+
+    setTeamLines(data || []);
+  };
+
   const handleSaveTeam = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -234,31 +248,41 @@ const MyTeam = () => {
       if (logoFile) {
         const fileName = `${user.id}/${Date.now()}_logo_${logoFile.name}`;
         const { error: uploadError } = await supabase.storage
-          .from('team-logos')
-          .upload(fileName, logoFile, { cacheControl: '3600', upsert: true });
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('team-logos')
-          .getPublicUrl(fileName);
-        
-        logoUrl = publicUrl;
+          .from("team-logos")
+          .upload(fileName, logoFile, { cacheControl: "3600", upsert: true });
+
+        if (uploadError) {
+          console.error("Erro ao enviar logo:", uploadError);
+          toast.warning(
+            "Não foi possível enviar a logo (bucket ausente?). A equipe será criada sem logo."
+          );
+        } else {
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("team-logos").getPublicUrl(fileName);
+
+          logoUrl = publicUrl;
+        }
       }
 
       if (bannerFile) {
         const fileName = `${user.id}/${Date.now()}_banner_${bannerFile.name}`;
         const { error: uploadError } = await supabase.storage
-          .from('team-banners')
-          .upload(fileName, bannerFile, { cacheControl: '3600', upsert: true });
-        
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('team-banners')
-          .getPublicUrl(fileName);
-        
-        bannerUrl = publicUrl;
+          .from("team-banners")
+          .upload(fileName, bannerFile, { cacheControl: "3600", upsert: true });
+
+        if (uploadError) {
+          console.error("Erro ao enviar banner:", uploadError);
+          toast.warning(
+            "Não foi possível enviar o banner (bucket ausente?). A equipe será criada sem banner."
+          );
+        } else {
+          const {
+            data: { publicUrl },
+          } = supabase.storage.from("team-banners").getPublicUrl(fileName);
+
+          bannerUrl = publicUrl;
+        }
       }
 
       const teamData = {
@@ -327,6 +351,7 @@ const MyTeam = () => {
       } else {
         const { error } = await supabase.from("team_members").insert({
           ...memberForm,
+          line_id: memberForm.line_id || null,
           team_id: team.id,
         });
 
@@ -341,6 +366,7 @@ const MyTeam = () => {
         game_id: "",
         discord: "",
         function: "RUSH",
+        line_id: "",
       });
       fetchMembers();
     } catch (error: any) {
@@ -372,6 +398,7 @@ const MyTeam = () => {
       game_id: member.game_id,
       discord: member.discord,
       function: member.function,
+      line_id: member.line_id || "",
     });
     setMemberDialogOpen(true);
   };
@@ -860,19 +887,68 @@ const MyTeam = () => {
           <TabsContent value="members">
             <Card className="p-6 bg-card/50 border-border">
               <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Users className="w-5 h-5 text-primary" />
-                  <h2 className="font-bold uppercase">MEMBROS ({members.length})</h2>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h2 className="font-bold uppercase">MEMBROS ({members.length})</h2>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Organize seus jogadores em diferentes lines para usar nas inscrições.
+                  </p>
+
+                  {/* Lines management */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Lines da equipe ({teamLines.length})
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={async () => {
+                          const name = prompt("Nome da nova line:");
+                          if (!name) return;
+                          const { error } = await supabase.from("team_lines").insert({
+                            team_id: team.id,
+                            name,
+                          });
+                          if (error) {
+                            toast.error("Erro ao criar line");
+                          } else {
+                            toast.success("Line criada!");
+                            fetchTeamLines();
+                          }
+                        }}
+                      >
+                        + Nova Line
+                      </Button>
+                    </div>
+                    {teamLines.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {teamLines.map((l) => (
+                          <Badge key={l.id} variant="secondary" className="text-[10px] px-2 py-0.5">
+                            {l.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <TeamInviteDialog teamId={team.id} onInviteSent={fetchMembers} />
+                  <Button
+                    variant="outline"
+                    onClick={() => navigate("/sent-invites")}
+                  >
+                    Ver Convites Enviados
+                  </Button>
                   <Dialog
                     open={memberDialogOpen}
                     onOpenChange={(open) => {
                       setMemberDialogOpen(open);
                       if (!open) {
-                        setEditingMember(null);
-                        setMemberForm({ player_name: "", game_id: "", discord: "", function: "RUSH" });
+                         setEditingMember(null);
+                         setMemberForm({ player_name: "", game_id: "", discord: "", function: "RUSH", line_id: "" });
                       }
                     }}
                   >
@@ -905,16 +981,7 @@ const MyTeam = () => {
                           required
                         />
                       </div>
-                      <div>
-                        <Label htmlFor="discord">Discord</Label>
-                        <Input
-                          id="discord"
-                          placeholder="@usuario"
-                          value={memberForm.discord}
-                          onChange={(e) => setMemberForm({ ...memberForm, discord: e.target.value })}
-                          required
-                        />
-                      </div>
+                      {/* Discord removido para jogadores manuais/externos */}
                       <div>
                         <Label htmlFor="function">Função</Label>
                         <Select
@@ -926,6 +993,27 @@ const MyTeam = () => {
                             <SelectItem value="RUSH">RUSH</SelectItem>
                             <SelectItem value="SUPORTE">SUPORTE</SelectItem>
                             <SelectItem value="CAPITÃO">CAPITÃO</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="line_id">Line</Label>
+                        <Select
+                          value={memberForm.line_id || "none"}
+                          onValueChange={(value: string) =>
+                            setMemberForm({ ...memberForm, line_id: value === "none" ? "" : value })
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione uma line (opcional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">Sem line</SelectItem>
+                            {teamLines.map((line) => (
+                              <SelectItem key={line.id} value={line.id}>
+                                {line.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
@@ -960,6 +1048,9 @@ const MyTeam = () => {
                             {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
                           </div>
                           <p className="text-xs text-muted-foreground">{member.function}</p>
+                          {member.team_lines?.name && (
+                            <p className="text-xs text-primary mt-1">Line: {member.team_lines.name}</p>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-2">

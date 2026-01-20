@@ -51,7 +51,20 @@ const Home = () => {
         .single();
       
       if (profile?.preferred_games) {
-        setUserGames(profile.preferred_games);
+        const pg: any = profile.preferred_games;
+        const games: string[] = Array.isArray(pg)
+          ? pg.map(String)
+          : typeof pg === "string"
+            ? (() => {
+                try {
+                  const parsed = JSON.parse(pg);
+                  return Array.isArray(parsed) ? parsed.map(String) : [];
+                } catch {
+                  return [];
+                }
+              })()
+            : [];
+        setUserGames(games);
       }
     }
   };

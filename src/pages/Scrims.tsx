@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
 import TrainingCard from "@/components/TrainingCard";
@@ -12,20 +11,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Calendar, Gamepad2, Trophy, Users, SlidersHorizontal } from "lucide-react";
-import { format, addDays, startOfDay, endOfDay } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { addDays, endOfDay, startOfDay } from "date-fns";
 
 const Scrims = () => {
-  const navigate = useNavigate();
   const [trainings, setTrainings] = useState<any[]>([]);
   const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
   const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Filters
   const [dateFilter, setDateFilter] = useState<string>("all");
   const [modeFilter, setModeFilter] = useState<string>("all");
   const [gameFilter, setGameFilter] = useState<string>("all");
+  const [platformFilter, setPlatformFilter] = useState<string>("all");
 
   useEffect(() => {
     fetchTrainings();
@@ -33,7 +31,7 @@ const Scrims = () => {
 
   useEffect(() => {
     filterTrainings();
-  }, [trainings, dateFilter, modeFilter, gameFilter]);
+  }, [trainings, dateFilter, modeFilter, gameFilter, platformFilter]);
 
   const fetchTrainings = async () => {
     try {
@@ -46,13 +44,37 @@ const Scrims = () => {
 
       if (error) throw error;
 
+      const organizerIds = Array.from(
+        new Set(
+          (trainingsData || [])
+            .map((t) => t.organizer_id)
+            .filter((id): id is string => Boolean(id))
+        )
+      );
+
+      const organizerMap = new Map<string, { name: string | null; avatar_url: string | null }>();
+      if (organizerIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url")
+          .in("id", organizerIds);
+
+        (profilesData || []).forEach((p) => {
+          const name = p.username || p.full_name || null;
+          organizerMap.set(p.id, { name, avatar_url: p.avatar_url || null });
+        });
+      }
+
       const trainingsWithCount = trainingsData?.map((training) => ({
         ...training,
         registrations: training.training_registrations?.[0]?.count || 0,
+        organizer_name: training.organizer_id ? organizerMap.get(training.organizer_id)?.name ?? null : null,
+        organizer_avatar_url:
+          training.organizer_id ? organizerMap.get(training.organizer_id)?.avatar_url ?? null : null,
       }));
 
       setTrainings(trainingsWithCount || []);
-      setLiveTrainings(trainingsWithCount?.filter(t => t.is_live) || []);
+      setLiveTrainings(trainingsWithCount?.filter((t) => t.is_live) || []);
     } catch (error) {
       console.error("Erro ao carregar scrims:", error);
     } finally {
@@ -66,7 +88,7 @@ const Scrims = () => {
     // Date filter
     if (dateFilter !== "all") {
       const today = startOfDay(new Date());
-      
+
       if (dateFilter === "today") {
         const todayEnd = endOfDay(new Date());
         filtered = filtered.filter((t) => {
@@ -99,6 +121,11 @@ const Scrims = () => {
       filtered = filtered.filter((t) => t.game === gameFilter);
     }
 
+    // Platform filter
+    if (platformFilter !== "all") {
+      filtered = filtered.filter((t) => t.platform === platformFilter);
+    }
+
     setFilteredTrainings(filtered);
   };
 
@@ -106,63 +133,70 @@ const Scrims = () => {
     setDateFilter("all");
     setModeFilter("all");
     setGameFilter("all");
+    setPlatformFilter("all");
   };
 
-  const hasActiveFilters = dateFilter !== "all" || modeFilter !== "all" || gameFilter !== "all";
+  const hasActiveFilters =
+    dateFilter !== "all" ||
+    modeFilter !== "all" ||
+    gameFilter !== "all" ||
+    platformFilter !== "all";
 
-  const getGameName = (game: string) => {
-    const games: Record<string, string> = {
-      free_fire: "Free Fire",
-      blood_strike: "Blood Strike",
-      farlight_84: "Farlight 84",
-      prime_rush: "Prime Rush",
-      battlefield_6: "Battlefield 6",
+  const totals = useMemo(() => {
+    return {
+      total: trainings.length,
+      live: liveTrainings.length,
     };
-    return games[game] || game;
-  };
+  }, [trainings.length, liveTrainings.length]);
 
   return (
     <MainLayout>
-      {/* Purple Header Banner */}
-      <div className="relative py-16 mb-8 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-primary/20 via-primary/5 to-transparent" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
-        <div className="container mx-auto px-4 relative z-10 text-center">
-          <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-primary mb-2">
-            Scrims Abertas
-          </h1>
-          <p className="text-muted-foreground max-w-md mx-auto">
-            Encontre e participe das melhores scrims competitivas
-          </p>
-          <div className="flex items-center justify-center gap-3 mt-4 text-sm">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-card/80 backdrop-blur-sm rounded-lg border border-border">
-              <Users className="w-4 h-4 text-primary" />
-              <span>{trainings.length} scrims</span>
-            </div>
-            {liveTrainings.length > 0 && (
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-destructive/10 rounded-lg border border-destructive/20">
-                <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
-                <span className="text-destructive">{liveTrainings.length} ao vivo</span>
+      <header className="relative py-12 mb-8 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="flex flex-col items-center text-center gap-3">
+            <div className="inline-flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
+                <Gamepad2 className="w-5 h-5 text-primary" />
               </div>
-            )}
+              <div>
+                <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight">
+                  Scrims
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Encontre treinos abertos e participe em minutos
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card/70 rounded-lg border border-border">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-foreground">{totals.total} scrims</span>
+              </div>
+              {totals.live > 0 && (
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card/70 rounded-lg border border-border">
+                  <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
+                  <span className="text-foreground">{totals.live} ao vivo</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto px-4 pb-8">
-
-        {/* Filters Bar */}
-        <div className="bg-card border border-border rounded-xl p-4 mb-8">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+      <main className="container mx-auto px-4 pb-10">
+        {/* Filters */}
+        <section className="bg-card/50 border border-border rounded-xl p-4 mb-8">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-sm font-medium">
               <SlidersHorizontal className="w-4 h-4 text-primary" />
               <span>Filtros</span>
             </div>
 
-            <div className="flex flex-wrap gap-3 flex-1">
-              {/* Date Filter */}
+            <div className="flex flex-wrap gap-3">
               <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-[140px] bg-background/50">
+                <SelectTrigger className="w-[160px] bg-background/40">
                   <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Data" />
                 </SelectTrigger>
@@ -174,9 +208,8 @@ const Scrims = () => {
                 </SelectContent>
               </Select>
 
-              {/* Mode Filter */}
               <Select value={modeFilter} onValueChange={setModeFilter}>
-                <SelectTrigger className="w-[130px] bg-background/50">
+                <SelectTrigger className="w-[140px] bg-background/40">
                   <Users className="w-4 h-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Modo" />
                 </SelectTrigger>
@@ -188,9 +221,8 @@ const Scrims = () => {
                 </SelectContent>
               </Select>
 
-              {/* Game Filter */}
               <Select value={gameFilter} onValueChange={setGameFilter}>
-                <SelectTrigger className="w-[150px] bg-background/50">
+                <SelectTrigger className="w-[170px] bg-background/40">
                   <Gamepad2 className="w-4 h-4 mr-2 text-muted-foreground" />
                   <SelectValue placeholder="Jogo" />
                 </SelectTrigger>
@@ -203,77 +235,91 @@ const Scrims = () => {
                   <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Select value={platformFilter} onValueChange={setPlatformFilter}>
+                <SelectTrigger className="w-[170px] bg-background/40">
+                  <Users className="w-4 h-4 mr-2 text-muted-foreground" />
+                  <SelectValue placeholder="Plataforma" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas plataformas</SelectItem>
+                  <SelectItem value="PC">PC</SelectItem>
+                  <SelectItem value="Mobile">Mobile</SelectItem>
+                  <SelectItem value="console">Console</SelectItem>
+                  <SelectItem value="Misto">Misto</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {hasActiveFilters && (
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Limpar
+                </Button>
+              )}
             </div>
-
-            {hasActiveFilters && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="text-primary hover:text-primary/80"
-              >
-                Limpar
-              </Button>
-            )}
           </div>
-        </div>
+        </section>
 
-        {/* Loading State */}
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
           </div>
         ) : (
           <>
-            {/* Live Scrims */}
             {liveTrainings.length > 0 && (
-              <div className="mb-10">
-                <div className="flex items-center gap-3 mb-4">
-                  <span className="w-3 h-3 rounded-full bg-destructive animate-pulse" />
-                  <h2 className="text-xl font-bold uppercase tracking-wide">Ao Vivo</h2>
+              <section className="mb-10">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-destructive animate-pulse" />
+                    <h2 className="text-base md:text-lg font-bold uppercase tracking-wide">
+                      Ao vivo
+                    </h2>
+                  </div>
+                  <span className="text-sm text-muted-foreground">Atualizando em tempo real</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {liveTrainings.map((training) => (
                     <TrainingCard key={training.id} training={training} />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
-            {/* Results */}
             {filteredTrainings.length === 0 ? (
-              <div className="text-center py-20">
-                <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+              <section className="text-center py-20">
+                <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
                 <h3 className="text-xl font-semibold mb-2">Nenhuma scrim encontrada</h3>
                 <p className="text-muted-foreground mb-6">
-                  Tente ajustar os filtros ou volte mais tarde
+                  Tente ajustar os filtros ou volte mais tarde.
                 </p>
                 {hasActiveFilters && (
                   <Button variant="outline" onClick={clearFilters}>
                     Limpar filtros
                   </Button>
                 )}
-              </div>
+              </section>
             ) : (
-              <>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold uppercase tracking-wide">
-                    Próximas Scrims
-                  </h2>
-                  <span className="text-sm text-muted-foreground">
-                    {filteredTrainings.length} resultado{filteredTrainings.length !== 1 ? "s" : ""}
-                  </span>
+              <section>
+                <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
+                  <div>
+                    <h2 className="text-base md:text-lg font-bold uppercase tracking-wide">
+                      Próximas scrims
+                    </h2>
+                    <p className="text-sm text-muted-foreground">
+                      {filteredTrainings.length} resultado{filteredTrainings.length !== 1 ? "s" : ""}
+                    </p>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredTrainings.map((training) => (
                     <TrainingCard key={training.id} training={training} />
                   ))}
                 </div>
-              </>
+              </section>
             )}
           </>
         )}
-      </div>
+      </main>
     </MainLayout>
   );
 };

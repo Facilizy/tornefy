@@ -76,14 +76,14 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
 
       if (teamError) throw teamError;
 
-      // Adicionar membros
+      // Adicionar membros (game_id e discord opcionais)
       const membersData = members
         .filter(m => m.player_name.trim() !== '')
         .map(m => ({
           team_id: team.id,
           player_name: m.player_name,
-          game_id: m.game_id,
-          discord: m.discord,
+          game_id: m.game_id.trim() || null,
+          discord: m.discord.trim() || null,
           function: m.function,
         }));
 
@@ -119,6 +119,7 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
       const { error: regError } = await supabase
         .from('training_registrations')
         .insert({
+          id: crypto.randomUUID(),
           training_id: trainingId,
           team_id: team.id,
           slot_number: nextSlot,
@@ -143,7 +144,7 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="w-full justify-start gap-2">
+        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
           <Plus className="w-4 h-4" />
           Adicionar Equipe Externa
         </Button>
@@ -220,19 +221,19 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">ID do Jogo</Label>
+                    <Label className="text-xs">ID do Jogo (opcional)</Label>
                     <Input
                       value={member.game_id}
                       onChange={(e) => updateMember(index, 'game_id', e.target.value)}
-                      placeholder="ID"
+                      placeholder="ID (opcional)"
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Discord</Label>
+                    <Label className="text-xs">Discord (opcional)</Label>
                     <Input
                       value={member.discord}
                       onChange={(e) => updateMember(index, 'discord', e.target.value)}
-                      placeholder="@discord"
+                      placeholder="@discord (opcional)"
                     />
                   </div>
                   <div>

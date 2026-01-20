@@ -1,14 +1,13 @@
-// Helper file to ensure proper TypeScript type inference
+// Helper file for Supabase types
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import { Tables } from "@/integrations/supabase/types";
 
-// Re-export with explicit typing to help TypeScript
-export const db = supabase as unknown as typeof supabase;
+// Re-export client
+export const db = supabase;
 
-// Type helpers for better inference
-export type Tables = Database['public']['Tables'];
-export type Profile = Tables['profiles']['Row'];
-export type Team = Tables['teams']['Row'];
-export type TeamMember = Tables['team_members']['Row'];
-export type Training = Tables['trainings']['Row'];
-export type TrainingRegistration = Tables['training_registrations']['Row'];
+// Type helpers
+export type Profile = Tables<"profiles">;
+export type Team = Tables<"teams">;
+export type TeamMember = Tables<"team_members">;
+export type Training = Tables<"trainings">;
+export type TrainingRegistration = Tables<"training_registrations">;
