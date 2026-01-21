@@ -19,7 +19,13 @@ interface UpcomingScrim {
 export const UpcomingScrimWidget = () => {
   const navigate = useNavigate();
   const [scrim, setScrim] = useState<UpcomingScrim | null>(null);
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(() => {
+    try {
+      return localStorage.getItem("upcoming_scrim_minimized") === "1";
+    } catch {
+      return false;
+    }
+  });
   const [isClosed, setIsClosed] = useState(false);
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
 
@@ -121,7 +127,17 @@ export const UpcomingScrimWidget = () => {
               variant="ghost"
               size="icon"
               className="h-6 w-6"
-              onClick={() => setIsMinimized(!isMinimized)}
+              onClick={() =>
+                setIsMinimized((v) => {
+                  const next = !v;
+                  try {
+                    localStorage.setItem("upcoming_scrim_minimized", next ? "1" : "0");
+                  } catch {
+                    // ignore
+                  }
+                  return next;
+                })
+              }
             >
               <ChevronUp className={`w-4 h-4 transition-transform ${isMinimized ? "rotate-180" : ""}`} />
             </Button>

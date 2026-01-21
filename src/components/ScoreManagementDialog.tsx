@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -10,62 +8,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { toast } from "sonner";
-import { Plus, Trophy, Target, Trash2, Save, Loader2 } from "lucide-react";
-
-interface Team {
-  id: string;
-  name: string;
-  tag: string;
-  logo_url?: string;
-}
-
-interface Round {
-  id: string;
-  name: string;
-  round_number: number;
-}
-
-interface Match {
-  id: string;
-  name: string;
-  match_number: number;
-  map_name?: string;
-  status: string;
-}
-
-interface MatchScore {
-  team_id: string;
-  position: number;
-  kills: number;
-  bonus_points: number;
-}
-
-interface PositionPoint {
-  position: number;
-  points: number;
-}
-
-interface PlayerStat {
-  team_id: string;
-  line_id: string | null;
-  team_member_id: string | null;
-  player_name: string;
-  kills: number;
-  is_mvp: boolean;
-}
+import { Trophy } from "lucide-react";
+import type { Match, MatchScore, PlayerStat, PositionPoint, Round, Team } from "./score-management/types";
+import { ScoreRoundsSection } from "./score-management/ScoreRoundsSection";
+import { ScoreMatchesSection } from "./score-management/ScoreMatchesSection";
+import { ScoreEntrySection } from "./score-management/ScoreEntrySection";
 
 interface ScoreManagementDialogProps {
   trainingId: string;
@@ -91,31 +42,93 @@ export function ScoreManagementDialog({
   const [playerStatsByTeam, setPlayerStatsByTeam] = useState<Record<string, PlayerStat[]>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [modalError, setModalError] = useState<
+    | null
+    | {
+        title: string;
+        message: string;
+        action?: string;
+      }
+  >(null);
 
   // New round/match form
   const [newRoundName, setNewRoundName] = useState("");
   const [newMatchName, setNewMatchName] = useState("");
   const [newMatchMap, setNewMatchMap] = useState("");
 
-  // Convert array to record for easy lookup
-  const positionPointsMap: Record<number, number> = {};
-  if (Array.isArray(pointsPerPosition)) {
-    pointsPerPosition.forEach((pp: PositionPoint) => {
-      positionPointsMap[pp.position] = pp.points;
-    });
-  }
+  const defaultRoundId = rounds[0]?.id || "";
+  const effectiveRoundId = selectedRound || defaultRoundId;
+  const canCreateMatch = !!effectiveRoundId;
+
+  // Prevent out-of-order fetches from overwriting newer state
+  const roundsFetchIdRef = useRef(0);
+  const matchesFetchIdRef = useRef(0);
+
+  const positionPointsMap = useMemo(() => {
+    const map: Record<number, number> = {};
+    if (Array.isArray(pointsPerPosition)) {
+      pointsPerPosition.forEach((pp: PositionPoint) => {
+        map[pp.position] = pp.points;
+      });
+    }
+    return map;
+  }, [pointsPerPosition]);
 
   useEffect(() => {
     if (open) {
+      setModalError(null);
       fetchRounds();
     }
   }, [open, trainingId]);
 
+  const reportError = (
+    title: string,
+    error: any,
+    fallbackMessage: string,
+    action?: string
+  ) => {
+    const message =
+      (error && (error.message || error.error_description)) ||
+      (typeof error === "string" ? error : null) ||
+      fallbackMessage;
+
+    // Detect common permission/RLS failures
+    const msgLower = String(message).toLowerCase();
+    const isPermission =
+      msgLower.includes("row level security") ||
+      msgLower.includes("rls") ||
+      msgLower.includes("permission") ||
+      msgLower.includes("not allowed") ||
+      msgLower.includes("42501");
+
+    setModalError({
+      title,
+      message: String(message),
+      action:
+        action ||
+        (isPermission
+          ? "Isso geralmente é permissão (RLS). Confirme se você está logado como ORGANIZADOR e se sua conta tem acesso a este treino."
+          : undefined),
+    });
+
+    toast.error(title);
+    console.error(title, error);
+  };
+
+  // Auto-select first round when dialog opens (but allow user to change it)
   useEffect(() => {
-    if (selectedRound) {
-      fetchMatches(selectedRound);
-    }
-  }, [selectedRound]);
+    if (!open) return;
+    if (rounds.length === 0) return;
+    const hasSelected = !!selectedRound && rounds.some((r) => r.id === selectedRound);
+    if (!hasSelected) setSelectedRound(rounds[0].id);
+  }, [open, rounds, selectedRound]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!effectiveRoundId) return;
+    void fetchMatches(effectiveRoundId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, effectiveRoundId]);
 
   useEffect(() => {
     if (selectedMatch) {
@@ -124,6 +137,7 @@ export function ScoreManagementDialog({
   }, [selectedMatch]);
 
   const fetchRounds = async () => {
+    const fetchId = ++roundsFetchIdRef.current;
     setLoading(true);
     const { data, error } = await supabase
       .from("training_rounds")
@@ -131,29 +145,69 @@ export function ScoreManagementDialog({
       .eq("training_id", trainingId)
       .order("round_number");
 
+    if (error) {
+      reportError("Não foi possível carregar as rodadas", error, "Erro ao carregar rodadas");
+      setLoading(false);
+      return;
+    }
+
+    if (fetchId !== roundsFetchIdRef.current) {
+      setLoading(false);
+      return;
+    }
+
     if (!error && data) {
-      setRounds(data);
-      if (data.length > 0 && !selectedRound) {
-        setSelectedRound(data[0].id);
+      const invalid = data.filter((r: any) => !r.id);
+      const valid = data.filter((r: any) => !!r.id);
+
+      if (invalid.length > 0) {
+        setModalError({
+          title: "Rodadas inválidas no banco",
+          message:
+            "Seu banco retornou rodadas com id = null. Enquanto isso existir, selecionar/excluir/criar quedas não funciona.",
+          action:
+            "Rode o SQL de correção de IDs (que te enviei) e recarregue a página. Se precisar, eu te mando a versão completa incluindo training_matches.",
+        });
+      }
+
+      setRounds(valid);
+
+      if (valid.length === 0) {
+        setSelectedRound("");
+        setSelectedMatch("");
+        setMatches([]);
+        setScores([]);
+        setPlayerStatsByTeam({});
+      } else {
+        setSelectedRound((prev) => (valid.some((r: any) => r.id === prev) ? prev : valid[0].id));
       }
     }
     setLoading(false);
   };
 
   const fetchMatches = async (roundId: string) => {
+    const fetchId = ++matchesFetchIdRef.current;
     const { data, error } = await supabase
       .from("training_matches")
       .select("*")
       .eq("round_id", roundId)
       .order("match_number");
 
-    if (!error && data) {
+    if (error) {
+      reportError("Não foi possível carregar as quedas", error, "Erro ao carregar quedas");
+      return;
+    }
+
+    if (fetchId !== matchesFetchIdRef.current) return;
+
+    if (data) {
       setMatches(data);
-      if (data.length > 0) {
-        setSelectedMatch(data[0].id);
-      } else {
+      if (data.length === 0) {
         setSelectedMatch("");
         setScores([]);
+        setPlayerStatsByTeam({});
+      } else {
+        setSelectedMatch((prev) => (data.some((m) => m.id === prev) ? prev : data[0].id));
       }
     }
   };
@@ -227,7 +281,14 @@ export function ScoreManagementDialog({
       .select("*")
       .eq("match_id", matchId);
 
-    if (!error && data) {
+    if (error) {
+      reportError("Não foi possível carregar as pontuações", error, "Erro ao carregar pontuações");
+      setScores([]);
+      setPlayerStatsByTeam({});
+      return;
+    }
+
+    if (data) {
       const loadedScores = data.map((s) => ({
         team_id: s.team_id,
         position: s.position,
@@ -251,18 +312,21 @@ export function ScoreManagementDialog({
       return;
     }
 
+    const nextRoundNumber =
+      rounds.length > 0 ? Math.max(...rounds.map((r) => r.round_number || 0)) + 1 : 1;
+
     const { data, error } = await supabase
       .from("training_rounds")
       .insert({
         training_id: trainingId,
         name: newRoundName,
-        round_number: rounds.length + 1,
+        round_number: nextRoundNumber,
       })
       .select()
       .single();
 
     if (error) {
-      toast.error("Erro ao criar rodada");
+      reportError("Não foi possível criar a rodada", error, "Erro ao criar rodada");
       return;
     }
 
@@ -273,7 +337,7 @@ export function ScoreManagementDialog({
   };
 
   const createMatch = async () => {
-    if (!selectedRound) {
+    if (!effectiveRoundId) {
       toast.error("Selecione uma rodada primeiro");
       return;
     }
@@ -282,66 +346,149 @@ export function ScoreManagementDialog({
       return;
     }
 
+    const nextMatchNumber =
+      matches.length > 0 ? Math.max(...matches.map((m) => m.match_number || 0)) + 1 : 1;
+
     const { data, error } = await supabase
       .from("training_matches")
       .insert({
-        round_id: selectedRound,
+        round_id: effectiveRoundId,
         training_id: trainingId,
         name: newMatchName,
-        match_number: matches.length + 1,
+        match_number: nextMatchNumber,
         map_name: newMatchMap || null,
       })
       .select()
       .single();
 
     if (error) {
-      toast.error("Erro ao criar queda");
+      reportError("Não foi possível criar a queda", error, "Erro ao criar queda");
       return;
     }
 
     toast.success("Queda criada!");
     setNewMatchName("");
     setNewMatchMap("");
-    fetchMatches(selectedRound);
+    void fetchMatches(effectiveRoundId);
     if (data) setSelectedMatch(data.id);
   };
 
   const deleteRound = async (roundId: string) => {
-    const { error } = await supabase
-      .from("training_rounds")
-      .delete()
-      .eq("id", roundId);
-
-    if (error) {
-      toast.error("Erro ao excluir rodada");
+    if (!roundId) {
+      reportError(
+        "Não foi possível excluir a rodada",
+        "id inválido (null)",
+        "Rodada sem id válido"
+      );
       return;
     }
+    // Optimistic UI (immediate removal)
+    setRounds((prev) => prev.filter((r) => r.id !== roundId));
+    if (selectedRound === roundId) {
+      const fallback = rounds.find((r) => r.id !== roundId)?.id || "";
+      setSelectedRound(fallback);
+      setSelectedMatch("");
+      setMatches([]);
+      setScores([]);
+      setPlayerStatsByTeam({});
+    }
 
-    toast.success("Rodada excluída!");
-    setSelectedRound("");
-    setSelectedMatch("");
-    fetchRounds();
+    // Cascade delete: match_scores + player_stats + matches + round
+    try {
+      const { data: matchIds, error: matchIdsError } = await supabase
+        .from("training_matches")
+        .select("id")
+        .eq("round_id", roundId);
+      if (matchIdsError) throw matchIdsError;
+
+      const ids = (matchIds || []).map((m: any) => m.id);
+      if (ids.length > 0) {
+        const { error: scoreDelErr } = await supabase
+          .from("training_match_scores")
+          .delete()
+          .in("match_id", ids);
+        if (scoreDelErr) throw scoreDelErr;
+
+        const { error: playerDelErr } = await (supabase as any)
+          .from("training_player_stats")
+          .delete()
+          .in("match_id", ids);
+        if (playerDelErr) throw playerDelErr;
+
+        const { error: matchesDelErr } = await supabase
+          .from("training_matches")
+          .delete()
+          .in("id", ids);
+        if (matchesDelErr) throw matchesDelErr;
+      }
+
+      const { error: roundDelErr } = await supabase
+        .from("training_rounds")
+        .delete()
+        .eq("id", roundId);
+      if (roundDelErr) throw roundDelErr;
+
+      toast.success("Rodada excluída!");
+      void fetchRounds();
+    } catch (error) {
+      reportError("Não foi possível excluir a rodada", error, "Erro ao excluir rodada");
+      // Resync to recover UI if optimistic removal was wrong
+      void fetchRounds();
+    }
   };
 
   const deleteMatch = async (matchId: string) => {
-    const { error } = await supabase
-      .from("training_matches")
-      .delete()
-      .eq("id", matchId);
-
-    if (error) {
-      toast.error("Erro ao excluir queda");
+    if (!matchId) {
+      reportError(
+        "Não foi possível excluir a queda",
+        "id inválido (null)",
+        "Queda sem id válido"
+      );
       return;
     }
+    // Optimistic UI
+    setMatches((prev) => prev.filter((m) => m.id !== matchId));
+    if (selectedMatch === matchId) {
+      setSelectedMatch("");
+      setScores([]);
+      setPlayerStatsByTeam({});
+    }
 
-    toast.success("Queda excluída!");
-    setSelectedMatch("");
-    fetchMatches(selectedRound);
+    try {
+      const { error: scoreDelErr } = await supabase
+        .from("training_match_scores")
+        .delete()
+        .eq("match_id", matchId);
+      if (scoreDelErr) throw scoreDelErr;
+
+      const { error: playerDelErr } = await (supabase as any)
+        .from("training_player_stats")
+        .delete()
+        .eq("match_id", matchId);
+      if (playerDelErr) throw playerDelErr;
+
+      const { error: matchDelErr } = await supabase
+        .from("training_matches")
+        .delete()
+        .eq("id", matchId);
+      if (matchDelErr) throw matchDelErr;
+
+      toast.success("Queda excluída!");
+      if (effectiveRoundId) void fetchMatches(effectiveRoundId);
+    } catch (error) {
+      reportError("Não foi possível excluir a queda", error, "Erro ao excluir queda");
+      if (effectiveRoundId) void fetchMatches(effectiveRoundId);
+    }
   };
 
   const addTeamScore = (teamId: string) => {
     if (scores.find(s => s.team_id === teamId)) {
       toast.error("Equipe já adicionada nesta queda");
+      return;
+    }
+
+    if (!selectedMatch) {
+      toast.error("Selecione uma queda primeiro");
       return;
     }
 
@@ -353,6 +500,8 @@ export function ScoreManagementDialog({
     }
 
     setScores([...scores, { team_id: teamId, position: nextPosition, kills: 0, bonus_points: 0 }]);
+    // Load players for this team so team kills can be auto-summed from player kills
+    void loadPlayersForTeam(teamId, selectedMatch);
   };
 
   const updateTeamPosition = (teamId: string, newPosition: number) => {
@@ -437,9 +586,32 @@ export function ScoreManagementDialog({
       return;
     }
 
+    // Validations
+    if (scores.length === 0) {
+      toast.error("Adicione pelo menos 1 equipe antes de salvar");
+      return;
+    }
+
+    const positions = scores.map((s) => s.position);
+    const uniquePositions = new Set(positions);
+    if (uniquePositions.size !== positions.length) {
+      toast.error("Existem posições duplicadas. Ajuste 1º/2º/3º... antes de salvar");
+      return;
+    }
+
+    const hasInvalid = scores.some(
+      (s) => !Number.isFinite(s.position) || s.position <= 0 || !Number.isFinite(s.kills) || s.kills < 0
+    );
+    if (hasInvalid) {
+      toast.error("Preencha posição e kills corretamente (sem valores negativos)");
+      return;
+    }
+
     setSaving(true);
 
     try {
+      const scoresToPersist = scores;
+
       // Delete existing scores and player stats for this match
       await supabase
         .from("training_match_scores")
@@ -452,7 +624,7 @@ export function ScoreManagementDialog({
         .eq("match_id", selectedMatch);
 
       // Insert new scores
-      const scoresToInsert = scores.map((s) => {
+      const scoresToInsert = scoresToPersist.map((s) => {
         const pts = calculatePoints(s.position, s.kills, s.bonus_points);
         return {
           match_id: selectedMatch,
@@ -461,7 +633,8 @@ export function ScoreManagementDialog({
           kills: s.kills,
           position_points: pts.posPoints,
           kill_points: pts.killPoints,
-          bonus_points: Number(s.bonus_points ?? 0),
+          // DB column is text; we keep it numeric in UI and serialize on write
+          bonus_points: String(Number(s.bonus_points ?? 0)),
           total_points: pts.total,
         };
       });
@@ -526,9 +699,6 @@ export function ScoreManagementDialog({
     }
   };
 
-  const availableTeams = teams.filter(t => !scores.find(s => s.team_id === t.id));
-  const availablePositions = Array.from({ length: teams.length }, (_, i) => i + 1);
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -537,7 +707,7 @@ export function ScoreManagementDialog({
           Gerenciar Pontuação
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-4xl h-[90vh] p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-primary" />
@@ -545,244 +715,81 @@ export function ScoreManagementDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <ScrollArea className="h-[70vh] pr-4">
-          <div className="space-y-6">
-            {/* Rounds Section */}
-            <div>
-              <h3 className="font-semibold mb-3 flex items-center gap-2">
-                <Target className="w-4 h-4" />
-                Rodadas
-              </h3>
-              <div className="flex gap-2 mb-3">
-                <Input
-                  placeholder="Nome da rodada (ex: 1ª Rodada)"
-                  value={newRoundName}
-                  onChange={(e) => setNewRoundName(e.target.value)}
-                />
-                <Button onClick={createRound} size="sm">
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {rounds.map((round) => (
-                  <Badge
-                    key={round.id}
-                    variant={selectedRound === round.id ? "default" : "secondary"}
-                    className="cursor-pointer flex items-center gap-1"
-                    onClick={() => setSelectedRound(round.id)}
-                  >
-                    {round.name}
-                    <Trash2
-                      className="w-3 h-3 ml-1 hover:text-destructive"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteRound(round.id);
-                      }}
-                    />
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Matches Section */}
-            {selectedRound && (
-              <div>
-                <h3 className="font-semibold mb-3">Quedas</h3>
-                <div className="flex gap-2 mb-3">
-                  <Input
-                    placeholder="Nome da queda (ex: 1ª Queda)"
-                    value={newMatchName}
-                    onChange={(e) => setNewMatchName(e.target.value)}
-                    className="flex-1"
-                  />
-                  <Input
-                    placeholder="Mapa (opcional)"
-                    value={newMatchMap}
-                    onChange={(e) => setNewMatchMap(e.target.value)}
-                    className="w-32"
-                  />
-                  <Button onClick={createMatch} size="sm">
-                    <Plus className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {matches.map((match) => (
-                    <Badge
-                      key={match.id}
-                      variant={selectedMatch === match.id ? "default" : "secondary"}
-                      className="cursor-pointer flex items-center gap-1"
-                      onClick={() => setSelectedMatch(match.id)}
-                    >
-                      {match.name}
-                      {match.map_name && <span className="text-xs opacity-70">({match.map_name})</span>}
-                      {match.status === "completed" && <span className="text-xs">✓</span>}
-                      <Trash2
-                        className="w-3 h-3 ml-1 hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteMatch(match.id);
-                        }}
-                      />
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Score Entry Section */}
-            {selectedMatch && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold">Resultados da Queda</h3>
-                  <Select onValueChange={(value) => addTeamScore(value)}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="+ Adicionar Equipe" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTeams.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>
-                          {team.name} [{team.tag}]
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-3">
-                  {scores
-                    .sort((a, b) => a.position - b.position)
-                    .map((score) => {
-                      const team = teams.find(t => t.id === score.team_id);
-                      const pts = calculatePoints(score.position, score.kills, score.bonus_points);
-                      
-                      return (
-                        <Card key={score.team_id} className="p-4">
-                          <div className="flex items-center gap-4 flex-wrap">
-                            {/* Team Info */}
-                            <div className="flex items-center gap-2 min-w-[200px]">
-                              {team?.logo_url && (
-                                <img
-                                  src={team.logo_url}
-                                  alt={team.name}
-                                  className="w-8 h-8 rounded-full object-cover"
-                                />
-                              )}
-                              <div>
-                                <p className="font-medium text-sm">{team?.name}</p>
-                                <p className="text-xs text-muted-foreground">[{team?.tag}]</p>
-                              </div>
-                            </div>
-
-                            {/* Position */}
-                            <div>
-                              <Label className="text-xs">Posição</Label>
-                              <Select
-                                value={score.position.toString()}
-                                onValueChange={(value) => updateTeamPosition(score.team_id, parseInt(value))}
-                              >
-                                <SelectTrigger className="w-20">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {availablePositions.map((pos) => (
-                                    <SelectItem 
-                                      key={pos} 
-                                      value={pos.toString()}
-                                      disabled={scores.some(s => s.position === pos && s.team_id !== score.team_id)}
-                                    >
-                                      {pos}º
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            {/* Kills */}
-                            <div>
-                              <Label className="text-xs">Kills</Label>
-                              <Input
-                                type="number"
-                                min="0"
-                                value={score.kills}
-                                onChange={(e) => updateTeamKills(score.team_id, parseInt(e.target.value) || 0)}
-                                className="w-20"
-                              />
-                            </div>
-
-                            {/* Bonus Points */}
-                            <div>
-                              <Label className="text-xs">Bônus</Label>
-                              <Input
-                                type="number"
-                                value={score.bonus_points}
-                                onChange={(e) => updateTeamBonusPoints(score.team_id, parseInt(e.target.value) || 0)}
-                                className="w-20"
-                                placeholder="±"
-                              />
-                            </div>
-
-                            {/* Points Display */}
-                            <div className="flex items-center gap-4 text-sm">
-                              <div>
-                                <span className="text-muted-foreground">Pos:</span>
-                                <span className="ml-1 font-semibold text-primary">{pts.posPoints}</span>
-                              </div>
-                              <div>
-                                <span className="text-muted-foreground">Kills:</span>
-                                <span className="ml-1 font-semibold text-primary">{pts.killPoints}</span>
-                              </div>
-                              {pts.bonusPoints !== 0 && (
-                                <div>
-                                  <span className="text-muted-foreground">Bônus:</span>
-                                  <span className={`ml-1 font-semibold ${pts.bonusPoints > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    {pts.bonusPoints > 0 ? '+' : ''}{pts.bonusPoints}
-                                  </span>
-                                </div>
-                              )}
-                              <div>
-                                <span className="text-muted-foreground">Total:</span>
-                                <span className="ml-1 font-bold text-primary">{pts.total}</span>
-                              </div>
-                            </div>
-
-                            {/* Remove */}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeTeamScore(score.team_id)}
-                              className="ml-auto"
-                            >
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </div>
-                        </Card>
-                      );
-                    })}
-
-                  {scores.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">
-                      Adicione equipes para registrar os resultados
-                    </p>
+        {modalError && (
+          <div className="mb-3">
+            <Alert>
+              <AlertTitle>{modalError.title}</AlertTitle>
+              <AlertDescription>
+                <div className="space-y-2">
+                  <p className="text-sm">{modalError.message}</p>
+                  {modalError.action && (
+                    <p className="text-sm text-muted-foreground">{modalError.action}</p>
                   )}
                 </div>
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
 
-                {scores.length > 0 && (
-                  <Button onClick={saveScores} disabled={saving} className="w-full mt-4 gap-2">
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Salvar Pontuação
-                  </Button>
-                )}
-              </div>
-            )}
+        <ScrollArea className="h-[calc(90vh-7rem)] pr-3">
+          <div className="space-y-6">
+            <ScoreRoundsSection
+              rounds={rounds}
+              selectedRoundId={effectiveRoundId}
+              newRoundName={newRoundName}
+              onNewRoundNameChange={setNewRoundName}
+              onCreateRound={createRound}
+              onSelectRound={(id) => {
+                setSelectedRound(id);
+                setSelectedMatch("");
+                setMatches([]);
+                setScores([]);
+                setPlayerStatsByTeam({});
+              }}
+              onDeleteRound={deleteRound}
+            />
 
-            {!selectedRound && rounds.length === 0 && (
-              <p className="text-center text-muted-foreground py-8">
-                Crie uma rodada para começar a gerenciar a pontuação
-              </p>
+            <Separator />
+
+            <ScoreMatchesSection
+              canCreateMatch={canCreateMatch}
+              newMatchName={newMatchName}
+              newMatchMap={newMatchMap}
+              onNewMatchNameChange={setNewMatchName}
+              onNewMatchMapChange={setNewMatchMap}
+              onCreateMatch={createMatch}
+              matches={matches}
+              selectedMatchId={selectedMatch}
+              onSelectMatch={(id) => {
+                setSelectedMatch(id);
+                setScores([]);
+                setPlayerStatsByTeam({});
+              }}
+              onDeleteMatch={deleteMatch}
+            />
+
+            <Separator />
+
+            <ScoreEntrySection
+              teams={teams}
+              selectedMatchId={selectedMatch}
+              pointsPerKill={pointsPerKill}
+              positionPointsMap={positionPointsMap}
+              scores={scores}
+              onScoresChange={setScores}
+              onRemoveTeam={removeTeamScore}
+              playerStatsByTeam={playerStatsByTeam}
+              onReloadTeamPlayers={(teamId) => {
+                if (!selectedMatch) return;
+                void loadPlayersForTeam(teamId, selectedMatch);
+              }}
+              onUpdatePlayerKills={updatePlayerKills}
+              saving={saving}
+              onSave={saveScores}
+            />
+
+            {loading && (
+              <p className="text-center text-sm text-muted-foreground">Carregando…</p>
             )}
           </div>
         </ScrollArea>

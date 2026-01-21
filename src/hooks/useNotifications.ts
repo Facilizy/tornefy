@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 
 interface Notification {
   id: string;
@@ -16,19 +16,26 @@ export const useNotifications = (userId: string | undefined) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const { toast } = useToast();
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     if (!userId) {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
       return;
     }
 
     fetchNotifications();
-    subscribeToNotifications();
+    channelRef.current = subscribeToNotifications() ?? null;
 
     return () => {
-      supabase.removeAllChannels();
+      mountedRef.current = false;
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [userId]);
 
@@ -45,20 +52,26 @@ export const useNotifications = (userId: string | undefined) => {
 
       if (error) throw error;
 
+      if (!mountedRef.current) return;
       setNotifications(data || []);
       setUnreadCount(data?.filter(n => !n.read).length || 0);
     } catch (error) {
       console.error('Error fetching notifications:', error);
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   };
 
   const subscribeToNotifications = () => {
     if (!userId) return;
 
+    // IMPORTANT: channel names must be unique per component instance.
+    // Re-using the same name in multiple places (Header + MainLayout) can cause
+    // unexpected teardown behavior when one instance unmounts.
+    const channelName = `notifications:${userId}:${Date.now()}`;
+
     const channel = supabase
-      .channel('notifications-changes')
+      .channel(channelName)
       .on(
         'postgres_changes',
         {
@@ -69,13 +82,13 @@ export const useNotifications = (userId: string | undefined) => {
         },
         (payload) => {
           const newNotification = payload.new as Notification;
+          if (!mountedRef.current) return;
           setNotifications(prev => [newNotification, ...prev]);
           setUnreadCount(prev => prev + 1);
 
           // Show toast notification
-          toast({
-            title: newNotification.title,
-            description: newNotification.message,
+          toast(newNotification.title || 'Notificação', {
+            description: newNotification.message || undefined,
           });
         }
       )
@@ -89,12 +102,11 @@ export const useNotifications = (userId: string | undefined) => {
         },
         (payload) => {
           const updatedNotification = payload.new as Notification;
+          if (!mountedRef.current) return;
           setNotifications(prev =>
-            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+            prev.map(n => (n.id === updatedNotification.id ? updatedNotification : n))
           );
-          setUnreadCount(prev => 
-            updatedNotification.read ? Math.max(0, prev - 1) : prev
-          );
+          setUnreadCount(prev => (updatedNotification.read ? Math.max(0, prev - 1) : prev));
         }
       )
       .on(
@@ -107,10 +119,9 @@ export const useNotifications = (userId: string | undefined) => {
         },
         (payload) => {
           const deletedId = payload.old.id;
+          if (!mountedRef.current) return;
           setNotifications(prev => prev.filter(n => n.id !== deletedId));
-          if (!payload.old.read) {
-            setUnreadCount(prev => Math.max(0, prev - 1));
-          }
+          if (!payload.old.read) setUnreadCount(prev => Math.max(0, prev - 1));
         }
       )
       .subscribe();
@@ -128,10 +139,8 @@ export const useNotifications = (userId: string | undefined) => {
       if (error) throw error;
     } catch (error) {
       console.error('Error marking notification as read:', error);
-      toast({
-        title: 'Erro',
+      toast.error('Erro', {
         description: 'Não foi possível marcar a notificação como lida',
-        variant: 'destructive',
       });
     }
   };
@@ -148,16 +157,13 @@ export const useNotifications = (userId: string | undefined) => {
 
       if (error) throw error;
 
-      toast({
-        title: 'Sucesso',
+      toast.success('Sucesso', {
         description: 'Todas as notificações foram marcadas como lidas',
       });
     } catch (error) {
       console.error('Error marking all as read:', error);
-      toast({
-        title: 'Erro',
+      toast.error('Erro', {
         description: 'Não foi possível marcar as notificações como lidas',
-        variant: 'destructive',
       });
     }
   };
@@ -171,16 +177,40 @@ export const useNotifications = (userId: string | undefined) => {
 
       if (error) throw error;
 
-      toast({
-        title: 'Sucesso',
+      toast.success('Sucesso', {
         description: 'Notificação excluída',
       });
     } catch (error) {
       console.error('Error deleting notification:', error);
-      toast({
-        title: 'Erro',
+      toast.error('Erro', {
         description: 'Não foi possível excluir a notificação',
-        variant: 'destructive',
+      });
+    }
+  };
+
+  const clearRead = async () => {
+    if (!userId) return;
+
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('user_id', userId)
+        .eq('read', true);
+
+      if (error) throw error;
+
+      toast.success('Sucesso', {
+        description: 'Notificações lidas foram removidas',
+      });
+
+      // Keep UI in sync immediately
+      if (!mountedRef.current) return;
+      setNotifications((prev) => prev.filter((n) => !n.read));
+    } catch (error) {
+      console.error('Error clearing read notifications:', error);
+      toast.error('Erro', {
+        description: 'Não foi possível limpar as notificações lidas',
       });
     }
   };
@@ -192,6 +222,7 @@ export const useNotifications = (userId: string | undefined) => {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    clearRead,
     refetch: fetchNotifications,
   };
 };

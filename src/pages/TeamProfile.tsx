@@ -24,6 +24,8 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import TeamBadges from "@/components/TeamBadges";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import TeamTagBadge from "@/components/TeamTagBadge";
+import LiveNowSection from "@/components/twitch/LiveNowSection";
 
 interface TeamMember {
   id: string;
@@ -162,6 +164,10 @@ const TeamProfile = () => {
 
   const primaryColor = team.primary_color || "#9146FF";
   const secondaryColor = team.secondary_color || "#1F2937";
+
+  const memberUserIds = members
+    .map((m) => m.user_id)
+    .filter((id): id is string => typeof id === "string" && id.length > 0);
 
   return (
     <MainLayout>
@@ -304,6 +310,9 @@ const TeamProfile = () => {
           Voltar
         </Button>
 
+        {/* Live now (Twitch) */}
+        <LiveNowSection title="Ao vivo agora" userIds={memberUserIds} enableSelfSync={false} />
+
         {/* Tabs */}
         <Tabs defaultValue="roster" className="mb-12">
           <TabsList className="w-full max-w-md grid grid-cols-4 mb-8 bg-card/50">
@@ -383,6 +392,13 @@ const TeamProfile = () => {
                             >
                               {member.player_name}
                             </span>
+                            {team?.tag ? (
+                              <TeamTagBadge
+                                className="shrink-0"
+                                tag={team.tag}
+                                primaryColor={team.primary_color}
+                              />
+                            ) : null}
                             {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
                           </div>
                           <p className="text-xs text-muted-foreground">{member.game_id}</p>

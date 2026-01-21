@@ -5,12 +5,18 @@ import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Users, Search, Loader2 } from "lucide-react";
+import TeamTagBadge from "@/components/TeamTagBadge";
 
 type PlayerProfile = {
   id: string;
   username: string | null;
   full_name: string | null;
   avatar_url: string | null;
+  team?: {
+    id: string;
+    tag: string;
+    primary_color: string | null;
+  } | null;
 };
 
 const Players = () => {
@@ -28,7 +34,58 @@ const Players = () => {
           .select("id, username, full_name, avatar_url")
           .order("created_at", { ascending: false });
         if (error) throw error;
-        setPlayers((data || []) as PlayerProfile[]);
+
+        const basePlayers = (data || []) as PlayerProfile[];
+        const userIds = basePlayers.map((p) => p.id).filter(Boolean);
+
+        if (userIds.length === 0) {
+          setPlayers([]);
+          return;
+        }
+
+        // Find the player's "main team" as the oldest team_members row for that user.
+        const { data: memberRows, error: tmError } = await supabase
+          .from("team_members")
+          .select("user_id, team_id, created_at")
+          .in("user_id", userIds)
+          .order("created_at", { ascending: true });
+
+        if (tmError) throw tmError;
+
+        const mainTeamByUser = new Map<string, string>();
+        (memberRows || []).forEach((row: any) => {
+          if (!row?.user_id || !row?.team_id) return;
+          // because we sorted ascending, first occurrence is the oldest (main team)
+          if (!mainTeamByUser.has(row.user_id)) mainTeamByUser.set(row.user_id, row.team_id);
+        });
+
+        const teamIds = Array.from(new Set(Array.from(mainTeamByUser.values())));
+        const teamsById = new Map<string, { id: string; tag: string; primary_color: string | null }>();
+
+        if (teamIds.length > 0) {
+          const { data: teamsData, error: tError } = await supabase
+            .from("teams")
+            .select("id, tag, primary_color")
+            .in("id", teamIds);
+          if (tError) throw tError;
+
+          (teamsData || []).forEach((t: any) => {
+            if (!t?.id) return;
+            teamsById.set(t.id, {
+              id: t.id,
+              tag: t.tag || "",
+              primary_color: t.primary_color ?? null,
+            });
+          });
+        }
+
+        setPlayers(
+          basePlayers.map((p) => {
+            const teamId = mainTeamByUser.get(p.id);
+            const team = teamId ? teamsById.get(teamId) : undefined;
+            return { ...p, team: team ?? null };
+          })
+        );
       } catch (e) {
         console.error(e);
       } finally {
@@ -111,7 +168,17 @@ const Players = () => {
                     )}
                   </div>
                   <div className="min-w-0">
-                    <div className="font-bold uppercase truncate">{p.full_name || "Jogador"}</div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="font-bold uppercase truncate">{p.full_name || "Jogador"}</div>
+
+                      {p.team?.tag ? (
+                        <TeamTagBadge
+                          className="shrink-0"
+                          tag={p.team.tag}
+                          primaryColor={p.team.primary_color}
+                        />
+                      ) : null}
+                    </div>
                     <div className="text-sm text-muted-foreground truncate">@{p.username || "sem-username"}</div>
                   </div>
                 </div>

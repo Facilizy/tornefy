@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,6 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { NotificationList } from './NotificationList';
 import { useNotifications } from '@/hooks/useNotifications';
+import { Separator } from '@/components/ui/separator';
 
 interface NotificationBellProps {
   userId: string | undefined;
@@ -16,6 +18,7 @@ interface NotificationBellProps {
 
 export function NotificationBell({ userId }: NotificationBellProps) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
   const {
     notifications,
     unreadCount,
@@ -23,6 +26,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     markAsRead,
     markAllAsRead,
     deleteNotification,
+    // clearRead is used on the /notificacoes page
   } = useNotifications(userId);
 
   return (
@@ -46,14 +50,31 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-96 p-0" align="end">
-        <NotificationList
-          notifications={notifications}
-          loading={loading}
-          onMarkAsRead={markAsRead}
-          onMarkAllAsRead={markAllAsRead}
-          onDelete={deleteNotification}
-          onClose={() => setOpen(false)}
-        />
+        <div className="flex flex-col">
+          <NotificationList
+            notifications={notifications}
+            loading={loading}
+            onMarkAsRead={markAsRead}
+            onMarkAllAsRead={markAllAsRead}
+            onDelete={deleteNotification}
+            onClose={() => setOpen(false)}
+          />
+          <Separator />
+          <div className="p-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                setOpen(false);
+                navigate('/notificacoes');
+              }}
+            >
+              Vá para página de notificações
+            </Button>
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );

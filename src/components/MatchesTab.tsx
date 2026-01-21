@@ -35,7 +35,7 @@ interface Match {
 }
 
 interface MatchScore {
-  id: string;
+  id?: string | null;
   team_id: string;
   position: number;
   kills: number;
@@ -134,7 +134,17 @@ export function MatchesTab({
       .order("position");
 
     if (!error && data) {
-      setScores(data);
+      // Normalize numeric fields (PostgREST can return bigint as string)
+      const normalized: MatchScore[] = (data as any[]).map((s) => ({
+        ...s,
+        id: s.id ?? null,
+        position: Number(s.position ?? 0),
+        kills: Number(s.kills ?? 0),
+        position_points: Number(s.position_points ?? 0),
+        kill_points: Number(s.kill_points ?? 0),
+        total_points: Number(s.total_points ?? 0),
+      }));
+      setScores(normalized);
     } else {
       setScores([]);
     }
@@ -299,7 +309,7 @@ export function MatchesTab({
 
                   return (
                     <div
-                      key={score.id}
+                      key={`${selectedMatch}:${score.team_id}:${score.position}`}
                       className={`flex items-center gap-4 p-3 rounded-lg border ${
                         score.position <= 3
                           ? "bg-primary/10 border-primary/30"
@@ -323,12 +333,19 @@ export function MatchesTab({
 
                       {/* Team Info */}
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        {team.logo_url && (
+                        {team.logo_url ? (
                           <img
                             src={team.logo_url}
                             alt={team.name}
                             className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                            loading="lazy"
                           />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
+                            <span className="text-[10px] font-bold">
+                              {(team.tag || team.name || "??").slice(0, 2).toUpperCase()}
+                            </span>
+                          </div>
                         )}
                         <div className="min-w-0">
                           <p className="font-semibold text-sm uppercase truncate">

@@ -10,32 +10,38 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
       achievements: {
         Row: {
-          badge_icon: string | null
+          audience: string
+          code: string
           created_at: string
           description: string | null
           id: string
+          metric: string
           name: string
           target_value: number
         }
         Insert: {
-          badge_icon?: string | null
+          audience: string
+          code: string
           created_at?: string
           description?: string | null
           id?: string
+          metric: string
           name: string
           target_value?: number
         }
         Update: {
-          badge_icon?: string | null
+          audience?: string
+          code?: string
           created_at?: string
           description?: string | null
           id?: string
+          metric?: string
           name?: string
           target_value?: number
         }
@@ -43,61 +49,91 @@ export type Database = {
       }
       notifications: {
         Row: {
-          created_at: string
-          id: string
-          message: string
-          read: boolean
+          created_at: string | null
+          id: string | null
+          message: string | null
+          read: boolean | null
           related_id: string | null
-          title: string
-          type: string
+          title: string | null
+          type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string | null
+          message?: string | null
+          read?: boolean | null
+          related_id?: string | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string | null
+          message?: string | null
+          read?: boolean | null
+          related_id?: string | null
+          title?: string | null
+          type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          provider: string
+          redirect_to: string | null
+          state: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          expires_at: string
           id?: string
-          message: string
-          read?: boolean
-          related_id?: string | null
-          title: string
-          type: string
+          provider: string
+          redirect_to?: string | null
+          state: string
           user_id: string
         }
         Update: {
           created_at?: string
+          expires_at?: string
           id?: string
-          message?: string
-          read?: boolean
-          related_id?: string | null
-          title?: string
-          type?: string
+          provider?: string
+          redirect_to?: string | null
+          state?: string
           user_id?: string
         }
         Relationships: []
       }
       organizer_blacklist: {
         Row: {
-          created_at: string
+          created_at: string | null
           expires_at: string | null
-          id: string
-          organizer_id: string
+          id: string | null
+          organizer_id: string | null
           reason: string | null
-          team_tag: string
+          team_tag: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           expires_at?: string | null
-          id?: string
-          organizer_id: string
+          id?: string | null
+          organizer_id?: string | null
           reason?: string | null
-          team_tag: string
+          team_tag?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           expires_at?: string | null
-          id?: string
-          organizer_id?: string
+          id?: string | null
+          organizer_id?: string | null
           reason?: string | null
-          team_tag?: string
+          team_tag?: string | null
         }
         Relationships: []
       }
@@ -126,175 +162,191 @@ export type Database = {
         Row: {
           avatar_url: string | null
           banner_url: string | null
-          created_at: string
+          created_at: string | null
           discord_contact: string | null
-          full_name: string
+          full_name: string | null
           id: string
-          preferred_games: string[] | null
-          role: Database["public"]["Enums"]["user_role"]
+          preferred_games: Json | null
+          role: string | null
           tracker_url: string | null
-          updated_at: string
+          updated_at: string | null
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
           banner_url?: string | null
-          created_at?: string
+          created_at?: string | null
           discord_contact?: string | null
-          full_name: string
+          full_name?: string | null
           id: string
-          preferred_games?: string[] | null
-          role?: Database["public"]["Enums"]["user_role"]
+          preferred_games?: Json | null
+          role?: string | null
           tracker_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
           banner_url?: string | null
-          created_at?: string
+          created_at?: string | null
           discord_contact?: string | null
-          full_name?: string
+          full_name?: string | null
           id?: string
-          preferred_games?: string[] | null
-          role?: Database["public"]["Enums"]["user_role"]
+          preferred_games?: Json | null
+          role?: string | null
           tracker_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
           username?: string | null
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string | null
+          created_at: string
+          endpoint: string
+          expiration_time: number | null
+          id: string
+          p256dh: string | null
+          updated_at: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth?: string | null
+          created_at?: string
+          endpoint: string
+          expiration_time?: number | null
+          id?: string
+          p256dh?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string | null
+          created_at?: string
+          endpoint?: string
+          expiration_time?: number | null
+          id?: string
+          p256dh?: string | null
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string
         }
         Relationships: []
       }
       team_badges: {
         Row: {
-          badge_count: number
-          badge_type: string
-          earned_at: string
-          id: string
-          team_id: string
+          badge_count: number | null
+          badge_type: string | null
+          earned_at: string | null
+          id: string | null
+          team_id: string | null
         }
         Insert: {
-          badge_count?: number
-          badge_type: string
-          earned_at?: string
-          id?: string
-          team_id: string
+          badge_count?: number | null
+          badge_type?: string | null
+          earned_at?: string | null
+          id?: string | null
+          team_id?: string | null
         }
         Update: {
-          badge_count?: number
-          badge_type?: string
-          earned_at?: string
-          id?: string
-          team_id?: string
+          badge_count?: number | null
+          badge_type?: string | null
+          earned_at?: string | null
+          id?: string | null
+          team_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "team_badges_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       team_bans: {
         Row: {
-          banned_until: string
-          created_at: string
-          id: string
+          banned_until: string | null
+          created_at: string | null
+          id: string | null
           reason: string | null
-          team_tag: string
+          team_tag: string | null
         }
         Insert: {
-          banned_until: string
-          created_at?: string
-          id?: string
+          banned_until?: string | null
+          created_at?: string | null
+          id?: string | null
           reason?: string | null
-          team_tag: string
+          team_tag?: string | null
         }
         Update: {
-          banned_until?: string
-          created_at?: string
-          id?: string
+          banned_until?: string | null
+          created_at?: string | null
+          id?: string | null
           reason?: string | null
-          team_tag?: string
+          team_tag?: string | null
         }
         Relationships: []
       }
       team_invites: {
         Row: {
-          created_at: string
+          created_at: string | null
           external_discord: string | null
           external_game_id: string | null
           external_player_name: string | null
-          id: string
+          id: string | null
           invited_user_id: string | null
           invited_username: string | null
-          is_external: boolean
-          permission: string
-          status: string
-          team_id: string
-          updated_at: string
+          is_external: string | null
+          permission: string | null
+          status: string | null
+          team_id: string | null
+          updated_at: string | null
         }
         Insert: {
-          created_at?: string
+          created_at?: string | null
           external_discord?: string | null
           external_game_id?: string | null
           external_player_name?: string | null
-          id?: string
+          id?: string | null
           invited_user_id?: string | null
           invited_username?: string | null
-          is_external?: boolean
-          permission?: string
-          status?: string
-          team_id: string
-          updated_at?: string
+          is_external?: string | null
+          permission?: string | null
+          status?: string | null
+          team_id?: string | null
+          updated_at?: string | null
         }
         Update: {
-          created_at?: string
+          created_at?: string | null
           external_discord?: string | null
           external_game_id?: string | null
           external_player_name?: string | null
-          id?: string
+          id?: string | null
           invited_user_id?: string | null
           invited_username?: string | null
-          is_external?: boolean
-          permission?: string
-          status?: string
-          team_id?: string
-          updated_at?: string
+          is_external?: string | null
+          permission?: string | null
+          status?: string | null
+          team_id?: string | null
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "team_invites_invited_user_id_fkey"
-            columns: ["invited_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_invites_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       team_lines: {
         Row: {
           created_at: string
+          game_id: string | null
           id: string
           name: string
           team_id: string
         }
         Insert: {
           created_at?: string
+          game_id?: string | null
           id?: string
           name: string
           team_id: string
         }
         Update: {
           created_at?: string
+          game_id?: string | null
           id?: string
           name?: string
           team_id?: string
@@ -311,36 +363,36 @@ export type Database = {
       }
       team_members: {
         Row: {
-          created_at: string
-          discord: string
-          function: Database["public"]["Enums"]["player_function"]
-          game_id: string
-          id: string
+          created_at: string | null
+          discord: string | null
+          function: string | null
+          game_id: string | null
+          id: string | null
           line_id: string | null
-          player_name: string
-          team_id: string
+          player_name: string | null
+          team_id: string | null
           user_id: string | null
         }
         Insert: {
-          created_at?: string
-          discord: string
-          function: Database["public"]["Enums"]["player_function"]
-          game_id: string
-          id?: string
+          created_at?: string | null
+          discord?: string | null
+          function?: string | null
+          game_id?: string | null
+          id?: string | null
           line_id?: string | null
-          player_name: string
-          team_id: string
+          player_name?: string | null
+          team_id?: string | null
           user_id?: string | null
         }
         Update: {
-          created_at?: string
-          discord?: string
-          function?: Database["public"]["Enums"]["player_function"]
-          game_id?: string
-          id?: string
+          created_at?: string | null
+          discord?: string | null
+          function?: string | null
+          game_id?: string | null
+          id?: string | null
           line_id?: string | null
-          player_name?: string
-          team_id?: string
+          player_name?: string | null
+          team_id?: string | null
           user_id?: string | null
         }
         Relationships: [
@@ -362,346 +414,279 @@ export type Database = {
       }
       team_reports: {
         Row: {
-          created_at: string
-          id: string
-          organizer_id: string
-          reason: string
-          team_id: string
-          team_tag: string
-          training_id: string
+          created_at: string | null
+          id: string | null
+          organizer_id: string | null
+          reason: string | null
+          team_id: string | null
+          team_tag: string | null
+          training_id: string | null
         }
         Insert: {
-          created_at?: string
-          id?: string
-          organizer_id: string
-          reason: string
-          team_id: string
-          team_tag: string
-          training_id: string
+          created_at?: string | null
+          id?: string | null
+          organizer_id?: string | null
+          reason?: string | null
+          team_id?: string | null
+          team_tag?: string | null
+          training_id?: string | null
         }
         Update: {
-          created_at?: string
-          id?: string
-          organizer_id?: string
-          reason?: string
-          team_id?: string
-          team_tag?: string
-          training_id?: string
+          created_at?: string | null
+          id?: string | null
+          organizer_id?: string | null
+          reason?: string | null
+          team_id?: string | null
+          team_tag?: string | null
+          training_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "team_reports_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "team_reports_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       teams: {
         Row: {
           banner_url: string | null
           bio: string | null
-          created_at: string
+          created_at: string | null
           description: string | null
           discord_url: string | null
           id: string
           instagram_url: string | null
-          is_external: boolean
+          is_external: boolean | null
           is_recruiting: boolean | null
           is_verified: boolean | null
           logo_url: string | null
-          name: string
-          owner_id: string
+          name: string | null
+          owner_id: string | null
           platform: string | null
           primary_color: string | null
-          rating: number | null
+          rating: string | null
           region: string | null
           secondary_color: string | null
-          tag: string
+          tag: string | null
           twitter_url: string | null
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
           banner_url?: string | null
           bio?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           discord_url?: string | null
           id?: string
           instagram_url?: string | null
-          is_external?: boolean
+          is_external?: boolean | null
           is_recruiting?: boolean | null
           is_verified?: boolean | null
           logo_url?: string | null
-          name: string
-          owner_id: string
+          name?: string | null
+          owner_id?: string | null
           platform?: string | null
           primary_color?: string | null
-          rating?: number | null
+          rating?: string | null
           region?: string | null
           secondary_color?: string | null
-          tag: string
+          tag?: string | null
           twitter_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
           banner_url?: string | null
           bio?: string | null
-          created_at?: string
+          created_at?: string | null
           description?: string | null
           discord_url?: string | null
           id?: string
           instagram_url?: string | null
-          is_external?: boolean
+          is_external?: boolean | null
           is_recruiting?: boolean | null
           is_verified?: boolean | null
           logo_url?: string | null
-          name?: string
-          owner_id?: string
+          name?: string | null
+          owner_id?: string | null
           platform?: string | null
           primary_color?: string | null
-          rating?: number | null
+          rating?: string | null
           region?: string | null
           secondary_color?: string | null
-          tag?: string
+          tag?: string | null
           twitter_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "teams_owner_id_fkey"
-            columns: ["owner_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       training_checkins: {
         Row: {
           checked_in_at: string
+          checked_in_by: string
           id: string
           team_id: string
           training_id: string
         }
         Insert: {
           checked_in_at?: string
+          checked_in_by: string
           id?: string
           team_id: string
           training_id: string
         }
         Update: {
           checked_in_at?: string
+          checked_in_by?: string
           id?: string
           team_id?: string
           training_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_checkins_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "training_checkins_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       training_event_logs: {
         Row: {
-          action: string
-          created_at: string
-          id: string
-          team_id: string
-          team_name: string
-          team_tag: string
-          training_id: string
+          action: string | null
+          created_at: string | null
+          id: string | null
+          team_id: string | null
+          team_name: string | null
+          team_tag: string | null
+          training_id: string | null
         }
         Insert: {
-          action: string
-          created_at?: string
-          id?: string
-          team_id: string
-          team_name: string
-          team_tag: string
-          training_id: string
+          action?: string | null
+          created_at?: string | null
+          id?: string | null
+          team_id?: string | null
+          team_name?: string | null
+          team_tag?: string | null
+          training_id?: string | null
         }
         Update: {
-          action?: string
-          created_at?: string
-          id?: string
-          team_id?: string
-          team_name?: string
-          team_tag?: string
-          training_id?: string
+          action?: string | null
+          created_at?: string | null
+          id?: string | null
+          team_id?: string | null
+          team_name?: string | null
+          team_tag?: string | null
+          training_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_event_logs_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "training_event_logs_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       training_match_scores: {
         Row: {
-          bonus_points: number
-          created_at: string
-          id: string
-          kill_points: number
-          kills: number
-          match_id: string
-          position: number
-          position_points: number
-          team_id: string
-          total_points: number
+          bonus_points: string | null
+          created_at: string | null
+          id: string | null
+          kill_points: number | null
+          kills: number | null
+          match_id: string | null
+          position: number | null
+          position_points: number | null
+          team_id: string | null
+          total_points: number | null
         }
         Insert: {
-          bonus_points?: number
-          created_at?: string
-          id?: string
-          kill_points?: number
-          kills?: number
-          match_id: string
-          position: number
-          position_points?: number
-          team_id: string
-          total_points?: number
+          bonus_points?: string | null
+          created_at?: string | null
+          id?: string | null
+          kill_points?: number | null
+          kills?: number | null
+          match_id?: string | null
+          position?: number | null
+          position_points?: number | null
+          team_id?: string | null
+          total_points?: number | null
         }
         Update: {
-          bonus_points?: number
-          created_at?: string
-          id?: string
-          kill_points?: number
-          kills?: number
-          match_id?: string
-          position?: number
-          position_points?: number
-          team_id?: string
-          total_points?: number
+          bonus_points?: string | null
+          created_at?: string | null
+          id?: string | null
+          kill_points?: number | null
+          kills?: number | null
+          match_id?: string | null
+          position?: number | null
+          position_points?: number | null
+          team_id?: string | null
+          total_points?: number | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_match_scores_match_id_fkey"
-            columns: ["match_id"]
-            isOneToOne: false
-            referencedRelation: "training_matches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "training_match_scores_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       training_matches: {
         Row: {
           created_at: string
           id: string
           map_name: string | null
-          match_number: number
+          match_number: number | null
           match_time: string | null
-          name: string
-          round_id: string
-          status: string
-          training_id: string
+          name: string | null
+          round_id: string | null
+          status: string | null
+          training_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           map_name?: string | null
-          match_number?: number
+          match_number?: number | null
           match_time?: string | null
-          name: string
-          round_id: string
-          status?: string
-          training_id: string
+          name?: string | null
+          round_id?: string | null
+          status?: string | null
+          training_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           map_name?: string | null
-          match_number?: number
+          match_number?: number | null
           match_time?: string | null
-          name?: string
-          round_id?: string
-          status?: string
-          training_id?: string
+          name?: string | null
+          round_id?: string | null
+          status?: string | null
+          training_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_matches_round_id_fkey"
-            columns: ["round_id"]
-            isOneToOne: false
-            referencedRelation: "training_rounds"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "training_matches_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       training_messages: {
         Row: {
-          created_at: string
-          id: string
-          message: string
-          sender_id: string
-          training_id: string
+          created_at: string | null
+          id: string | null
+          message: string | null
+          sender_id: string | null
+          training_id: string | null
         }
         Insert: {
-          created_at?: string
-          id?: string
-          message: string
-          sender_id: string
-          training_id: string
+          created_at?: string | null
+          id?: string | null
+          message?: string | null
+          sender_id?: string | null
+          training_id?: string | null
         }
         Update: {
-          created_at?: string
-          id?: string
-          message?: string
-          sender_id?: string
-          training_id?: string
+          created_at?: string | null
+          id?: string | null
+          message?: string | null
+          sender_id?: string | null
+          training_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_messages_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      training_notifications: {
+        Row: {
+          id: string
+          sent_at: string
+          training_id: string
+          type: string
+        }
+        Insert: {
+          id?: string
+          sent_at?: string
+          training_id: string
+          type: string
+        }
+        Update: {
+          id?: string
+          sent_at?: string
+          training_id?: string
+          type?: string
+        }
+        Relationships: []
       }
       training_player_stats: {
         Row: {
@@ -709,37 +694,40 @@ export type Database = {
           id: string
           is_mvp: boolean
           kills: number
+          line_id: string | null
           match_id: string
           player_name: string
           team_id: string
-          team_member_id: string
+          team_member_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           is_mvp?: boolean
           kills?: number
+          line_id?: string | null
           match_id: string
           player_name: string
           team_id: string
-          team_member_id: string
+          team_member_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           is_mvp?: boolean
           kills?: number
+          line_id?: string | null
           match_id?: string
           player_name?: string
           team_id?: string
-          team_member_id?: string
+          team_member_id?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "training_player_stats_match_id_fkey"
-            columns: ["match_id"]
+            foreignKeyName: "training_player_stats_line_id_fkey"
+            columns: ["line_id"]
             isOneToOne: false
-            referencedRelation: "training_matches"
+            referencedRelation: "team_lines"
             referencedColumns: ["id"]
           },
           {
@@ -747,13 +735,6 @@ export type Database = {
             columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "training_player_stats_team_member_id_fkey"
-            columns: ["team_member_id"]
-            isOneToOne: false
-            referencedRelation: "team_members"
             referencedColumns: ["id"]
           },
         ]
@@ -811,244 +792,307 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          name: string
-          round_number: number
-          training_id: string
+          name: string | null
+          round_number: number | null
+          training_id: string | null
         }
         Insert: {
           created_at?: string
           id?: string
-          name: string
-          round_number?: number
-          training_id: string
+          name?: string | null
+          round_number?: number | null
+          training_id?: string | null
         }
         Update: {
           created_at?: string
           id?: string
-          name?: string
-          round_number?: number
-          training_id?: string
+          name?: string | null
+          round_number?: number | null
+          training_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_rounds_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
-      training_templates: {
+      training_slot_state: {
         Row: {
-          created_at: string
-          discord_link: string | null
-          game: Database["public"]["Enums"]["game_type"]
-          id: string
-          important_info: string | null
-          max_slots: number
-          mode: Database["public"]["Enums"]["mode_type"]
-          name: string
-          organizer_id: string
-          platform: Database["public"]["Enums"]["platform_type"]
-          points_per_kill: number
-          points_per_position: Json
-          points_per_position_text: string | null
-          primary_color: string | null
-          prize: string | null
-          rounds: number
-          rules: string | null
-          secondary_color: string | null
+          last_is_full: boolean
+          training_id: string
           updated_at: string
         }
         Insert: {
-          created_at?: string
-          discord_link?: string | null
-          game?: Database["public"]["Enums"]["game_type"]
-          id?: string
-          important_info?: string | null
-          max_slots?: number
-          mode: Database["public"]["Enums"]["mode_type"]
-          name: string
-          organizer_id: string
-          platform: Database["public"]["Enums"]["platform_type"]
-          points_per_kill?: number
-          points_per_position?: Json
-          points_per_position_text?: string | null
-          primary_color?: string | null
-          prize?: string | null
-          rounds?: number
-          rules?: string | null
-          secondary_color?: string | null
+          last_is_full?: boolean
+          training_id: string
           updated_at?: string
         }
         Update: {
-          created_at?: string
+          last_is_full?: boolean
+          training_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      training_templates: {
+        Row: {
+          created_at: string | null
+          discord_link: string | null
+          game: string | null
+          id: string | null
+          important_info: string | null
+          max_slots: number | null
+          mode: string | null
+          name: string | null
+          organizer_id: string | null
+          platform: string | null
+          points_per_kill: number | null
+          points_per_position: Json | null
+          points_per_position_text: string | null
+          primary_color: string | null
+          prize: string | null
+          rounds: number | null
+          rules: string | null
+          secondary_color: string | null
+          updated_at: string | null
+          whatsapp_link: string | null
+        }
+        Insert: {
+          created_at?: string | null
           discord_link?: string | null
-          game?: Database["public"]["Enums"]["game_type"]
-          id?: string
+          game?: string | null
+          id?: string | null
           important_info?: string | null
-          max_slots?: number
-          mode?: Database["public"]["Enums"]["mode_type"]
-          name?: string
-          organizer_id?: string
-          platform?: Database["public"]["Enums"]["platform_type"]
-          points_per_kill?: number
-          points_per_position?: Json
+          max_slots?: number | null
+          mode?: string | null
+          name?: string | null
+          organizer_id?: string | null
+          platform?: string | null
+          points_per_kill?: number | null
+          points_per_position?: Json | null
           points_per_position_text?: string | null
           primary_color?: string | null
           prize?: string | null
-          rounds?: number
+          rounds?: number | null
           rules?: string | null
           secondary_color?: string | null
-          updated_at?: string
+          updated_at?: string | null
+          whatsapp_link?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_templates_organizer_id_fkey"
-            columns: ["organizer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Update: {
+          created_at?: string | null
+          discord_link?: string | null
+          game?: string | null
+          id?: string | null
+          important_info?: string | null
+          max_slots?: number | null
+          mode?: string | null
+          name?: string | null
+          organizer_id?: string | null
+          platform?: string | null
+          points_per_kill?: number | null
+          points_per_position?: Json | null
+          points_per_position_text?: string | null
+          primary_color?: string | null
+          prize?: string | null
+          rounds?: number | null
+          rules?: string | null
+          secondary_color?: string | null
+          updated_at?: string | null
+          whatsapp_link?: string | null
+        }
+        Relationships: []
       }
       training_waitlist: {
         Row: {
           created_at: string
           id: string
-          position: number
+          status: string
           team_id: string
           training_id: string
         }
         Insert: {
           created_at?: string
           id?: string
-          position?: number
+          status?: string
           team_id: string
           training_id: string
         }
         Update: {
           created_at?: string
           id?: string
-          position?: number
+          status?: string
           team_id?: string
           training_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "training_waitlist_team_id_fkey"
-            columns: ["team_id"]
-            isOneToOne: false
-            referencedRelation: "teams"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "training_waitlist_training_id_fkey"
-            columns: ["training_id"]
-            isOneToOne: false
-            referencedRelation: "trainings"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       trainings: {
         Row: {
           banner_url: string | null
-          created_at: string
-          datetime: string
+          created_at: string | null
+          datetime: string | null
           discord_link: string | null
-          game: Database["public"]["Enums"]["game_type"]
+          game: string | null
           id: string
           important_info: string | null
-          invited_tags: string[] | null
-          is_live: boolean
-          is_private: boolean
+          invited_tags: Json | null
+          is_live: boolean | null
+          is_private: boolean | null
           live_link: string | null
-          max_slots: number
-          mode: Database["public"]["Enums"]["mode_type"]
-          name: string
-          organizer_id: string
-          platform: Database["public"]["Enums"]["platform_type"]
-          points_per_kill: number
-          points_per_position: Json
+          max_slots: number | null
+          mode: string | null
+          name: string | null
+          organizer_id: string | null
+          platform: string | null
+          points_per_kill: number | null
+          points_per_position: Json | null
           points_per_position_text: string | null
           primary_color: string | null
           prize: string | null
-          rounds: number
+          rounds: number | null
           rules: string | null
           secondary_color: string | null
           status: string | null
           table_image_url: string | null
-          updated_at: string
+          updated_at: string | null
+          whatsapp_link: string | null
         }
         Insert: {
           banner_url?: string | null
-          created_at?: string
-          datetime: string
+          created_at?: string | null
+          datetime?: string | null
           discord_link?: string | null
-          game?: Database["public"]["Enums"]["game_type"]
-          id?: string
+          game?: string | null
+          id: string
           important_info?: string | null
-          invited_tags?: string[] | null
-          is_live?: boolean
-          is_private?: boolean
+          invited_tags?: Json | null
+          is_live?: boolean | null
+          is_private?: boolean | null
           live_link?: string | null
-          max_slots?: number
-          mode: Database["public"]["Enums"]["mode_type"]
-          name: string
-          organizer_id: string
-          platform: Database["public"]["Enums"]["platform_type"]
-          points_per_kill?: number
-          points_per_position?: Json
+          max_slots?: number | null
+          mode?: string | null
+          name?: string | null
+          organizer_id?: string | null
+          platform?: string | null
+          points_per_kill?: number | null
+          points_per_position?: Json | null
           points_per_position_text?: string | null
           primary_color?: string | null
           prize?: string | null
-          rounds?: number
+          rounds?: number | null
           rules?: string | null
           secondary_color?: string | null
           status?: string | null
           table_image_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
+          whatsapp_link?: string | null
         }
         Update: {
           banner_url?: string | null
-          created_at?: string
-          datetime?: string
+          created_at?: string | null
+          datetime?: string | null
           discord_link?: string | null
-          game?: Database["public"]["Enums"]["game_type"]
+          game?: string | null
           id?: string
           important_info?: string | null
-          invited_tags?: string[] | null
-          is_live?: boolean
-          is_private?: boolean
+          invited_tags?: Json | null
+          is_live?: boolean | null
+          is_private?: boolean | null
           live_link?: string | null
-          max_slots?: number
-          mode?: Database["public"]["Enums"]["mode_type"]
-          name?: string
-          organizer_id?: string
-          platform?: Database["public"]["Enums"]["platform_type"]
-          points_per_kill?: number
-          points_per_position?: Json
+          max_slots?: number | null
+          mode?: string | null
+          name?: string | null
+          organizer_id?: string | null
+          platform?: string | null
+          points_per_kill?: number | null
+          points_per_position?: Json | null
           points_per_position_text?: string | null
           primary_color?: string | null
           prize?: string | null
-          rounds?: number
+          rounds?: number | null
           rules?: string | null
           secondary_color?: string | null
           status?: string | null
           table_image_url?: string | null
-          updated_at?: string
+          updated_at?: string | null
+          whatsapp_link?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "trainings_organizer_id_fkey"
-            columns: ["organizer_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      twitch_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          expires_at: string | null
+          refresh_token: string
+          scope: string | null
+          token_type: string | null
+          twitch_display_name: string | null
+          twitch_login: string
+          twitch_user_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          expires_at?: string | null
+          refresh_token: string
+          scope?: string | null
+          token_type?: string | null
+          twitch_display_name?: string | null
+          twitch_login: string
+          twitch_user_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          expires_at?: string | null
+          refresh_token?: string
+          scope?: string | null
+          token_type?: string | null
+          twitch_display_name?: string | null
+          twitch_login?: string
+          twitch_user_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      twitch_live_status: {
+        Row: {
+          game_name: string | null
+          is_live: boolean
+          started_at: string | null
+          thumbnail_url: string | null
+          title: string | null
+          twitch_login: string
+          updated_at: string
+          user_id: string
+          viewer_count: number | null
+        }
+        Insert: {
+          game_name?: string | null
+          is_live?: boolean
+          started_at?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          twitch_login: string
+          updated_at?: string
+          user_id: string
+          viewer_count?: number | null
+        }
+        Update: {
+          game_name?: string | null
+          is_live?: boolean
+          started_at?: string | null
+          thumbnail_url?: string | null
+          title?: string | null
+          twitch_login?: string
+          updated_at?: string
+          user_id?: string
+          viewer_count?: number | null
+        }
+        Relationships: []
       }
       user_achievements: {
         Row: {
@@ -1075,62 +1119,63 @@ export type Database = {
           unlocked_at?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_achievements_achievement_id_fkey"
+            columns: ["achievement_id"]
+            isOneToOne: false
+            referencedRelation: "achievements"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
           assigned_at: string | null
           id: string
-          role: Database["public"]["Enums"]["user_role"]
-          user_id: string
+          role: string | null
+          user_id: string | null
         }
         Insert: {
           assigned_at?: string | null
           id?: string
-          role: Database["public"]["Enums"]["user_role"]
-          user_id: string
+          role?: string | null
+          user_id?: string | null
         }
         Update: {
           assigned_at?: string | null
           id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          user_id?: string
+          role?: string | null
+          user_id?: string | null
         }
         Relationships: []
       }
     }
     Views: {
-      [_ in never]: never
+      vw_organizer_follow_counts: {
+        Row: {
+          followers_count: number | null
+          organizer_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
-      count_active_blacklists_from_different_organizers: {
-        Args: { _team_tag: string }
-        Returns: number
+      claim_waitlist_slot: {
+        Args: { _line_id?: string; _team_id: string; _training_id: string }
+        Returns: Json
       }
       get_organizer_follow_count: {
         Args: { _organizer_id: string }
         Returns: number
       }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["user_role"]
-          _user_id: string
-        }
+      is_team_admin: {
+        Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
-      notify_blacklist_expired: { Args: never; Returns: undefined }
     }
     Enums: {
-      game_type:
-        | "free_fire"
-        | "blood_strike"
-        | "farlight_84"
-        | "prime_rush"
-        | "battlefield_6"
-      mode_type: "Solo" | "Duo" | "Squad"
-      platform_type: "PC" | "Mobile" | "Misto" | "console"
-      player_function: "RUSH" | "SUPORTE" | "CAPITÃO"
-      user_role: "player" | "organizer"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1257,18 +1302,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      game_type: [
-        "free_fire",
-        "blood_strike",
-        "farlight_84",
-        "prime_rush",
-        "battlefield_6",
-      ],
-      mode_type: ["Solo", "Duo", "Squad"],
-      platform_type: ["PC", "Mobile", "Misto", "console"],
-      player_function: ["RUSH", "SUPORTE", "CAPITÃO"],
-      user_role: ["player", "organizer"],
-    },
+    Enums: {},
   },
 } as const

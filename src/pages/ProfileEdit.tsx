@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { PushNotificationsOptInCard } from "@/components/PushNotificationsOptInCard";
+import { TwitchMark } from "@/components/twitch/TwitchMark";
 import { ArrowLeft, Upload, User, Loader2, Gamepad2, Link2 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -29,8 +29,16 @@ const ProfileEdit = () => {
   const [saving, setSaving] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [removingBanner, setRemovingBanner] = useState(false);
+  const [removingAvatar, setRemovingAvatar] = useState(false);
   const [linkingDiscord, setLinkingDiscord] = useState(false);
+  const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
+
+  const [connectingTwitch, setConnectingTwitch] = useState(false);
+  const [syncingTwitch, setSyncingTwitch] = useState(false);
+  const [twitchConnected, setTwitchConnected] = useState(false);
+  const [twitchLogin, setTwitchLogin] = useState<string | null>(null);
 
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -52,6 +60,7 @@ const ProfileEdit = () => {
       // If we returned from an OAuth redirect (linkIdentity), refresh providers.
       refreshLinkedProviders();
       setLinkingDiscord(false);
+      setLinkingGoogle(false);
     });
 
     return () => {
@@ -72,7 +81,48 @@ const ProfileEdit = () => {
       // Replace URL to avoid re-processing on refresh
       navigate("/profile/edit", { replace: true });
     }
+
+const GoogleMark = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path
+      fill="currentColor"
+      d="M21.35 11.1H12v3.8h5.34c-.23 1.25-.95 2.3-2.05 3.02v2.5h3.32c1.95-1.8 3.07-4.45 3.07-7.57 0-.7-.06-1.38-.33-2.75z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 22c2.79 0 5.12-.92 6.83-2.5l-3.32-2.5c-.92.62-2.1.98-3.51.98-2.7 0-4.98-1.82-5.8-4.27H2.78v2.68C4.48 19.98 8.01 22 12 22z"
+    />
+    <path
+      fill="currentColor"
+      d="M6.2 13.71A5.99 5.99 0 0 1 5.9 12c0-.6.1-1.18.3-1.71V7.61H2.78A9.98 9.98 0 0 0 2 12c0 1.61.39 3.13.78 4.39l3.42-2.68z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 6.02c1.52 0 2.88.52 3.95 1.55l2.96-2.96C17.12 2.91 14.79 2 12 2 8.01 2 4.48 4.02 2.78 7.61l3.42 2.68C7.02 7.84 9.3 6.02 12 6.02z"
+    />
+  </svg>
+);
   }, [location.search, location.hash, navigate]);
+
+  // Handle twitch=connected feedback
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    if (sp.get("twitch") === "connected") {
+      toast.success("Twitch conectado com sucesso!");
+      // refresh connected status
+      if (user?.id) refreshTwitchConnection(user.id);
+      // cleanup url param
+      sp.delete("twitch");
+      const next = sp.toString();
+      navigate(next ? `/profile/edit?${next}` : "/profile/edit", { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search, navigate, user?.id]);
 
   const checkUser = async () => {
     const {
@@ -111,6 +161,8 @@ const ProfileEdit = () => {
         banner_url: data.banner_url || "",
         preferred_games: preferredGames,
       });
+
+      await refreshTwitchConnection(uid);
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
@@ -118,11 +170,133 @@ const ProfileEdit = () => {
     }
   };
 
+  const refreshTwitchConnection = async (uid: string) => {
+    try {
+      const { data, error } = await supabase
+        .from("twitch_live_status")
+        .select("twitch_login")
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (error) throw error;
+
+      setTwitchConnected(!!data?.twitch_login);
+      setTwitchLogin(data?.twitch_login || null);
+    } catch (e) {
+      // keep silent
+      setTwitchConnected(false);
+      setTwitchLogin(null);
+    }
+  };
+
+  const handleConnectTwitch = async () => {
+    if (!user?.id) return;
+    try {
+      setConnectingTwitch(true);
+      const { data, error } = await supabase.functions.invoke("twitch-oauth-start", {
+        body: {
+          redirectTo: `${window.location.origin}/profile/edit`,
+        },
+      });
+      if (error) throw error;
+
+      const url = (data as any)?.url as string | undefined;
+      if (!url) throw new Error("URL de autorização não retornada");
+      window.location.assign(url);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erro ao conectar Twitch");
+      setConnectingTwitch(false);
+    }
+  };
+
+  const handleSyncTwitch = async () => {
+    try {
+      setSyncingTwitch(true);
+      const { data, error } = await supabase.functions.invoke("twitch-sync-live", {
+        body: {},
+      });
+      if (error) throw error;
+      await refreshTwitchConnection(user?.id);
+      if ((data as any)?.is_live) toast.success("Status atualizado: AO VIVO");
+      else toast.success("Status atualizado");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erro ao atualizar status da Twitch");
+    } finally {
+      setSyncingTwitch(false);
+    }
+  };
+
+  const handleDisconnectTwitch = async () => {
+    if (!twitchConnected) return;
+    if (!window.confirm("Desconectar Twitch desta conta?")) return;
+
+    try {
+      setSyncingTwitch(true);
+      const { error } = await supabase.functions.invoke("twitch-disconnect", { body: {} });
+      if (error) throw error;
+      toast.success("Twitch desconectada.");
+      await refreshTwitchConnection(user?.id);
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erro ao desconectar Twitch");
+    } finally {
+      setSyncingTwitch(false);
+    }
+  };
+
+  const deleteUserProfileFilesByPrefix = async (uid: string, prefix: "avatar" | "banner") => {
+    const { data, error } = await supabase.storage
+      .from("user-profiles")
+      .list(uid, { limit: 100, offset: 0 });
+    if (error) throw error;
+
+    const toRemove = (data || [])
+      .map((f) => f.name)
+      .filter((name) => name.startsWith(`${prefix}.`))
+      .map((name) => `${uid}/${name}`);
+
+    if (toRemove.length === 0) return;
+
+    const { error: rmError } = await supabase.storage.from("user-profiles").remove(toRemove);
+    if (rmError) throw rmError;
+  };
+
+  const handleRemoveBanner = async () => {
+    if (!user?.id) return;
+    try {
+      setRemovingBanner(true);
+      await deleteUserProfileFilesByPrefix(user.id, "banner");
+      setFormData((p) => ({ ...p, banner_url: "" }));
+      toast.success("Banner removido!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erro ao remover banner");
+    } finally {
+      setRemovingBanner(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (!user?.id) return;
+    try {
+      setRemovingAvatar(true);
+      await deleteUserProfileFilesByPrefix(user.id, "avatar");
+      setFormData((p) => ({ ...p, avatar_url: "" }));
+      toast.success("Foto removida!");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Erro ao remover foto");
+    } finally {
+      setRemovingAvatar(false);
+    }
+  };
+
   const handleBannerUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Formato inválido. Use JPG, PNG ou GIF.");
       return;
@@ -140,7 +314,7 @@ const ProfileEdit = () => {
 
       const { error: uploadError } = await supabase.storage
         .from("user-profiles")
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { upsert: true, cacheControl: "3600", contentType: file.type });
 
       if (uploadError) throw uploadError;
 
@@ -151,10 +325,12 @@ const ProfileEdit = () => {
       setFormData({ ...formData, banner_url: `${publicUrl}?t=${Date.now()}` });
       toast.success("Banner atualizado!");
     } catch (error: any) {
-      toast.error("Erro ao fazer upload do banner");
-      console.error(error);
+      toast.error(error?.message || "Erro ao fazer upload do banner");
+      console.error("Upload banner error:", error);
     } finally {
       setUploadingBanner(false);
+      // allow re-uploading the same file
+      if (bannerInputRef.current) bannerInputRef.current.value = "";
     }
   };
 
@@ -162,7 +338,7 @@ const ProfileEdit = () => {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    const allowedTypes = ["image/jpeg", "image/png", "image/gif"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (!allowedTypes.includes(file.type)) {
       toast.error("Formato inválido. Use JPG, PNG ou GIF.");
       return;
@@ -180,7 +356,7 @@ const ProfileEdit = () => {
 
       const { error: uploadError } = await supabase.storage
         .from("user-profiles")
-        .upload(fileName, file, { upsert: true });
+        .upload(fileName, file, { upsert: true, cacheControl: "3600", contentType: file.type });
 
       if (uploadError) throw uploadError;
 
@@ -191,10 +367,12 @@ const ProfileEdit = () => {
       setFormData({ ...formData, avatar_url: `${publicUrl}?t=${Date.now()}` });
       toast.success("Foto atualizada!");
     } catch (error: any) {
-      toast.error("Erro ao fazer upload da foto");
-      console.error(error);
+      toast.error(error?.message || "Erro ao fazer upload da foto");
+      console.error("Upload avatar error:", error);
     } finally {
       setUploadingAvatar(false);
+      // allow re-uploading the same file
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
     }
   };
 
@@ -271,9 +449,36 @@ const ProfileEdit = () => {
     }
   };
 
+  const handleLinkGoogle = async () => {
+    try {
+      setLinkingGoogle(true);
+      const { data, error } = await supabase.auth.linkIdentity({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/profile/edit`,
+        },
+      });
+      if (error) throw error;
+
+      if (data?.url) {
+        window.location.assign(data.url);
+      }
+    } catch (e: any) {
+      const msg = e?.message || "Erro ao conectar Google";
+      if (String(e?.code) === "manual_linking_disabled" || msg.toLowerCase().includes("manual linking")) {
+        toast.error(
+          "O Supabase está com 'Manual linking' desativado para Google. Ative em Authentication → Providers → Google."
+        );
+      } else {
+        toast.error(msg);
+      }
+      setLinkingGoogle(false);
+    }
+  };
+
   if (loading) {
     return (
-      <MainLayout>
+      <MainLayout showUpcomingScrimWidget={false}>
         <div className="min-h-[50vh] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -282,7 +487,7 @@ const ProfileEdit = () => {
   }
 
   return (
-    <MainLayout>
+    <MainLayout showUpcomingScrimWidget={false}>
       <div className="container max-w-3xl mx-auto px-4 py-8">
         {/* Back button */}
         <Button
@@ -327,13 +532,26 @@ const ProfileEdit = () => {
               <input
                 ref={bannerInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/gif"
+                accept="image/jpeg,image/png,image/gif,image/webp"
                 onChange={handleBannerUpload}
                 className="hidden"
               />
               <p className="text-xs text-muted-foreground">
                 Tamanho máximo: 5MB. Formatos: JPG, PNG, GIF
               </p>
+
+              {formData.banner_url ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="px-0 text-muted-foreground hover:text-foreground"
+                  onClick={handleRemoveBanner}
+                  disabled={removingBanner}
+                >
+                  Remover banner
+                </Button>
+              ) : null}
             </div>
 
             {/* Avatar Upload */}
@@ -368,11 +586,23 @@ const ProfileEdit = () => {
                   <Upload className="w-4 h-4 mr-2" />
                   Upload
                 </Button>
+
+                {formData.avatar_url ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={handleRemoveAvatar}
+                    disabled={removingAvatar}
+                  >
+                    Remover foto
+                  </Button>
+                ) : null}
               </div>
               <input
                 ref={avatarInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/gif"
+                 accept="image/jpeg,image/png,image/gif,image/webp"
                 onChange={handleAvatarUpload}
                 className="hidden"
               />
@@ -433,21 +663,94 @@ const ProfileEdit = () => {
                       </p>
                     </div>
 
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="shrink-0"
-                      onClick={handleLinkDiscord}
-                      disabled={linkingDiscord || linkedProviders.includes("discord")}
-                    >
-                      {linkingDiscord ? (
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      ) : (
-                        <DiscordMark className="w-4 h-4 mr-2" />
-                      )}
-                      {linkedProviders.includes("discord") ? "Discord conectado" : "Conectar Discord"}
-                    </Button>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={handleLinkDiscord}
+                        disabled={linkingDiscord || linkedProviders.includes("discord")}
+                      >
+                        {linkingDiscord ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <DiscordMark className="w-4 h-4 mr-2" />
+                        )}
+                        {linkedProviders.includes("discord") ? "Discord conectado" : "Conectar Discord"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={handleLinkGoogle}
+                        disabled={linkingGoogle || linkedProviders.includes("google")}
+                      >
+                        {linkingGoogle ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <GoogleMark className="w-4 h-4 mr-2" />
+                        )}
+                        {linkedProviders.includes("google") ? "Google conectado" : "Conectar Google"}
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="shrink-0"
+                        onClick={handleConnectTwitch}
+                        disabled={connectingTwitch || twitchConnected}
+                      >
+                        {connectingTwitch ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <TwitchMark className="w-4 h-4 mr-2" />
+                        )}
+                        {twitchConnected
+                          ? `Twitch conectado${twitchLogin ? ` (@${twitchLogin})` : ""}`
+                          : "Conectar Twitch"}
+                      </Button>
+                    </div>
                   </div>
+
+                  {twitchConnected && (
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={handleSyncTwitch}
+                        disabled={syncingTwitch}
+                      >
+                        {syncingTwitch ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <TwitchMark className="w-4 h-4 mr-2" />
+                        )}
+                        Atualizar status
+                      </Button>
+
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={handleDisconnectTwitch}
+                        disabled={syncingTwitch}
+                      >
+                        Desconectar
+                      </Button>
+                      {twitchLogin && (
+                        <a
+                          href={`https://twitch.tv/${twitchLogin}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-primary hover:underline"
+                        >
+                          Abrir canal
+                        </a>
+                      )}
+                    </div>
+                  )}
 
                   {linkedProviders.length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
@@ -477,7 +780,7 @@ const ProfileEdit = () => {
                   />
                 </div>
 
-                <PushNotificationsOptInCard userId={user?.id} />
+                {/* Push notifications removed per request. */}
               </div>
             </div>
 
@@ -556,6 +859,27 @@ const ProfileEdit = () => {
 const DiscordMark = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
     <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>
+);
+
+const GoogleMark = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      fill="currentColor"
+      d="M21.35 11.1H12v3.8h5.34c-.23 1.25-.95 2.3-2.05 3.02v2.5h3.32c1.95-1.8 3.07-4.45 3.07-7.57 0-.7-.06-1.38-.33-2.75z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 22c2.79 0 5.12-.92 6.83-2.5l-3.32-2.5c-.92.62-2.1.98-3.51.98-2.7 0-4.98-1.82-5.8-4.27H2.78v2.68C4.48 19.98 8.01 22 12 22z"
+    />
+    <path
+      fill="currentColor"
+      d="M6.2 13.71A5.99 5.99 0 0 1 5.9 12c0-.6.1-1.18.3-1.71V7.61H2.78A9.98 9.98 0 0 0 2 12c0 1.61.39 3.13.78 4.39l3.42-2.68z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 6.02c1.52 0 2.88.52 3.95 1.55l2.96-2.96C17.12 2.91 14.79 2 12 2 8.01 2 4.48 4.02 2.78 7.61l3.42 2.68C7.02 7.84 9.3 6.02 12 6.02z"
+    />
   </svg>
 );
 

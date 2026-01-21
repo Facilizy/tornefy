@@ -3,6 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Clock, Flag, Hourglass, Radio } from "lucide-react";
+import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 
 type TrainingLike = {
   datetime: string;
@@ -65,9 +66,7 @@ export function TrainingTimelineCountdownCards({
       <Card className="p-4 bg-background/50 border">
         <div className="flex items-center justify-between gap-3">
           <div className="text-xs text-muted-foreground">Timeline</div>
-          <Badge variant="outline" className="text-xs">
-            {training.status || "INSCRIÇÕES ABERTAS"}
-          </Badge>
+          <TrainingStatusBadge status={training.status} />
         </div>
 
         <Separator className="my-3" />

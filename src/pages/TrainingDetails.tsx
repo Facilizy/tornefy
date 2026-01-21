@@ -42,15 +42,15 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { TrainingChat } from "@/components/TrainingChat";
 import { RegistrationConfirmDialog } from "@/components/RegistrationConfirmDialog";
-import { Scoreboard } from "@/components/Scoreboard";
+import { Scoreboard, type ScoreboardHandle } from "@/components/Scoreboard";
 import { MatchesTab } from "@/components/MatchesTab";
 import { FloatingChat } from "@/components/FloatingChat";
 import { EventInfoSection } from "@/components/EventInfoSection";
 import { TrainingSettingsTab } from "@/components/TrainingSettingsTab";
-import { PointsTableCard } from "@/components/training/PointsTableCard";
 import { MvpListCard } from "@/components/training/MvpListCard";
 import { MinimumTeamsProgress } from "@/components/training/MinimumTeamsProgress";
 import { LoginRequiredCard } from "@/components/LoginRequiredCard";
+import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -81,6 +81,8 @@ const TrainingDetails = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [selectedLineId, setSelectedLineId] = useState<string>("");
   const [confirmMode, setConfirmMode] = useState<"register" | "claim">("register");
+
+  const scoreboardRef = useRef<ScoreboardHandle | null>(null);
 
   const [waitlistCount, setWaitlistCount] = useState(0);
   const [isInWaitlist, setIsInWaitlist] = useState(false);
@@ -200,19 +202,21 @@ const TrainingDetails = () => {
 
       // detect if there is any score registered for this training
       try {
-        const { count } = await supabase
+        const { data: matchIds } = await supabase
+          .from("training_matches")
+          .select("id")
+          .eq("training_id", id);
+        
+        const ids = (matchIds || []).map((m: any) => m.id);
+        
+        const { data: anyScore } = await supabase
           .from("training_match_scores")
-          .select(
-            `id,
-            training_matches!inner (
-              id,
-              training_id
-            )`,
-            { count: "exact", head: true }
-          )
-          .eq("training_matches.training_id", id);
+          .select("id")
+          .in("match_id", ids.length > 0 ? ids : [""])
+          .limit(1)
+          .maybeSingle();
 
-        setHasAnyScores((count || 0) > 0);
+        setHasAnyScores(!!anyScore);
       } catch {
         setHasAnyScores(false);
       }
@@ -740,7 +744,7 @@ const TrainingDetails = () => {
 
   if (loading) {
     return (
-      <MainLayout showFooter={false}>
+      <MainLayout showFooter={false} showUpcomingScrimWidget={false}>
         <div className="min-h-[50vh] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -750,7 +754,7 @@ const TrainingDetails = () => {
 
   if (!training) {
     return (
-      <MainLayout showFooter={false}>
+      <MainLayout showFooter={false} showUpcomingScrimWidget={false}>
         <div className="container mx-auto px-4 py-16 text-center">
           <p className="text-muted-foreground">Treino não encontrado</p>
           <Button onClick={() => navigate("/")} className="mt-4">
@@ -800,7 +804,7 @@ const TrainingDetails = () => {
   };
 
   return (
-    <MainLayout showFooter={false}>
+    <MainLayout showFooter={false} showUpcomingScrimWidget={false}>
       <main className="container mx-auto px-4 py-6">
         <Button
           variant="ghost"
@@ -859,9 +863,7 @@ const TrainingDetails = () => {
                 <span className="font-semibold">{training.platform}</span>
               </span>
               <span className="text-white/40">•</span>
-              <Badge variant="secondary" className="backdrop-blur-sm">
-                {training.status || "INSCRIÇÕES ABERTAS"}
-              </Badge>
+              <TrainingStatusBadge status={training.status} />
               {training.is_live && (
                 <Badge variant="destructive" className="backdrop-blur-sm">
                   <Radio className="w-3 h-3" />
@@ -1112,14 +1114,7 @@ const TrainingDetails = () => {
                       Abrir regras completas
                     </Button>
                   </div>
-                </Card>
-
-                 <PointsTableCard
-                   pointsPerKill={training.points_per_kill ?? 1}
-                   pointsPerPosition={training.points_per_position}
-                   pointsPerPositionText={training.points_per_position_text}
-                   primaryColor={eventPrimaryColor}
-                 />
+                 </Card>
 
                 {training.important_info && (
                   <Card className="p-6 bg-card/80 border-border">
@@ -1626,18 +1621,6 @@ const TrainingDetails = () => {
                   )}
                 </Card>
 
-                {/* Tabela de pontos (regras) - só aparece quando já existe pontuação registrada */}
-                {hasAnyScores && (
-                  <PointsTableCard
-                    pointsPerKill={training.points_per_kill}
-                    pointsPerPosition={
-                      Array.isArray(training.points_per_position) ? training.points_per_position : []
-                    }
-                    pointsPerPositionText={training.points_per_position_text}
-                    primaryColor={eventPrimaryColor}
-                  />
-                )}
-
                 {/* Regras / Pontuação / Ajuda */}
                 <EventInfoSection
                   rules={training.rules}
@@ -1676,9 +1659,20 @@ const TrainingDetails = () => {
                    </div>
                  </div>
                </Card>
-             ) : registeredTeams.length > 0 ? (
+              ) : registeredTeams.length > 0 ? (
                <>
+                  <div className="flex items-center justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={async () => {
+                        await scoreboardRef.current?.refresh();
+                      }}
+                    >
+                      Recarregar Ranking
+                    </Button>
+                  </div>
                  <Scoreboard
+                    ref={scoreboardRef}
                    trainingId={id!}
                    teams={registeredTeams.map((r: any) => ({
                      id: r.teams.id,
@@ -1747,14 +1741,25 @@ const TrainingDetails = () => {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {registeredTeams.map((registration: any) => (
-                      <Card key={registration.id} className="p-4 bg-background/50">
+                      <Card
+                        key={registration.id}
+                        className="p-4 bg-background/50 cursor-pointer hover:bg-muted/30"
+                        onClick={() => navigate(`/team/${registration.teams.id}`)}
+                      >
                         <div className="flex items-start gap-3">
-                          {registration.teams.logo_url && (
+                          {registration.teams.logo_url ? (
                             <img
                               src={registration.teams.logo_url}
                               alt={registration.teams.name}
                               className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                              loading="lazy"
                             />
+                          ) : (
+                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-bold">
+                                {(registration.teams.tag || registration.teams.name || "??").slice(0, 2).toUpperCase()}
+                              </span>
+                            </div>
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">

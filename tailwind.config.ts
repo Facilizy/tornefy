@@ -47,7 +47,13 @@ export default {
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
-  			}
+				},
+				status: {
+					open: 'hsl(var(--status-open))',
+					closed: 'hsl(var(--status-closed))',
+					live: 'hsl(var(--status-live))',
+					done: 'hsl(var(--status-done))'
+				}
   		},
   		fontFamily: {
   			sans: [

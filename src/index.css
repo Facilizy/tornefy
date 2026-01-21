@@ -41,6 +41,12 @@ All colors MUST be HSL.
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
 
+    /* Training status colors (HSL) */
+    --status-open: 142 76% 42%;
+    --status-closed: 0 72% 51%;
+    --status-live: 45 93% 52%;
+    --status-done: 264 100% 64%;
+
     --border: 220 10% 18%; /* More visible borders */
     --input: 214 17% 8%;
     --ring: 264 100% 64%;

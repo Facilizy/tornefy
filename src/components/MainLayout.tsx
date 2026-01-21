@@ -26,9 +26,10 @@ import { useUserRole } from "@/hooks/useUserRole";
 interface MainLayoutProps {
   children: React.ReactNode;
   showFooter?: boolean;
+  showUpcomingScrimWidget?: boolean;
 }
 
-const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
+const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = true }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [user, setUser] = useState<any>(null);
@@ -98,19 +99,19 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
 
     switch (href) {
       case "/":
-        import("@/pages/Home");
+        void import("@/pages/Home").catch(() => {});
         break;
       case "/scrims":
-        import("@/pages/Scrims");
+        void import("@/pages/Scrims").catch(() => {});
         break;
       case "/players":
-        import("@/pages/Players");
+        void import("@/pages/Players").catch(() => {});
         break;
       case "/ranking":
-        import("@/pages/Ranking");
+        void import("@/pages/Ranking").catch(() => {});
         break;
       case "/equipes":
-        import("@/pages/Teams");
+        void import("@/pages/Teams").catch(() => {});
         break;
       default:
         break;
@@ -366,7 +367,7 @@ const MainLayout = ({ children, showFooter = true }: MainLayoutProps) => {
       {showFooter && <Footer />}
       
       {/* Upcoming Scrim Widget */}
-      <UpcomingScrimWidget />
+      {showUpcomingScrimWidget && <UpcomingScrimWidget />}
     </div>
   );
 };

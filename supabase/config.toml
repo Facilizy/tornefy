@@ -1,4 +1,16 @@
 project_id = "nulmcireyubejpxiozhj"
 
-[functions.training-maintenance]
+[functions.twitch-oauth-start]
+verify_jwt = false
+
+[functions.twitch-oauth-callback]
+verify_jwt = false
+
+[functions.twitch-refresh-token]
+verify_jwt = false
+
+[functions.twitch-sync-live]
+verify_jwt = false
+
+[functions.twitch-disconnect]
 verify_jwt = false

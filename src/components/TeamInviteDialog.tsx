@@ -33,6 +33,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { buildNotificationRow } from "@/lib/notifications";
 
 interface TeamInviteDialogProps {
   teamId: string;
@@ -177,7 +178,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
             team_id: teamId,
             invited_user_id: userId,
             invited_username: username,
-            is_external: false,
+            is_external: "false",
             permission: selectedPermission,
             status: "pending",
           },
@@ -188,17 +189,19 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
       if (error) throw error;
 
       // Create notification for invited user
-      await supabase.from("notifications").insert({
-        user_id: userId,
-        title: "Novo convite de equipe",
-        message: teamInfo
-          ? `Você foi convidado para a equipe ${teamInfo.name} [${teamInfo.tag}]`
-          : "Você recebeu um novo convite de equipe.",
-        type: "team_invite",
-        related_id: inserted.id,
-        read: false,
-        created_at: new Date().toISOString(),
-      });
+      await supabase
+        .from("notifications")
+        .insert(
+          buildNotificationRow({
+            user_id: userId,
+            title: "Novo convite de equipe",
+            message: teamInfo
+              ? `Você foi convidado para a equipe ${teamInfo.name} [${teamInfo.tag}]`
+              : "Você recebeu um novo convite de equipe.",
+            type: "team_invite",
+            related_id: inserted.id,
+          })
+        );
       toast.success(`Convite enviado para @${username}`);
       fetchInvites();
       setSearchTerm("");
@@ -223,7 +226,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
       const { error } = await supabase.from("team_invites").insert([
         {
           team_id: teamId,
-          is_external: true,
+          is_external: "true",
           external_player_name: externalForm.player_name,
           external_discord: externalForm.discord || null,
           external_game_id: externalForm.game_id || null,

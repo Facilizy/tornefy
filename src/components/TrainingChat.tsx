@@ -8,6 +8,7 @@ import { Send, Loader2, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { buildNotificationRow } from "@/lib/notifications";
 
 interface Message {
   id: string;
@@ -29,6 +30,8 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   const [editText, setEditText] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isAtBottom, setIsAtBottom] = useState(true);
+  const [newBelowCount, setNewBelowCount] = useState(0);
 
   useEffect(() => {
     fetchMessages();
@@ -46,7 +49,9 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
           filter: `training_id=eq.${trainingId}`
         },
         (payload) => {
+          const next = payload.new as Message;
           setMessages(prev => [...prev, payload.new as Message]);
+          if (!isAtBottom) setNewBelowCount((c) => c + 1);
         }
       )
       .on(
@@ -83,13 +88,24 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   }, [trainingId]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (isAtBottom) scrollToBottom();
+    if (isAtBottom) setNewBelowCount(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const threshold = 40;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= threshold;
+    setIsAtBottom(atBottom);
+    if (atBottom) setNewBelowCount(0);
   };
 
   const getCurrentUser = async () => {
@@ -129,6 +145,44 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
       if (error) throw error;
       
       setNewMessage("");
+      // After sending, always go to the bottom
+      setIsAtBottom(true);
+      window.setTimeout(() => scrollToBottom(), 0);
+
+      // Create notifications for confirmed teams (owners) about new message
+      try {
+        const senderId = user?.id;
+        const { data: regs } = await supabase
+          .from("training_registrations")
+          .select("teams ( owner_id, name, tag )")
+          .eq("training_id", trainingId);
+
+        const ownerIds = Array.from(
+          new Set(
+            (regs || [])
+              .map((r: any) => r?.teams?.owner_id)
+              .filter((oid: any) => oid && oid !== senderId)
+          )
+        );
+
+        if (ownerIds.length > 0) {
+          const title = "Nova mensagem do organizador";
+          const msg = newMessage.trim().slice(0, 140);
+          const rows = ownerIds.map((uid) =>
+            buildNotificationRow({
+              user_id: String(uid),
+              title,
+              message: msg,
+              type: "training_message",
+              related_id: trainingId,
+            })
+          );
+          await supabase.from("notifications").insert(rows);
+        }
+      } catch {
+        // ignore notification failures
+      }
+
       toast.success("Mensagem enviada!");
     } catch (error: any) {
       toast.error("Erro ao enviar mensagem");
@@ -183,7 +237,24 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
     <Card className="p-4 backdrop-blur-sm bg-card/80 border-border">
       <h3 className="font-semibold mb-3">💬 Chat do Treino</h3>
       
-      <div className="h-64 mb-3 overflow-y-auto" ref={scrollRef}>
+      <div className="relative h-64 mb-3">
+        {newBelowCount > 0 && !isAtBottom && (
+          <div className="absolute inset-x-0 top-2 z-10 flex justify-center">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setIsAtBottom(true);
+                setNewBelowCount(0);
+                scrollToBottom();
+              }}
+            >
+              Novas mensagens ({newBelowCount})
+            </Button>
+          </div>
+        )}
+
+        <div className="h-full overflow-y-auto" ref={scrollRef} onScroll={handleScroll}>
         <div className="space-y-3">
           {messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
@@ -256,6 +327,7 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
               </div>
             ))
           )}
+        </div>
         </div>
       </div>
 

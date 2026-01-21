@@ -9,6 +9,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { buildNotificationRow } from "@/lib/notifications";
 
 interface Message {
   id: string;
@@ -120,6 +121,41 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
       });
 
       if (error) throw error;
+
+      // Create notifications for confirmed teams (owners) about new message
+      try {
+        const senderId = user.id;
+        const { data: regs } = await supabase
+          .from("training_registrations")
+          .select("teams ( owner_id )")
+          .eq("training_id", trainingId);
+
+        const ownerIds = Array.from(
+          new Set(
+            (regs || [])
+              .map((r: any) => r?.teams?.owner_id)
+              .filter((oid: any) => oid && oid !== senderId)
+          )
+        );
+
+        if (ownerIds.length > 0) {
+          const title = "Nova mensagem do organizador";
+          const msg = newMessage.trim().slice(0, 140);
+          const rows = ownerIds.map((uid) =>
+            buildNotificationRow({
+              user_id: String(uid),
+              title,
+              message: msg,
+              type: "training_message",
+              related_id: trainingId,
+            })
+          );
+          await supabase.from("notifications").insert(rows);
+        }
+      } catch {
+        // ignore
+      }
+
       setNewMessage("");
     } catch (error: any) {
       console.error("Error sending message:", error);

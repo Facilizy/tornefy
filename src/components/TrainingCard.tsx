@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Calendar, Users, Monitor, Gamepad2, Handshake, Layers } from "lucide-react";
 import { getGameLabel, getGameLogo } from "@/lib/games";
+import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 
 import { useNavigate } from "react-router-dom";
 
@@ -50,21 +51,6 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
     }
   };
 
-  const getStatusVariant = (status?: string) => {
-    switch (status) {
-      case "INSCRIÇÕES ABERTAS":
-        return "default";
-      case "INSCRIÇÕES ENCERRADAS":
-        return "secondary";
-      case "EM ANDAMENTO":
-        return "outline";
-      case "FINALIZADO":
-        return "destructive";
-      default:
-        return "default";
-    }
-  };
-
   const gameLabel = training.game ? getGameLabel(training.game) : undefined;
   const gameLogo = training.game ? getGameLogo(training.game) : undefined;
   const organizerLabel = training.organizer_name ? `Criado por ${training.organizer_name}` : undefined;
@@ -91,11 +77,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
         {/* Status and Live Badges */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2">
           <div className="flex items-center gap-2">
-            {training.status && (
-              <Badge variant={getStatusVariant(training.status)} className="font-bold text-xs">
-                {training.status}
-              </Badge>
-            )}
+            {training.status && <TrainingStatusBadge status={training.status} />}
             {training.is_private && (
               <TooltipProvider>
                 <Tooltip>

@@ -275,15 +275,13 @@ const MyTeam = () => {
 
       if (logoFile) {
         const fileName = `${user.id}/${Date.now()}_logo_${logoFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("team-logos")
-          .upload(fileName, logoFile, { cacheControl: "3600", upsert: true });
+          const { error: uploadError } = await supabase.storage
+            .from("team-logos")
+            .upload(fileName, logoFile, { cacheControl: "3600", upsert: true, contentType: logoFile.type });
 
         if (uploadError) {
           console.error("Erro ao enviar logo:", uploadError);
-          toast.warning(
-            "Não foi possível enviar a logo (bucket ausente?). A equipe será criada sem logo."
-          );
+            toast.error(uploadError.message || "Não foi possível enviar a logo");
         } else {
           const {
             data: { publicUrl },
@@ -295,15 +293,13 @@ const MyTeam = () => {
 
       if (bannerFile) {
         const fileName = `${user.id}/${Date.now()}_banner_${bannerFile.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from("team-banners")
-          .upload(fileName, bannerFile, { cacheControl: "3600", upsert: true });
+          const { error: uploadError } = await supabase.storage
+            .from("team-banners")
+            .upload(fileName, bannerFile, { cacheControl: "3600", upsert: true, contentType: bannerFile.type });
 
         if (uploadError) {
           console.error("Erro ao enviar banner:", uploadError);
-          toast.warning(
-            "Não foi possível enviar o banner (bucket ausente?). A equipe será criada sem banner."
-          );
+            toast.error(uploadError.message || "Não foi possível enviar o banner");
         } else {
           const {
             data: { publicUrl },

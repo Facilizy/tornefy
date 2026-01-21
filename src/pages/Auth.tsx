@@ -244,6 +244,96 @@ const Auth = () => {
         toast.success("Login realizado com sucesso!");
         if (!consumePostAuthAction()) navigate("/");
       } else {
+        // OAuth completion flow: user already exists (signed in via provider)
+        // Only complete the profile (username, role, games, terms).
+        if (isOAuthCompletion) {
+          const {
+            data: { session },
+          } = await supabase.auth.getSession();
+
+          if (!session?.user) {
+            toast.error("Sessão inválida. Faça login novamente.");
+            navigate("/auth?mode=login", { replace: true });
+            return;
+          }
+
+          // Validar termos
+          if (!acceptedTerms) {
+            toast.error("Você precisa aceitar os termos e diretrizes da plataforma");
+            return;
+          }
+
+          // Validar username
+          const desiredUsername = (formData.username || "").trim();
+          if (!desiredUsername || desiredUsername.length < 3) {
+            toast.error("Defina um username com pelo menos 3 caracteres");
+            return;
+          }
+
+          // Validar username único
+          // (permite salvar se o username já for do próprio usuário)
+          const { data: usernameOwner, error: usernameLookupError } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("username", desiredUsername)
+            .maybeSingle();
+
+          if (usernameLookupError) throw usernameLookupError;
+
+          if (usernameOwner?.id && usernameOwner.id !== session.user.id) {
+            toast.error("Este username já está em uso. Tente outro.");
+            return;
+          }
+
+          // Validar jogos preferidos
+          if (!formData.preferredGames || formData.preferredGames.length === 0) {
+            toast.error("Selecione pelo menos um jogo preferido");
+            return;
+          }
+
+          // Validar código de organizador
+          if (formData.role === "organizer") {
+            const code = formData.inviteCode.trim();
+            if (!code || code.toLowerCase() !== "tornefypremium") {
+              toast.error("Código de indicação inválido para criar conta de organizador");
+              return;
+            }
+          }
+
+          const uid = session.user.id;
+
+          const { error: upsertError } = await supabase
+            .from("profiles")
+            .upsert(
+              {
+                id: uid,
+                full_name: formData.fullName || null,
+                username: desiredUsername,
+                role: formData.role,
+                preferred_games: formData.preferredGames,
+              } as any,
+              { onConflict: "id" }
+            );
+
+          if (upsertError) throw upsertError;
+
+          // Ensure role row exists (best-effort)
+          try {
+            await (supabase as any)
+              .from("user_roles")
+              .upsert(
+                { user_id: uid, role: formData.role, assigned_at: new Date().toISOString() },
+                { onConflict: "user_id" }
+              );
+          } catch {
+            // ignore
+          }
+
+          toast.success("Perfil completo! Bem-vindo(a).");
+          if (!consumePostAuthAction()) navigate("/");
+          return;
+        }
+
         // Validar senha forte
         if (!validatePassword(formData.password)) {
           setLoading(false);
@@ -424,6 +514,17 @@ const Auth = () => {
                           >
                             <DiscordMark className="w-5 h-5" />
                             <span>Entrar com Discord</span>
+                          </Button>
+
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full justify-center gap-3 bg-background/40"
+                            onClick={() => handleOAuthLogin("google")}
+                            disabled={loading}
+                          >
+                            <GoogleMark className="w-5 h-5" />
+                            <span>Entrar com Google</span>
                           </Button>
                         </div>
                       )}
@@ -711,6 +812,27 @@ const Auth = () => {
     </MainLayout>
   );
 };
+
+const GoogleMark = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <path
+      fill="currentColor"
+      d="M21.35 11.1H12v3.8h5.34c-.23 1.25-.95 2.3-2.05 3.02v2.5h3.32c1.95-1.8 3.07-4.45 3.07-7.57 0-.7-.06-1.38-.33-2.75z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 22c2.79 0 5.12-.92 6.83-2.5l-3.32-2.5c-.92.62-2.1.98-3.51.98-2.7 0-4.98-1.82-5.8-4.27H2.78v2.68C4.48 19.98 8.01 22 12 22z"
+    />
+    <path
+      fill="currentColor"
+      d="M6.2 13.71A5.99 5.99 0 0 1 5.9 12c0-.6.1-1.18.3-1.71V7.61H2.78A9.98 9.98 0 0 0 2 12c0 1.61.39 3.13.78 4.39l3.42-2.68z"
+    />
+    <path
+      fill="currentColor"
+      d="M12 6.02c1.52 0 2.88.52 3.95 1.55l2.96-2.96C17.12 2.91 14.79 2 12 2 8.01 2 4.48 4.02 2.78 7.61l3.42 2.68C7.02 7.84 9.3 6.02 12 6.02z"
+    />
+  </svg>
+);
 
 const DiscordMark = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

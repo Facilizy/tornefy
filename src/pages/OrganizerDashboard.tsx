@@ -56,6 +56,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUserRole } from "@/hooks/useUserRole";
+import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 
 
 const OrganizerDashboard = () => {
@@ -507,7 +508,7 @@ const OrganizerDashboard = () => {
 
   if (loading) {
     return (
-      <MainLayout>
+      <MainLayout showUpcomingScrimWidget={false}>
         <div className="min-h-[50vh] flex items-center justify-center">
           <Loader2 className="w-8 h-8 animate-spin text-primary" />
         </div>
@@ -536,7 +537,7 @@ const OrganizerDashboard = () => {
   });
 
   return (
-    <MainLayout>
+    <MainLayout showUpcomingScrimWidget={false}>
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
         <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
@@ -1149,14 +1150,10 @@ const OrganizerDashboard = () => {
                           AO VIVO
                         </Badge>
                       )}
-                      <Badge
+                      <TrainingStatusBadge
+                        status={training.status}
                         className="absolute top-2 left-2"
-                        variant={
-                          training.status === "INSCRIÇÕES ABERTAS" ? "default" : "destructive"
-                        }
-                      >
-                        {training.status || "INSCRIÇÕES ABERTAS"}
-                      </Badge>
+                      />
                     </div>
 
                     <div className="p-4 space-y-3">

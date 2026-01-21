@@ -16,6 +16,7 @@ import {
   UserPlus
 } from "lucide-react";
 import { toast } from "sonner";
+import { buildNotificationRow } from "@/lib/notifications";
 
 interface TeamInvite {
   id: string;
@@ -140,14 +141,17 @@ const PendingInvites = () => {
         .single();
 
       if (team) {
-        await supabase.from("notifications").insert({
-          user_id: team.owner_id,
-          type: "invite_accepted",
-          title: "Convite Aceito!",
-          message: `${profile?.full_name || "Um jogador"} aceitou seu convite para ${team.name}`,
-          related_id: invite.team_id,
-          created_at: new Date().toISOString(),
-        });
+        await supabase
+          .from("notifications")
+          .insert(
+            buildNotificationRow({
+              user_id: team.owner_id,
+              type: "invite_accepted",
+              title: "Convite Aceito!",
+              message: `${profile?.full_name || "Um jogador"} aceitou seu convite para ${team.name}`,
+              related_id: invite.team_id,
+            })
+          );
       }
 
       toast.success("Convite aceito com sucesso!");
@@ -178,14 +182,17 @@ const PendingInvites = () => {
         .single();
 
       if (team) {
-        await supabase.from("notifications").insert({
-          user_id: team.owner_id,
-          type: "invite_rejected",
-          title: "Convite Recusado",
-          message: `${profile?.full_name || "Um jogador"} recusou seu convite para ${team.name}`,
-          related_id: invite.team_id,
-          created_at: new Date().toISOString(),
-        });
+        await supabase
+          .from("notifications")
+          .insert(
+            buildNotificationRow({
+              user_id: team.owner_id,
+              type: "invite_rejected",
+              title: "Convite Recusado",
+              message: `${profile?.full_name || "Um jogador"} recusou seu convite para ${team.name}`,
+              related_id: invite.team_id,
+            })
+          );
       }
 
       toast.success("Convite recusado");

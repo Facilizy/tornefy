@@ -7,6 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
+import TeamTagBadge from "@/components/TeamTagBadge";
+import LiveNowSection from "@/components/twitch/LiveNowSection";
 import { useOrganizerFollow } from "@/hooks/useOrganizerFollow";
 import {
   Award,
@@ -41,6 +44,8 @@ const UserProfile = () => {
   const [organizerVerified, setOrganizerVerified] = useState(false);
   const [organizerTrainings, setOrganizerTrainings] = useState<any[]>([]);
 
+  const [selfTwitchConnected, setSelfTwitchConnected] = useState(false);
+
   const [followedOrganizers, setFollowedOrganizers] = useState<
     Array<{ id: string; full_name: string | null; username: string | null; avatar_url: string | null }>
   >([]);
@@ -67,6 +72,10 @@ const UserProfile = () => {
 
   const [loading, setLoading] = useState(true);
 
+  const [mainTeam, setMainTeam] = useState<
+    { id: string; tag: string; primary_color: string | null } | null
+  >(null);
+
   useEffect(() => {
     checkUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -76,6 +85,35 @@ const UserProfile = () => {
     if (isOwnProfile) fetchFollowedOrganizers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOwnProfile, user?.id]);
+
+  useEffect(() => {
+    // Only the profile owner can sync; also avoid calling the sync function if Twitch isn't connected.
+    if (!isOwnProfile) {
+      setSelfTwitchConnected(false);
+      return;
+    }
+    if (!profile?.id) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from("twitch_live_status")
+          .select("twitch_login")
+          .eq("user_id", profile.id)
+          .maybeSingle();
+        if (cancelled) return;
+        if (error) throw error;
+        setSelfTwitchConnected(!!data?.twitch_login);
+      } catch {
+        if (!cancelled) setSelfTwitchConnected(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, profile?.id]);
 
   const checkUser = async () => {
     setLoading(true);
@@ -180,8 +218,9 @@ const UserProfile = () => {
     // Buscar times em que o jogador está cadastrado
     const { data: teamMembers, error: tmError } = await supabase
       .from("team_members")
-      .select("id, team_id")
-      .eq("user_id", uid);
+      .select("id, team_id, created_at")
+      .eq("user_id", uid)
+      .order("created_at", { ascending: true });
 
     if (tmError) throw tmError;
 
@@ -189,6 +228,23 @@ const UserProfile = () => {
     const teamIds = Array.from(
       new Set((teamMembers || []).map((m: any) => m.team_id).filter(Boolean))
     );
+
+    // Main team = oldest membership (first row due to ordering)
+    const mainTeamId = (teamMembers || [])?.[0]?.team_id as string | undefined;
+    if (mainTeamId) {
+      const { data: t, error: tErr } = await supabase
+        .from("teams")
+        .select("id, tag, primary_color")
+        .eq("id", mainTeamId)
+        .maybeSingle();
+      if (!tErr && t?.id) {
+        setMainTeam({ id: t.id, tag: t.tag || "", primary_color: t.primary_color ?? null });
+      } else {
+        setMainTeam(null);
+      }
+    } else {
+      setMainTeam(null);
+    }
 
     let totalScrims = 0;
 
@@ -370,7 +426,7 @@ const UserProfile = () => {
 
   if (loading) {
     return (
-      <MainLayout>
+      <MainLayout showUpcomingScrimWidget={false}>
         <div className="min-h-[50vh] flex items-center justify-center">
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
@@ -379,7 +435,7 @@ const UserProfile = () => {
   }
 
   return (
-    <MainLayout>
+    <MainLayout showUpcomingScrimWidget={false}>
       {/* Banner */}
       <header className="relative h-48 md:h-64 bg-gradient-to-r from-primary/20 via-muted/10 to-primary/20 overflow-hidden">
         {profile?.banner_url && (
@@ -415,6 +471,9 @@ const UserProfile = () => {
                 <h1 className="text-3xl font-black uppercase">
                   {profile?.full_name || "Usuário"}
                 </h1>
+                {!isOrganizer && mainTeam?.tag ? (
+                  <TeamTagBadge tag={mainTeam.tag} primaryColor={mainTeam.primary_color} />
+                ) : null}
                 {isOrganizer && organizerVerified && (
                   <VerifiedBadge variant="pill" size="md" label="Organizador verificado" />
                 )}
@@ -469,6 +528,15 @@ const UserProfile = () => {
             ) : null}
           </div>
         </section>
+
+        {/* Live now (Twitch) */}
+        {profile?.id ? (
+          <LiveNowSection
+            userIds={[profile.id]}
+            enableSelfSync={!!isOwnProfile && selfTwitchConnected}
+            intervalMs={3 * 60 * 1000}
+          />
+        ) : null}
 
         {isOrganizer ? (
           <section className="space-y-6">
@@ -558,7 +626,7 @@ const UserProfile = () => {
                               {(GAME_LABELS[t.game] || t.game) + " • " + (t.platform || "-") + " • " + (t.mode || "-")}
                             </p>
                           </div>
-                          <span className="text-xs text-muted-foreground">{t.status}</span>
+                          <TrainingStatusBadge status={t.status} />
                         </div>
                         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
                           <span>

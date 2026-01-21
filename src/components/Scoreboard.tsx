@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Trophy, Target, Crown, Medal } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Team {
   id: string;
@@ -47,11 +48,20 @@ interface ScoreboardProps {
   primaryColor?: string;
 }
 
-export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: ScoreboardProps) {
+export type ScoreboardHandle = {
+  refresh: () => Promise<void>;
+};
+
+export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function Scoreboard(
+  { trainingId, teams, primaryColor = "#9146FF" },
+  ref
+) {
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRound, setSelectedRound] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const navigate = useNavigate();
 
   const matchIdsRef = useRef<Set<string>>(new Set());
   const refetchTimeoutRef = useRef<number | null>(null);
@@ -125,6 +135,18 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRound]);
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh: async () => {
+        await fetchMatchIds();
+        await fetchStandings();
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [trainingId, selectedRound]
+  );
+
   const fetchRounds = async () => {
     const { data } = await supabase
       .from("training_rounds")
@@ -138,81 +160,113 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
   };
 
   const fetchStandings = async () => {
-    setLoading(true);
-    
-    let query = supabase
-      .from("training_match_scores")
-      .select(`
-        *,
-        training_matches!inner (
-          id,
-          training_id,
-          round_id
-        )
-      `)
-      .eq("training_matches.training_id", trainingId);
+    const hasPrevious = standings.length > 0;
+    if (!hasPrevious) setLoading(true);
+    else setRefreshing(true);
 
-    if (selectedRound && selectedRound !== "all") {
-      query = query.eq("training_matches.round_id", selectedRound);
+    try {
+      // NOTE: There is no FK relationship cached between training_match_scores and training_matches,
+      // so we cannot rely on `training_matches!inner(...)` joins here.
+      const { data: matches, error: matchesError } = await supabase
+        .from("training_matches")
+        .select("id, round_id")
+        .eq("training_id", trainingId)
+        .order("match_number", { ascending: true });
+
+      if (matchesError) throw matchesError;
+
+      const filteredMatches =
+        selectedRound && selectedRound !== "all"
+          ? (matches || []).filter((m: any) => m.round_id === selectedRound)
+          : (matches || []);
+
+      const matchIds = filteredMatches.map((m: any) => m.id).filter(Boolean);
+
+      if (matchIds.length === 0) {
+        if (!hasPrevious) setStandings([]);
+        return;
+      }
+
+      const { data: scores, error: scoresError } = await supabase
+        .from("training_match_scores")
+        .select("*")
+        .in("match_id", matchIds);
+
+      if (scoresError) throw scoresError;
+
+      if (scores && scores.length > 0) {
+        // Aggregate scores per team
+        const teamScores: Record<
+          string,
+          {
+            totalKills: number;
+            totalPositionPoints: number;
+            totalKillPoints: number;
+            totalPoints: number;
+            matchesPlayed: number;
+          }
+        > = {};
+
+        scores.forEach((score: any) => {
+          const teamId = String(score.team_id ?? "");
+          if (!teamId) return;
+
+          if (!teamScores[teamId]) {
+            teamScores[teamId] = {
+              totalKills: 0,
+              totalPositionPoints: 0,
+              totalKillPoints: 0,
+              totalPoints: 0,
+              matchesPlayed: 0,
+            };
+          }
+
+          // Normalize numeric fields (bigint can arrive as string)
+          const kills = Number(score.kills ?? 0);
+          const posPts = Number(score.position_points ?? 0);
+          const killPts = Number(score.kill_points ?? 0);
+          const totalPts = Number(score.total_points ?? 0);
+
+          teamScores[teamId].totalKills += kills;
+          teamScores[teamId].totalPositionPoints += posPts;
+          teamScores[teamId].totalKillPoints += killPts;
+          teamScores[teamId].totalPoints += totalPts;
+          teamScores[teamId].matchesPlayed += 1;
+        });
+
+        const standingsArray: TeamStanding[] = Object.entries(teamScores)
+          .map(([teamId, stats]) => {
+            const team = teams.find((t) => t.id === teamId);
+            return {
+              team: team || { id: teamId, name: "Equipe Desconhecida", tag: "???" },
+              ...stats,
+            };
+          })
+          .sort((a, b) => b.totalPoints - a.totalPoints);
+
+        setStandings(standingsArray);
+      } else {
+        // Avoid wiping UI during the brief delete+insert window when saving scores.
+        // We'll keep the last standings and try again shortly.
+        scheduleRefetch();
+      }
+    } catch {
+      // keep last known UI
+      scheduleRefetch();
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    const { data: scores } = await query;
-
-    if (scores && scores.length > 0) {
-      // Aggregate scores per team
-      const teamScores: Record<string, {
-        totalKills: number;
-        totalPositionPoints: number;
-        totalKillPoints: number;
-        totalPoints: number;
-        matchesPlayed: number;
-      }> = {};
-
-      scores.forEach((score) => {
-        if (!teamScores[score.team_id]) {
-          teamScores[score.team_id] = {
-            totalKills: 0,
-            totalPositionPoints: 0,
-            totalKillPoints: 0,
-            totalPoints: 0,
-            matchesPlayed: 0,
-          };
-        }
-
-        teamScores[score.team_id].totalKills += score.kills;
-        teamScores[score.team_id].totalPositionPoints += score.position_points;
-        teamScores[score.team_id].totalKillPoints += score.kill_points;
-        teamScores[score.team_id].totalPoints += score.total_points;
-        teamScores[score.team_id].matchesPlayed += 1;
-      });
-
-      // Build standings array
-      const standingsArray: TeamStanding[] = Object.entries(teamScores)
-        .map(([teamId, stats]) => {
-          const team = teams.find(t => t.id === teamId);
-          return {
-            team: team || { id: teamId, name: "Equipe Desconhecida", tag: "???" },
-            ...stats,
-          };
-        })
-        .sort((a, b) => b.totalPoints - a.totalPoints);
-
-      setStandings(standingsArray);
-    } else {
-      setStandings([]);
-    }
-
-    setLoading(false);
   };
 
   const getPositionIcon = (position: number) => {
     switch (position) {
       case 1:
-        return <Crown className="w-5 h-5 text-yellow-500" />;
+        return <Crown className="w-5 h-5 text-primary" />;
       case 2:
-        return <Medal className="w-5 h-5 text-gray-400" />;
+        return <Medal className="w-5 h-5 text-muted-foreground" />;
       case 3:
-        return <Medal className="w-5 h-5 text-amber-600" />;
+        return <Medal className="w-5 h-5 text-accent-foreground" />;
       default:
         return null;
     }
@@ -221,17 +275,17 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
   const getRowStyle = (position: number) => {
     switch (position) {
       case 1:
-        return "bg-yellow-500/10 border-l-4 border-l-yellow-500";
+        return "bg-primary/10 border-l-4 border-l-primary";
       case 2:
-        return "bg-gray-400/10 border-l-4 border-l-gray-400";
+        return "bg-muted/40 border-l-4 border-l-muted";
       case 3:
-        return "bg-amber-600/10 border-l-4 border-l-amber-600";
+        return "bg-accent/20 border-l-4 border-l-accent";
       default:
         return "";
     }
   };
 
-  if (loading) {
+  if (loading && standings.length === 0) {
     return (
       <Card className="p-6">
         <div className="animate-pulse space-y-4">
@@ -243,7 +297,11 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
   }
 
   if (standings.length === 0) {
-    return null;
+    return (
+      <Card className="p-6 backdrop-blur-sm bg-card/80 border-border">
+        <div className="text-sm text-muted-foreground">Nenhuma pontuação registrada ainda.</div>
+      </Card>
+    );
   }
 
   return (
@@ -271,6 +329,10 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
         </div>
       </div>
 
+      {refreshing && (
+        <div className="mb-4 text-xs text-muted-foreground">Atualizando…</div>
+      )}
+
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
@@ -289,7 +351,11 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
           </TableHeader>
           <TableBody>
             {standings.map((standing, index) => (
-              <TableRow key={standing.team.id} className={getRowStyle(index + 1)}>
+              <TableRow
+                key={standing.team.id}
+                className={getRowStyle(index + 1) + " cursor-pointer hover:bg-muted/30"}
+                onClick={() => navigate(`/team/${standing.team.id}`)}
+              >
                 <TableCell>
                   <div className="flex items-center gap-2">
                     {getPositionIcon(index + 1)}
@@ -332,4 +398,4 @@ export function Scoreboard({ trainingId, teams, primaryColor = "#9146FF" }: Scor
       </div>
     </Card>
   );
-}
+});
