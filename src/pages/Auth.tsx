@@ -27,6 +27,29 @@ const Auth = () => {
 
   const isOAuthCompletion = new URLSearchParams(location.search).get("complete") === "1";
 
+  // Se já estiver logado, não deve acessar /auth (login/cadastro)
+  useEffect(() => {
+    if (isOAuthCompletion) return;
+
+    let mounted = true;
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!mounted) return;
+      if (session?.user) navigate("/", { replace: true });
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return;
+      if (session?.user) navigate("/", { replace: true });
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [navigate, isOAuthCompletion]);
+
   const consumePostAuthAction = () => {
     try {
       const raw = localStorage.getItem("post_auth_action");

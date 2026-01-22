@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, Search, Loader2 } from "lucide-react";
 import TeamTagBadge from "@/components/TeamTagBadge";
@@ -23,78 +24,122 @@ const Players = () => {
   const navigate = useNavigate();
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
 
-  useEffect(() => {
-    const run = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url")
-          .order("created_at", { ascending: false });
-        if (error) throw error;
+  const supportsIntersectionObserver =
+    typeof window !== "undefined" && "IntersectionObserver" in window;
 
-        const basePlayers = (data || []) as PlayerProfile[];
-        const userIds = basePlayers.map((p) => p.id).filter(Boolean);
+  const PAGE_SIZE = 48;
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-        if (userIds.length === 0) {
-          setPlayers([]);
-          return;
-        }
+  const fetchPage = async ({ offset, append }: { offset: number; append: boolean }) => {
+    const isFirst = offset === 0;
+    try {
+      if (isFirst) setLoading(true);
+      else setLoadingMore(true);
 
-        // Find the player's "main team" as the oldest team_members row for that user.
-        const { data: memberRows, error: tmError } = await supabase
-          .from("team_members")
-          .select("user_id, team_id, created_at")
-          .in("user_id", userIds)
-          .order("created_at", { ascending: true });
+      const { data, error, count } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url", { count: isFirst ? "exact" : undefined })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + PAGE_SIZE - 1);
+      if (error) throw error;
 
-        if (tmError) throw tmError;
+      if (isFirst && typeof count === "number") setTotalCount(count);
 
-        const mainTeamByUser = new Map<string, string>();
-        (memberRows || []).forEach((row: any) => {
-          if (!row?.user_id || !row?.team_id) return;
-          // because we sorted ascending, first occurrence is the oldest (main team)
-          if (!mainTeamByUser.has(row.user_id)) mainTeamByUser.set(row.user_id, row.team_id);
-        });
+      const basePlayers = (data || []) as PlayerProfile[];
+      const userIds = basePlayers.map((p) => p.id).filter(Boolean);
 
-        const teamIds = Array.from(new Set(Array.from(mainTeamByUser.values())));
-        const teamsById = new Map<string, { id: string; tag: string; primary_color: string | null }>();
-
-        if (teamIds.length > 0) {
-          const { data: teamsData, error: tError } = await supabase
-            .from("teams")
-            .select("id, tag, primary_color")
-            .in("id", teamIds);
-          if (tError) throw tError;
-
-          (teamsData || []).forEach((t: any) => {
-            if (!t?.id) return;
-            teamsById.set(t.id, {
-              id: t.id,
-              tag: t.tag || "",
-              primary_color: t.primary_color ?? null,
-            });
-          });
-        }
-
-        setPlayers(
-          basePlayers.map((p) => {
-            const teamId = mainTeamByUser.get(p.id);
-            const team = teamId ? teamsById.get(teamId) : undefined;
-            return { ...p, team: team ?? null };
-          })
-        );
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+      if (userIds.length === 0) {
+        if (!append) setPlayers([]);
+        setHasMore(false);
+        return;
       }
-    };
 
-    run();
+      // Find the player's "main team" as the oldest team_members row for that user.
+      const { data: memberRows, error: tmError } = await supabase
+        .from("team_members")
+        .select("user_id, team_id, created_at")
+        .in("user_id", userIds)
+        .order("created_at", { ascending: true });
+
+      if (tmError) throw tmError;
+
+      const mainTeamByUser = new Map<string, string>();
+      (memberRows || []).forEach((row: any) => {
+        if (!row?.user_id || !row?.team_id) return;
+        // because we sorted ascending, first occurrence is the oldest (main team)
+        if (!mainTeamByUser.has(row.user_id)) mainTeamByUser.set(row.user_id, row.team_id);
+      });
+
+      const teamIds = Array.from(new Set(Array.from(mainTeamByUser.values())));
+      const teamsById = new Map<string, { id: string; tag: string; primary_color: string | null }>();
+
+      if (teamIds.length > 0) {
+        const { data: teamsData, error: tError } = await supabase
+          .from("teams")
+          .select("id, tag, primary_color")
+          .in("id", teamIds);
+        if (tError) throw tError;
+
+        (teamsData || []).forEach((t: any) => {
+          if (!t?.id) return;
+          teamsById.set(t.id, {
+            id: t.id,
+            tag: t.tag || "",
+            primary_color: t.primary_color ?? null,
+          });
+        });
+      }
+
+      const pagePlayers = basePlayers.map((p) => {
+        const teamId = mainTeamByUser.get(p.id);
+        const team = teamId ? teamsById.get(teamId) : undefined;
+        return { ...p, team: team ?? null };
+      });
+
+      setPlayers((prev) => (append ? [...prev, ...pagePlayers] : pagePlayers));
+      setHasMore(basePlayers.length === PAGE_SIZE);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPage({ offset: 0, append: false });
   }, []);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setSearchTerm(searchInput), 300);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    if (!loadMoreRef.current) return;
+    if (!hasMore) return;
+    if (!supportsIntersectionObserver) return;
+
+    const el = loadMoreRef.current;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        const first = entries[0];
+        if (!first?.isIntersecting) return;
+        if (loading || loadingMore) return;
+        fetchPage({ offset: players.length, append: true });
+      },
+      { rootMargin: "600px" }
+    );
+
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [players.length, hasMore, loading, loadingMore, supportsIntersectionObserver]);
 
   const filteredPlayers = useMemo(() => {
     if (!searchTerm) return players;
@@ -129,12 +174,21 @@ const Players = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Buscar por nome ou @username..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="pl-10 bg-background/40"
             />
           </div>
         </section>
+
+        {!loading && (totalCount ?? 0) > 0 && (
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Mostrando <span className="font-semibold text-foreground">{filteredPlayers.length}</span> de{" "}
+              <span className="font-semibold text-foreground">{totalCount}</span>
+            </p>
+          </div>
+        )}
 
         {loading ? (
           <div className="min-h-[40vh] flex items-center justify-center">
@@ -147,11 +201,11 @@ const Players = () => {
             <p className="text-muted-foreground">Tente ajustar a busca</p>
           </section>
         ) : (
-          <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 justify-items-center">
             {filteredPlayers.map((p) => (
               <Card
                 key={p.id}
-                className="p-4 bg-card border-border hover:border-primary/30 transition-all cursor-pointer"
+                className="w-[232px] p-4 bg-card border-border hover:border-primary/30 transition-all cursor-pointer"
                 onClick={() => navigate(`/profile/${p.id}`)}
               >
                 <div className="flex items-center gap-3">
@@ -185,6 +239,32 @@ const Players = () => {
               </Card>
             ))}
           </section>
+        )}
+
+        {!loading && filteredPlayers.length > 0 && (
+          <div className="mt-10 flex flex-col items-center gap-3">
+            {loadingMore ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Carregando mais...
+              </div>
+            ) : hasMore ? (
+              supportsIntersectionObserver ? (
+                <p className="text-xs text-muted-foreground">Role para carregar mais jogadores</p>
+              ) : (
+                <Button
+                  variant="outline"
+                  onClick={() => fetchPage({ offset: players.length, append: true })}
+                  disabled={loadingMore}
+                >
+                  Carregar mais
+                </Button>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">Fim da lista</p>
+            )}
+            <div ref={loadMoreRef} className="h-1 w-full" />
+          </div>
         )}
       </main>
     </MainLayout>

@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { X, ChevronUp, Calendar, Clock, Users, Gamepad2 } from "lucide-react";
+import { X, ChevronUp, Calendar, Clock, Users, Gamepad2, Bug } from "lucide-react";
 import { getGameLabel } from "@/lib/games";
+import { BugReportDialog } from "@/components/bug-report/BugReportDialog";
 
 
 interface UpcomingScrim {
@@ -19,6 +20,7 @@ interface UpcomingScrim {
 export const UpcomingScrimWidget = () => {
   const navigate = useNavigate();
   const [scrim, setScrim] = useState<UpcomingScrim | null>(null);
+  const [bugOpen, setBugOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(() => {
     try {
       return localStorage.getItem("upcoming_scrim_minimized") === "1";
@@ -114,7 +116,7 @@ export const UpcomingScrimWidget = () => {
   const scrimDate = new Date(scrim.datetime);
 
   return (
-    <div className="fixed bottom-4 right-4 z-40">
+    <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2 items-stretch">
       <Card className="bg-card border-border shadow-xl overflow-hidden w-80">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 bg-primary/10 border-b border-border">
@@ -223,6 +225,23 @@ export const UpcomingScrimWidget = () => {
           </div>
         )}
       </Card>
+
+      {/* Botão de debug pequeno abaixo do card */}
+      <div className="w-80 flex justify-end">
+        <Button
+          type="button"
+          size="icon"
+          variant="outline"
+          className="h-10 w-10 rounded-full bg-background/40 backdrop-blur border-primary/30 text-primary hover:bg-primary/10"
+          onClick={() => setBugOpen(true)}
+          aria-label="Reportar bug"
+          title="Reportar bug"
+        >
+          <Bug className="h-4 w-4" />
+        </Button>
+      </div>
+
+      <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
     </div>
   );
 };

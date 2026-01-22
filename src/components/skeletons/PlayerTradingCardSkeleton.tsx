@@ -4,15 +4,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function PlayerTradingCardSkeleton({ className }: { className?: string }) {
   return (
     <div className={className || ""}>
-      <Card className="overflow-hidden bg-card/45 border-border backdrop-blur">
-        <div className="relative h-[210px] sm:h-[230px]">
+      <Card className="h-[460px] overflow-hidden bg-card/45 border-border backdrop-blur flex flex-col">
+        <div className="relative h-[212px] shrink-0">
           <Skeleton className="absolute inset-0" />
           <div className="absolute left-4 top-4">
             <Skeleton className="h-11 w-11 rounded-2xl" />
           </div>
         </div>
 
-        <div className="p-4">
+        <div className="p-4 flex-1">
           <Skeleton className="h-3 w-28" />
           <Skeleton className="mt-3 h-6 w-44" />
           <Skeleton className="mt-2 h-4 w-24" />

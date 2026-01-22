@@ -89,7 +89,8 @@ const PendingInvites = () => {
           )
         `)
         .eq("invited_user_id", user.id)
-        .eq("status", "pending")
+        // Legacy support: some rows may have NULL status but should be treated as pending
+        .or("status.eq.pending,status.is.null")
         .order("created_at", { ascending: false });
 
       if (error) throw error;

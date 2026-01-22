@@ -42,7 +42,8 @@ All colors MUST be HSL.
     --destructive-foreground: 0 0% 98%;
 
     /* Training status colors (HSL) */
-    --status-open: 142 76% 42%;
+    /* mais "verde" e legível no tema roxo */
+    --status-open: 142 86% 45%;
     --status-closed: 0 72% 51%;
     --status-live: 45 93% 52%;
     --status-done: 264 100% 64%;

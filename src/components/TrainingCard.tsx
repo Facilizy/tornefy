@@ -55,8 +55,12 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
   const gameLogo = training.game ? getGameLogo(training.game) : undefined;
   const organizerLabel = training.organizer_name ? `Criado por ${training.organizer_name}` : undefined;
 
+  const isOpen = availableSlots > 0;
+  const normalizedStatus = (training.status || "").trim().toUpperCase();
+  const showStatusBadge = !!training.status && normalizedStatus !== "INSCRIÇÕES ABERTAS";
+
   return (
-    <Card className="group overflow-hidden bg-card/70 border-border hover:border-primary/50 transition-all duration-300 hover:-translate-y-0.5">
+    <Card className="group h-full overflow-hidden bg-card/60 border-border hover:border-primary/30 transition-all duration-300 hover:-translate-y-0.5">
       {/* Banner */}
       <div className="relative h-56 bg-gradient-primary overflow-hidden">
         {training.banner_url ? (
@@ -72,12 +76,23 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
           </div>
         )}
 
-        <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/45 to-transparent" />
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-primary/20 via-transparent to-transparent" />
 
         {/* Status and Live Badges */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2">
           <div className="flex items-center gap-2">
-            {training.status && <TrainingStatusBadge status={training.status} />}
+            <Badge
+              variant="outline"
+              className={
+                isOpen
+                  ? "pointer-events-none rounded-full border-status-open/50 bg-status-open/80 text-foreground"
+                  : "pointer-events-none rounded-full border-status-closed/50 bg-status-closed/80 text-foreground"
+              }
+            >
+              {isOpen ? "INSCRIÇÕES ABERTAS" : "LOTADO"}
+            </Badge>
+            {showStatusBadge && <TrainingStatusBadge status={training.status} showFallback={false} />}
             {training.is_private && (
               <TooltipProvider>
                 <Tooltip>
@@ -125,8 +140,8 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
       </div>
 
       {/* Content */}
-      <div className="p-4 space-y-4">
-        <div className="space-y-2">
+      <div className="p-4 space-y-4 flex flex-col">
+        <div className="space-y-2 flex-1">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="w-4 h-4" />
             <span>
@@ -180,7 +195,11 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
         </div>
 
         {/* CTA Button */}
-        <Button onClick={() => navigate(`/training/${training.id}`)} className="w-full" size="lg">
+        <Button
+          onClick={() => navigate(`/training/${training.id}`)}
+          className="w-full mt-auto"
+          size="lg"
+        >
           Ver Detalhes
         </Button>
       </div>

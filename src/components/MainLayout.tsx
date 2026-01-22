@@ -374,6 +374,8 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
       
       {/* Upcoming Scrim Widget */}
       {showUpcomingScrimWidget && <UpcomingScrimWidget />}
+
+      {/* Report bug fica dentro do widget de Próxima Scrim */}
     </div>
   );
 };

@@ -12,7 +12,8 @@ export function TwitchOAuthCallbackForwarder() {
 
   useEffect(() => {
     const sp = new URLSearchParams(location.search);
-    const hasTwitchParams = sp.has("code") && sp.has("state") && sp.has("scope");
+    // Alguns retornos da Twitch podem não incluir `scope` no querystring.
+    const hasTwitchParams = sp.has("code") && sp.has("state");
     if (!hasTwitchParams) return;
 
     const supabaseUrl = (supabase as any)?.supabaseUrl as string | undefined;

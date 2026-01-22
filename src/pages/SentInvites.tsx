@@ -19,7 +19,7 @@ const buildExpiresAt = () =>
   new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
 interface SentInvite {
-  id: string;
+  id: string | null;
   invited_user_id: string | null;
   invited_username: string | null;
   /** Supabase table stores this as text ("true"/"false") */
@@ -157,6 +157,9 @@ const SentInvites = () => {
       return;
     }
 
+    // Legacy safeguard: some old rows can have NULL id (cannot update by id)
+    const inviteId = invite.id ?? null;
+
     if (!invite.status || invite.status === "pending") {
       const remaining = getCooldownRemainingMinutes(invite);
       if (remaining > 0) {
@@ -166,25 +169,39 @@ const SentInvites = () => {
     }
 
     try {
-      setResendLoading(invite.id);
+      setResendLoading(inviteId ?? "legacy");
 
-      const { data: inserted, error } = await supabase
-        .from("team_invites")
-        .insert([
-          {
-            team_id: team.id,
-            invited_user_id: invite.invited_user_id,
-            invited_username: invite.invited_username,
-            is_external: "false",
-            permission: invite.permission ?? "member",
+      // Re-send should NOT create a new row (prevents duplicates and avoids unique-index conflicts).
+      // Prefer updating the existing invite row. If it's a legacy row without id, create a fresh one.
+      if (inviteId) {
+        const { error: updateError } = await supabase
+          .from("team_invites")
+          .update({
             status: "pending",
             expires_at: buildExpiresAt(),
-          },
-        ])
-        .select("id")
-        .single();
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", inviteId);
 
-      if (error) throw error;
+        if (updateError) throw updateError;
+      } else {
+        const { error: insertError } = await supabase
+          .from("team_invites")
+          .insert([
+            {
+              id: crypto.randomUUID(),
+              team_id: team.id,
+              invited_user_id: invite.invited_user_id,
+              invited_username: invite.invited_username,
+              is_external: "false",
+              permission: invite.permission ?? "member",
+              status: "pending",
+              expires_at: buildExpiresAt(),
+              updated_at: new Date().toISOString(),
+            },
+          ]);
+        if (insertError) throw insertError;
+      }
 
       await supabase.from("notifications").insert(
         buildNotificationRow({
@@ -194,7 +211,7 @@ const SentInvites = () => {
             ? `Você foi convidado para a equipe ${team.name} [${team.tag}]`
             : "Você recebeu um novo convite de equipe.",
           type: "team_invite",
-          related_id: inserted?.id ?? null,
+          related_id: inviteId,
         })
       );
 
@@ -262,8 +279,12 @@ const SentInvites = () => {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {invites.map((invite) => (
-              <Card key={invite.id} className="p-6 bg-card/80 border-border">
+            {invites.map((invite) => {
+              const inviteKey = invite.id ?? `${invite.invited_user_id ?? "unknown"}-${invite.created_at ?? ""}`;
+              const inviteLoadingKey = invite.id ?? "legacy";
+
+              return (
+              <Card key={inviteKey} className="p-6 bg-card/80 border-border">
                 <div className="flex items-start gap-4">
                   {/* Team logo or initials */}
                   {team?.logo_url ? (
@@ -332,7 +353,7 @@ const SentInvites = () => {
                           const remaining = (!invite.status || invite.status === "pending")
                             ? getCooldownRemainingMinutes(invite)
                             : 0;
-                          const disabled = resendLoading === invite.id || remaining > 0;
+                          const disabled = resendLoading === inviteLoadingKey || remaining > 0;
 
                           const targetLabel = invite.invited_username
                             ? `@${invite.invited_username}`
@@ -346,7 +367,7 @@ const SentInvites = () => {
                               targetLabel={targetLabel}
                               messagePreview={messagePreview}
                               onConfirm={() => handleResendInvite(invite)}
-                              confirmLabel={resendLoading === invite.id ? "Enviando..." : "Reenviar"}
+                                confirmLabel={resendLoading === inviteLoadingKey ? "Enviando..." : "Reenviar"}
                               trigger={
                                 <Button
                                   type="button"
@@ -355,7 +376,7 @@ const SentInvites = () => {
                                   className="w-full"
                                   disabled={disabled}
                                 >
-                                  {resendLoading === invite.id ? (
+                                    {resendLoading === inviteLoadingKey ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                   ) : (
                                     <>
@@ -382,7 +403,8 @@ const SentInvites = () => {
                   </div>
                 </div>
               </Card>
-            ))}
+              );
+            })}
           </div>
         )}
       </main>

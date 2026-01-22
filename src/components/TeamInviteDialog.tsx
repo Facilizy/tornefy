@@ -179,6 +179,8 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
         .from("team_invites")
         .insert([
           {
+            // Ensure we always have an id (some legacy rows ended up with NULL id)
+            id: crypto.randomUUID(),
             team_id: teamId,
             invited_user_id: userId,
             invited_username: username,
@@ -230,6 +232,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
       setSending(true);
       const { error } = await supabase.from("team_invites").insert([
         {
+          id: crypto.randomUUID(),
           team_id: teamId,
           is_external: "true",
           external_player_name: externalForm.player_name,

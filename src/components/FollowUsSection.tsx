@@ -6,45 +6,45 @@ const socialLinks = [
     name: "YouTube",
     icon: YouTubeIcon,
     href: "https://www.youtube.com/@tornefytv",
-    color: "text-red-500",
   },
   {
     name: "X / Twitter",
     icon: XIcon,
     href: "#",
-    color: "text-foreground",
   },
   {
     name: "Instagram",
     icon: InstagramIcon,
     href: "#",
-    color: "text-pink-500",
   },
   {
     name: "TikTok",
     icon: TikTokIcon,
     href: "#",
-    color: "text-emerald-400",
   },
   {
     name: "Twitch",
     icon: TwitchIcon,
     href: "https://www.twitch.tv/tornefytv",
-    color: "text-purple-500",
   },
   {
     name: "Discord",
     icon: DiscordIcon,
     href: "https://discord.gg/bHgPsBfN7r",
-    color: "text-[#5865F2]",
   },
 ];
 
 const FollowUsSection = () => {
   return (
-    <section className="py-16 bg-card/30">
+    <section className="py-16">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+        <div className="relative overflow-hidden rounded-3xl border border-border bg-card/30 p-8 md:p-10">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -top-24 left-1/2 h-72 w-[46rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl" />
+            <div className="absolute -bottom-24 right-[-6rem] h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
+          </div>
+
+          <div className="relative grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Left side - Logo and text */}
           <div className="flex flex-col items-start">
             <TornefyIcon className="w-24 h-24 mb-6" />
@@ -66,11 +66,11 @@ const FollowUsSection = () => {
                   href={social.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-between p-4 bg-card border border-border rounded-lg hover:border-primary/50 transition-colors group"
+                  className="group flex items-center justify-between rounded-2xl border border-border bg-background/30 px-5 py-4 hover:bg-background/40 hover:border-primary/30 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <social.icon className={`w-6 h-6 ${social.color}`} />
-                    <span className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
+                    <social.icon className="w-6 h-6 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <span className="text-sm font-medium uppercase tracking-wide text-foreground/90">
                       {social.name}
                     </span>
                   </div>
@@ -78,6 +78,7 @@ const FollowUsSection = () => {
                 </a>
               ))}
             </div>
+          </div>
           </div>
         </div>
       </div>

@@ -49,11 +49,7 @@ export class LazyRouteErrorBoundary extends React.Component<Props, State> {
             </Button>
           </div>
 
-          {this.state.errorMessage ? (
-            <pre className="mt-4 max-h-40 overflow-auto rounded-md border border-border bg-background/40 p-3 text-xs text-muted-foreground">
-              {this.state.errorMessage}
-            </pre>
-          ) : null}
+          {/* Ocultar detalhes técnicos do erro (UX mais limpa) */}
         </Card>
       </div>
     );

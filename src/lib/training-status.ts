@@ -12,16 +12,17 @@ export function getTrainingStatusClasses(status?: string | null) {
   const s = normalizeStatus(status);
 
   if (s === "INSCRIÇÕES ABERTAS") {
-    return "border-status-open/30 bg-status-open/15 text-status-open";
+    // Mais presente/legível sobre fundos roxos do tema
+    return "border-status-open/50 bg-status-open/80 text-foreground";
   }
   if (s === "INSCRIÇÕES ENCERRADAS") {
-    return "border-status-closed/30 bg-status-closed/15 text-status-closed";
+    return "border-status-closed/50 bg-status-closed/80 text-foreground";
   }
   if (s === "EM ANDAMENTO") {
-    return "border-status-live/30 bg-status-live/15 text-status-live";
+    return "border-status-live/50 bg-status-live/80 text-foreground";
   }
   if (s === "FINALIZADO") {
-    return "border-status-done/30 bg-status-done/15 text-status-done";
+    return "border-status-done/50 bg-status-done/80 text-foreground";
   }
 
   // fallback

@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { hexToHslTriplet } from "@/lib/color";
 import { getRankTier, type GameId } from "@/lib/ranking";
+import { useMemo, useState } from "react";
 
 type TeamMini = {
   id: string;
@@ -70,6 +71,13 @@ export function PlayerTradingCard({
   const frameBg = frame?.background_hsl || null;
   const rarity = (frame?.rarity || "common").toLowerCase();
 
+  const reduceMotion = useMemo(() => {
+    if (typeof window === "undefined") return true;
+    return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? true;
+  }, []);
+
+  const [tiltStyle, setTiltStyle] = useState<React.CSSProperties | undefined>(undefined);
+
   const glowShadow =
     rarity === "epic"
       ? "0 18px 45px -22px hsl(var(--frame-accent) / 0.7), 0 0 0 1px hsl(var(--frame-border) / 0.25)"
@@ -107,20 +115,68 @@ export function PlayerTradingCard({
         } as React.CSSProperties
       }
       data-rarity={rarity}
-      className={cn("relative w-full max-w-[232px]", className)}
+      className={cn("relative w-[232px]", className)}
     >
-      <Card
+      <div
         className={cn(
-          "relative overflow-hidden bg-card/50 border-border backdrop-blur",
-          "transition-transform duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.995] motion-reduce:transform-none",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
-          "border-t-[3px] border-t-[hsl(var(--frame-border))]",
-          "ring-1 ring-[hsl(var(--frame-border)/0.12)]"
+          "group relative",
+          "transition-transform duration-300",
+          "motion-reduce:transform-none"
         )}
-        style={{
-          boxShadow: glowShadow,
+        style={
+          reduceMotion
+            ? undefined
+            : {
+                perspective: "900px",
+              }
+        }
+        onMouseMove={(e) => {
+          if (reduceMotion) return;
+          const el = e.currentTarget;
+          const rect = el.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          const px = (x / rect.width - 0.5) * 2;
+          const py = (y / rect.height - 0.5) * 2;
+
+          const max = 6; // degrees
+          const rotY = px * max;
+          const rotX = -py * max;
+
+          setTiltStyle({
+            transform: `translateY(-2px) rotateX(${rotX}deg) rotateY(${rotY}deg)`,
+          });
+        }}
+        onMouseLeave={() => {
+          if (reduceMotion) return;
+          setTiltStyle({ transform: "translateY(0) rotateX(0deg) rotateY(0deg)" });
         }}
       >
+        <Card
+          className={cn(
+            // Dimensões fixas para todos os cards manterem o mesmo tamanho no grid
+            "relative h-[460px] overflow-hidden bg-card/50 border-border backdrop-blur flex flex-col",
+            "transition-[transform,box-shadow,border-color] duration-300",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+            "border-t-[3px] border-t-[hsl(var(--frame-border))]",
+            "ring-1 ring-[hsl(var(--frame-border)/0.12)]"
+          )}
+          style={{
+            boxShadow: glowShadow,
+            ...(reduceMotion ? undefined : tiltStyle),
+          }}
+        >
+          {/* premium glow overlay */}
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300",
+              "group-hover:opacity-100"
+            )}
+            style={{
+              background:
+                "radial-gradient(520px 260px at 50% 0%, hsl(var(--primary) / 0.22) 0%, transparent 60%)",
+            }}
+          />
         {/* subtle pattern layer (prepared via meta.style) */}
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.55]"
@@ -135,7 +191,7 @@ export function PlayerTradingCard({
         />
 
         {/* top media */}
-        <div className="relative h-[196px] sm:h-[212px]">
+        <div className="relative h-[212px] shrink-0">
           <div
             className="absolute inset-0"
             style={{
@@ -191,7 +247,7 @@ export function PlayerTradingCard({
         </div>
 
         {/* bottom content */}
-        <div className="p-3">
+        <div className="p-3 flex-1">
           <div className="min-w-0">
             <p className="text-[11px] uppercase tracking-widest text-muted-foreground truncate">
               {player.team?.name || "Sem equipe"}{teamTag ? ` ${teamTag}` : ""}
@@ -224,7 +280,8 @@ export function PlayerTradingCard({
             </div>
           </div>
         </div>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 }
