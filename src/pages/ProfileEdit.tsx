@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { useI18n, type SupportedLanguage } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +14,11 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TwitchMark } from "@/components/twitch/TwitchMark";
 import { ArrowLeft, Upload, User, Loader2, Gamepad2, Link2 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  PlayerTradingCard,
+  type PlayerCardFrame,
+  type PlayerTradingCardData,
+} from "@/components/players/PlayerTradingCard";
 
 const GAMES = [
   { id: "free_fire", name: "Free Fire", logo: "/game-logos/free-fire.png" },
@@ -24,6 +31,7 @@ const GAMES = [
 const ProfileEdit = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { language, setLanguage } = useI18n();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -47,11 +55,20 @@ const ProfileEdit = () => {
     full_name: "",
     username: "",
     discord_contact: "",
+    discord_url: "",
     tracker_url: "",
+    twitter_url: "",
+    instagram_url: "",
+    youtube_url: "",
     avatar_url: "",
     banner_url: "",
     preferred_games: [] as string[],
+    preferred_language: "pt-BR" as SupportedLanguage,
+    player_card_frame_id: "" as string,
   });
+
+  const [frames, setFrames] = useState<PlayerCardFrame[]>([]);
+  const [loadingFrames, setLoadingFrames] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -71,42 +88,25 @@ const ProfileEdit = () => {
 
   // If the page received OAuth params, clean the URL after hydration.
   useEffect(() => {
-    const hasOAuthParams =
-      location.search.includes("code=") ||
+    const sp = new URLSearchParams(location.search);
+    const hasTwitchParams = sp.has("code") && sp.has("state") && sp.has("scope");
+    if (hasTwitchParams) {
+      const supabaseUrl = (supabase as any)?.supabaseUrl as string | undefined;
+      if (supabaseUrl) {
+        window.location.replace(`${supabaseUrl}/functions/v1/twitch-oauth-callback${location.search}`);
+      }
+      return;
+    }
+
+    const hasAuthOAuthParams =
       location.search.includes("error=") ||
       location.hash.includes("access_token=") ||
       location.hash.includes("error=");
 
-    if (hasOAuthParams) {
+    if (hasAuthOAuthParams) {
       // Replace URL to avoid re-processing on refresh
       navigate("/profile/edit", { replace: true });
     }
-
-const GoogleMark = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    aria-hidden="true"
-    focusable="false"
-  >
-    <path
-      fill="currentColor"
-      d="M21.35 11.1H12v3.8h5.34c-.23 1.25-.95 2.3-2.05 3.02v2.5h3.32c1.95-1.8 3.07-4.45 3.07-7.57 0-.7-.06-1.38-.33-2.75z"
-    />
-    <path
-      fill="currentColor"
-      d="M12 22c2.79 0 5.12-.92 6.83-2.5l-3.32-2.5c-.92.62-2.1.98-3.51.98-2.7 0-4.98-1.82-5.8-4.27H2.78v2.68C4.48 19.98 8.01 22 12 22z"
-    />
-    <path
-      fill="currentColor"
-      d="M6.2 13.71A5.99 5.99 0 0 1 5.9 12c0-.6.1-1.18.3-1.71V7.61H2.78A9.98 9.98 0 0 0 2 12c0 1.61.39 3.13.78 4.39l3.42-2.68z"
-    />
-    <path
-      fill="currentColor"
-      d="M12 6.02c1.52 0 2.88.52 3.95 1.55l2.96-2.96C17.12 2.91 14.79 2 12 2 8.01 2 4.48 4.02 2.78 7.61l3.42 2.68C7.02 7.84 9.3 6.02 12 6.02z"
-    />
-  </svg>
-);
   }, [location.search, location.hash, navigate]);
 
   // Handle twitch=connected feedback
@@ -156,17 +156,40 @@ const GoogleMark = ({ className }: { className?: string }) => (
         full_name: data.full_name || "",
         username: data.username || "",
         discord_contact: data.discord_contact || "",
+        discord_url: (data as any).discord_url || "",
         tracker_url: data.tracker_url || "",
+        twitter_url: (data as any).twitter_url || "",
+        instagram_url: (data as any).instagram_url || "",
+        youtube_url: (data as any).youtube_url || "",
         avatar_url: data.avatar_url || "",
         banner_url: data.banner_url || "",
         preferred_games: preferredGames,
+        preferred_language:
+          (data as any)?.preferred_language === "en" || (data as any)?.preferred_language === "es"
+            ? (data as any).preferred_language
+            : "pt-BR",
+        player_card_frame_id: (data as any)?.player_card_frame_id || "",
       });
 
+      // Keep UI language synced with profile preference.
+      const profileLang = (data as any)?.preferred_language as SupportedLanguage | undefined;
+      if (profileLang && profileLang !== language) setLanguage(profileLang);
+
       await refreshTwitchConnection(uid);
+
+      // load frames
+      setLoadingFrames(true);
+      const { data: fRows } = await supabase
+        .from("player_card_frames")
+        .select("id, slug, name, rarity, accent_hsl, border_hsl, background_hsl, meta")
+        .order("rarity", { ascending: true })
+        .order("name", { ascending: true });
+      setFrames((fRows || []) as any);
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
       setLoading(false);
+      setLoadingFrames(false);
     }
   };
 
@@ -388,10 +411,16 @@ const GoogleMark = ({ className }: { className?: string }) => (
           full_name: formData.full_name,
           username: formData.username || null,
           discord_contact: formData.discord_contact || null,
+          discord_url: formData.discord_url || null,
           tracker_url: formData.tracker_url || null,
+          twitter_url: formData.twitter_url || null,
+          instagram_url: formData.instagram_url || null,
+          youtube_url: formData.youtube_url || null,
           avatar_url: formData.avatar_url || null,
           banner_url: formData.banner_url || null,
           preferred_games: formData.preferred_games.length > 0 ? formData.preferred_games : ["free_fire"],
+          preferred_language: formData.preferred_language,
+          player_card_frame_id: formData.player_card_frame_id || null,
         })
         .eq("id", user.id);
 
@@ -498,6 +527,21 @@ const GoogleMark = ({ className }: { className?: string }) => (
           <ArrowLeft className="w-4 h-4 mr-2" />
           Voltar ao Perfil
         </Button>
+
+        {/* Language */}
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-border bg-card/40 p-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Idioma</p>
+            <p className="text-xs text-muted-foreground">Define o idioma padrão da sua conta.</p>
+          </div>
+          <LanguageSelector
+            value={formData.preferred_language}
+            onChange={(lang) => {
+              setFormData((p) => ({ ...p, preferred_language: lang }));
+              setLanguage(lang);
+            }}
+          />
+        </div>
 
         <Card className="p-6 md:p-8 bg-card border-border">
           <h1 className="text-2xl font-black uppercase mb-8">Editar Perfil</h1>
@@ -647,13 +691,122 @@ const GoogleMark = ({ className }: { className?: string }) => (
 
             <Separator />
 
+            {/* Moldura do cartão */}
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-lg font-bold uppercase mb-1">Moldura do cartão</h2>
+                <p className="text-sm text-muted-foreground">
+                  Escolha uma moldura (raridade/skin) para o seu cartão.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-start">
+                <div className="rounded-lg border border-border bg-card/50 p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Selecionar</p>
+                  <div className="mt-3">
+                    <select
+                      value={formData.player_card_frame_id || ""}
+                      onChange={(e) =>
+                        setFormData((p) => ({ ...p, player_card_frame_id: e.target.value }))
+                      }
+                      className="w-full h-10 rounded-md border border-border bg-background/50 px-3 text-sm"
+                      disabled={loadingFrames}
+                    >
+                      <option value="">Sem moldura</option>
+                      {frames.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name} ({String(f.rarity).toUpperCase()})
+                        </option>
+                      ))}
+                    </select>
+                    {loadingFrames ? (
+                      <p className="mt-2 text-xs text-muted-foreground">Carregando molduras...</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-border bg-card/50 p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Preview</p>
+                  <div className="mt-3 flex justify-center">
+                    <PlayerTradingCard
+                      player={
+                        {
+                          id: user?.id || "me",
+                          username: formData.username || null,
+                          full_name: formData.full_name || null,
+                          avatar_url: formData.avatar_url || null,
+                          function: "Jogador",
+                          team: null,
+                          rank: null,
+                        } satisfies PlayerTradingCardData
+                      }
+                      frame={
+                        formData.player_card_frame_id
+                          ? frames.find((f) => f.id === formData.player_card_frame_id) || null
+                          : null
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Jogos Preferidos */}
 
-            {/* Social Section */}
+            {/* Social Section (estilo referência) */}
             <div>
               <h2 className="text-lg font-bold uppercase mb-4">Redes Sociais</h2>
 
               <div className="space-y-4">
+                <div className="rounded-lg border border-border bg-card/50 p-4">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Links</p>
+                  <div className="mt-3 space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="discord_url">Discord (Link)</Label>
+                      <Input
+                        id="discord_url"
+                        placeholder="https://discord.gg/..."
+                        value={formData.discord_url}
+                        onChange={(e) => setFormData((p) => ({ ...p, discord_url: e.target.value }))}
+                        className="bg-background/50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="twitter_url">Twitter/X</Label>
+                      <Input
+                        id="twitter_url"
+                        placeholder="https://x.com/seuuser"
+                        value={formData.twitter_url}
+                        onChange={(e) => setFormData((p) => ({ ...p, twitter_url: e.target.value }))}
+                        className="bg-background/50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="instagram_url">Instagram</Label>
+                      <Input
+                        id="instagram_url"
+                        placeholder="https://instagram.com/seuuser"
+                        value={formData.instagram_url}
+                        onChange={(e) => setFormData((p) => ({ ...p, instagram_url: e.target.value }))}
+                        className="bg-background/50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="youtube_url">YouTube</Label>
+                      <Input
+                        id="youtube_url"
+                        placeholder="https://youtube.com/@canal"
+                        value={formData.youtube_url}
+                        onChange={(e) => setFormData((p) => ({ ...p, youtube_url: e.target.value }))}
+                        className="bg-background/50"
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 <div className="rounded-lg border border-border bg-card/50 p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="space-y-1">

@@ -5,8 +5,18 @@ import { useNavigate } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, Mail, Users, Shield, UserPlus, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, Users, Shield, UserPlus, ArrowLeft, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
+import { buildNotificationRow } from "@/lib/notifications";
+import { formatDistanceToNowStrict } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { ResendInviteConfirmDialog } from "@/components/invites/ResendInviteConfirmDialog";
+
+const INVITE_TTL_DAYS = 7;
+const INVITE_RESEND_COOLDOWN_MINUTES = 30;
+
+const buildExpiresAt = () =>
+  new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
 interface SentInvite {
   id: string;
@@ -20,6 +30,7 @@ interface SentInvite {
   permission: string | null;
   status: string | null;
   created_at: string | null;
+  expires_at?: string | null;
 }
 
 const SentInvites = () => {
@@ -28,6 +39,7 @@ const SentInvites = () => {
   const [team, setTeam] = useState<any>(null);
   const [invites, setInvites] = useState<SentInvite[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resendLoading, setResendLoading] = useState<string | null>(null);
 
   useEffect(() => {
     checkUser();
@@ -70,7 +82,9 @@ const SentInvites = () => {
 
       const { data: invitesData, error: invitesError } = await supabase
         .from("team_invites")
-        .select("id, invited_user_id, invited_username, is_external, external_player_name, external_discord, external_game_id, permission, status, created_at")
+        .select(
+          "id, invited_user_id, invited_username, is_external, external_player_name, external_discord, external_game_id, permission, status, created_at, expires_at"
+        )
         .eq("team_id", teamData.id)
         .order("created_at", { ascending: false });
 
@@ -112,6 +126,86 @@ const SentInvites = () => {
     if (status === "accepted") return "default" as const;
     if (status === "rejected") return "destructive" as const;
     return "outline" as const;
+  };
+
+  const isExpiredInvite = (invite: SentInvite) => {
+    if (!invite.expires_at) return false;
+    const dt = new Date(invite.expires_at);
+    return !Number.isNaN(dt.getTime()) && dt.getTime() < Date.now();
+  };
+
+  const getCooldownRemainingMinutes = (invite: SentInvite) => {
+    if (!invite.created_at) return 0;
+    const created = new Date(invite.created_at);
+    if (Number.isNaN(created.getTime())) return 0;
+    const ageMs = Date.now() - created.getTime();
+    const cooldownMs = INVITE_RESEND_COOLDOWN_MINUTES * 60 * 1000;
+    const remainingMs = cooldownMs - ageMs;
+    if (remainingMs <= 0) return 0;
+    return Math.ceil(remainingMs / (60 * 1000));
+  };
+
+  const handleResendInvite = async (invite: SentInvite) => {
+    if (!team) return;
+
+    if (invite.is_external === "true") {
+      toast.error("Não é possível reenviar convite externo automaticamente");
+      return;
+    }
+    if (!invite.invited_user_id) {
+      toast.error("Convite sem usuário de destino");
+      return;
+    }
+
+    if (!invite.status || invite.status === "pending") {
+      const remaining = getCooldownRemainingMinutes(invite);
+      if (remaining > 0) {
+        toast.error(`Aguarde ${remaining} min para reenviar`);
+        return;
+      }
+    }
+
+    try {
+      setResendLoading(invite.id);
+
+      const { data: inserted, error } = await supabase
+        .from("team_invites")
+        .insert([
+          {
+            team_id: team.id,
+            invited_user_id: invite.invited_user_id,
+            invited_username: invite.invited_username,
+            is_external: "false",
+            permission: invite.permission ?? "member",
+            status: "pending",
+            expires_at: buildExpiresAt(),
+          },
+        ])
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      await supabase.from("notifications").insert(
+        buildNotificationRow({
+          user_id: invite.invited_user_id,
+          title: "Novo convite de equipe",
+          message: team?.name && team?.tag
+            ? `Você foi convidado para a equipe ${team.name} [${team.tag}]`
+            : "Você recebeu um novo convite de equipe.",
+          type: "team_invite",
+          related_id: inserted?.id ?? null,
+        })
+      );
+
+      toast.success("Convite reenviado");
+      fetchTeamAndInvites();
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Não foi possível reenviar o convite");
+    } finally {
+      setResendLoading(null);
+    }
   };
 
   if (loading) {
@@ -208,11 +302,76 @@ const SentInvites = () => {
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-xs text-muted-foreground">
                         Enviado em {invite.created_at ? new Date(invite.created_at).toLocaleDateString("pt-BR") : "-"}
+                        {invite.expires_at && (!invite.status || invite.status === "pending") && !isExpiredInvite(invite) && (
+                          <>
+                            {" "}· Expira em{" "}
+                            {formatDistanceToNowStrict(new Date(invite.expires_at), {
+                              addSuffix: true,
+                              locale: ptBR,
+                            })}
+                          </>
+                        )}
                       </p>
-                      <Badge variant={getStatusVariant(invite.status)} className="text-[11px]">
-                        {getStatusLabel(invite.status)}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        {isExpiredInvite(invite) && (!invite.status || invite.status === "pending") ? (
+                          <Badge variant="destructive" className="text-[11px]">
+                            Expirado
+                          </Badge>
+                        ) : (
+                          <Badge variant={getStatusVariant(invite.status)} className="text-[11px]">
+                            {getStatusLabel(invite.status)}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
+
+                    {((!invite.status || invite.status === "pending") || invite.status === "rejected" || isExpiredInvite(invite)) &&
+                      invite.is_external !== "true" && (
+                      <div className="mt-3">
+                        {(() => {
+                          const remaining = (!invite.status || invite.status === "pending")
+                            ? getCooldownRemainingMinutes(invite)
+                            : 0;
+                          const disabled = resendLoading === invite.id || remaining > 0;
+
+                          const targetLabel = invite.invited_username
+                            ? `@${invite.invited_username}`
+                            : "jogador";
+                          const messagePreview = team?.name && team?.tag
+                            ? `Você foi convidado para a equipe ${team.name} [${team.tag}]`
+                            : "Você recebeu um novo convite de equipe.";
+
+                          return (
+                            <ResendInviteConfirmDialog
+                              targetLabel={targetLabel}
+                              messagePreview={messagePreview}
+                              onConfirm={() => handleResendInvite(invite)}
+                              confirmLabel={resendLoading === invite.id ? "Enviando..." : "Reenviar"}
+                              trigger={
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="w-full"
+                                  disabled={disabled}
+                                >
+                                  {resendLoading === invite.id ? (
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <RotateCcw className="w-4 h-4 mr-2" />
+                                      {remaining > 0
+                                        ? `Reenviar em ${remaining} min`
+                                        : "Reenviar convite"}
+                                    </>
+                                  )}
+                                </Button>
+                              }
+                            />
+                          );
+                        })()}
+                      </div>
+                    )}
 
                     {invite.is_external === "true" && (
                       <p className="text-xs text-muted-foreground mt-1">

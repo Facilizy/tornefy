@@ -15,8 +15,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Users, Filter, Loader2, Trophy, UserPlus } from "lucide-react";
+import { Search, Loader2, UserPlus } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { hexToHslTriplet } from "@/lib/color";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TeamCardSkeleton } from "@/components/skeletons/TeamCardSkeleton";
+import { PlayerTradingCardSkeleton } from "@/components/skeletons/PlayerTradingCardSkeleton";
+import {
+  PlayerTradingCard,
+  type PlayerTradingCardData,
+  type PlayerCardFrame,
+} from "@/components/players/PlayerTradingCard";
+import type { GameId } from "@/lib/ranking";
 
 interface Team {
   id: string;
@@ -34,11 +44,9 @@ interface Team {
   primary_color: string;
 }
 
-type PlayerProfile = {
-  id: string;
-  username: string | null;
-  full_name: string | null;
-  avatar_url: string | null;
+type PlayerProfile = PlayerTradingCardData & {
+  player_card_frame_id?: string | null;
+  frame?: PlayerCardFrame | null;
 };
 
 const Teams = () => {
@@ -48,10 +56,13 @@ const Teams = () => {
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
   const [filteredPlayers, setFilteredPlayers] = useState<PlayerProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [playersLoading, setPlayersLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState("all");
   const [recruitingOnly, setRecruitingOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"players" | "explore">("explore");
+
+  const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
 
   const rtRefetchTimeoutRef = useRef<number | null>(null);
 
@@ -102,7 +113,7 @@ const Teams = () => {
       const teamsWithCount = data?.map((team: any) => ({
         ...team,
         memberCount: team.team_members?.[0]?.count || 0,
-        primary_color: team.primary_color || "#9146FF",
+        primary_color: team.primary_color || null,
       })) as Team[];
 
       setTeams(teamsWithCount || []);
@@ -113,15 +124,165 @@ const Teams = () => {
 
   const fetchPlayers = async () => {
     try {
+      setPlayersLoading(true);
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, username, full_name, avatar_url")
+        // NOTE: player_card_frame_id is new; query via raw string.
+        .select("id, username, full_name, avatar_url, player_card_frame_id")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setPlayers((data || []) as PlayerProfile[]);
+
+      const profs = (data || []) as Array<{
+        id: string;
+        username: string | null;
+        full_name: string | null;
+        avatar_url: string | null;
+        player_card_frame_id?: string | null;
+      }>;
+
+      const ids = profs.map((p) => p.id).filter(Boolean);
+
+      const mainByUser = new Map<
+        string,
+        {
+          function: string | null;
+          game_id: string | null;
+          team: {
+            id: string;
+            name: string | null;
+            tag: string | null;
+            logo_url: string | null;
+            primary_color: string | null;
+          } | null;
+        }
+      >();
+
+      if (ids.length) {
+        const { data: memberRows, error: mErr } = await (supabase as any)
+          .from("team_members")
+          .select(
+            "user_id, function, game_id, created_at, teams(id, name, tag, logo_url, primary_color)"
+          )
+          .in("user_id", ids)
+          .order("created_at", { ascending: true });
+
+        if (!mErr) {
+          (memberRows || []).forEach((row: any) => {
+            const uid = row.user_id as string | null;
+            if (!uid || mainByUser.has(uid)) return;
+            mainByUser.set(uid, {
+              function: (row.function as string | null) ?? null,
+              game_id: (row.game_id as string | null) ?? null,
+              team: row.teams
+                ? {
+                    id: row.teams.id,
+                    name: row.teams.name ?? null,
+                    tag: row.teams.tag ?? null,
+                    logo_url: row.teams.logo_url ?? null,
+                    primary_color: row.teams.primary_color ?? null,
+                  }
+                : null,
+            });
+          });
+        }
+      }
+
+      // Active season (for rank cards)
+      let seasonId = activeSeasonId;
+      if (!seasonId) {
+        const { data: seasons } = await supabase
+          .from("ranking_seasons")
+          .select("id, start_at, end_at")
+          .order("start_at", { ascending: false });
+        const now = Date.now();
+        const rows = (seasons || []) as Array<{ id: string; start_at: string; end_at: string | null }>;
+        const active = rows.find((s) => {
+          const start = new Date(s.start_at).getTime();
+          const end = s.end_at ? new Date(s.end_at).getTime() : Number.POSITIVE_INFINITY;
+          return now >= start && now < end;
+        });
+        seasonId = active?.id || rows[0]?.id || null;
+        setActiveSeasonId(seasonId);
+      }
+
+      // Frames
+      const frameIds = Array.from(
+        new Set(
+          profs
+            .map((p) => (p as any).player_card_frame_id as string | null)
+            .filter((x): x is string => typeof x === "string" && x.length > 0)
+        )
+      );
+      const frameById = new Map<string, PlayerCardFrame>();
+      if (frameIds.length) {
+        const { data: frames } = await supabase
+          .from("player_card_frames")
+          .select("id, slug, name, rarity, accent_hsl, border_hsl, background_hsl, meta")
+          .in("id", frameIds);
+        (frames || []).forEach((f: any) => frameById.set(String(f.id), f as PlayerCardFrame));
+      }
+
+      // Rank maps (top 500 leaderboard per game)
+      const games = Array.from(
+        new Set(
+          Array.from(mainByUser.values())
+            .map((v) => v.game_id)
+            .filter((g): g is string => typeof g === "string" && g.length > 0)
+        )
+      ).slice(0, 6);
+
+      const rankByUser = new Map<string, { points: number; position: number | null; gameId: string }>();// uid ->
+      if (seasonId && games.length) {
+        await Promise.all(
+          games.map(async (g) => {
+            const { data: lb } = await supabase
+              .from("player_season_points")
+              .select("user_id, points")
+              .eq("season_id", seasonId)
+              .eq("game_id", g)
+              .order("points", { ascending: false })
+              .limit(500);
+            const rows = (lb || []) as Array<{ user_id: string; points: number }>;
+            rows.forEach((r, idx) => {
+              if (!rankByUser.has(r.user_id)) {
+                rankByUser.set(r.user_id, { points: r.points ?? 0, position: idx + 1, gameId: g });
+              }
+            });
+          })
+        );
+      }
+
+      setPlayers(
+        profs.map((p) => {
+          const extra = mainByUser.get(p.id);
+          const gameId = (extra?.game_id ?? null) as GameId | string | null;
+          const rankRow = seasonId && p.id ? rankByUser.get(p.id) : null;
+          return {
+            ...p,
+            function: extra?.function ?? null,
+            game_id: gameId,
+            team: extra?.team ?? null,
+            rank:
+              seasonId && rankRow
+                ? {
+                    seasonId,
+                    gameId: rankRow.gameId,
+                    points: rankRow.points,
+                    position: rankRow.position,
+                  }
+                : null,
+            player_card_frame_id: (p as any).player_card_frame_id ?? null,
+            // convenience for rendering
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            frame: frameById.get(String((p as any).player_card_frame_id || "")) || null,
+          } satisfies PlayerProfile;
+        })
+      );
     } catch (error) {
       console.error("Error fetching players:", error);
+    } finally {
+      setPlayersLoading(false);
     }
   };
 
@@ -155,7 +316,16 @@ const Teams = () => {
       filteredP = filteredP.filter((p) => {
         const uname = (p.username || "").toLowerCase();
         const fname = (p.full_name || "").toLowerCase();
-        return uname.includes(term) || fname.includes(term);
+        const tname = (p.team?.name || "").toLowerCase();
+        const ttag = (p.team?.tag || "").toLowerCase();
+        const func = (p.function || "").toLowerCase();
+        return (
+          uname.includes(term) ||
+          fname.includes(term) ||
+          tname.includes(term) ||
+          ttag.includes(term) ||
+          func.includes(term)
+        );
       });
     }
     setFilteredPlayers(filteredP);
@@ -164,9 +334,36 @@ const Teams = () => {
   if (loading) {
     return (
       <MainLayout>
-        <div className="min-h-[50vh] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
+        <header className="relative py-14 mb-8 overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
+          <div className="container mx-auto px-4 relative z-10 text-center">
+            <div className="inline-flex items-center justify-center gap-3 mb-2">
+              <Skeleton className="h-10 w-44" />
+            </div>
+            <Skeleton className="h-4 w-72 mx-auto" />
+          </div>
+        </header>
+
+        <main className="container mx-auto px-4 pb-10">
+          <section className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
+            <Skeleton className="h-10 w-56" />
+            <Skeleton className="h-4 w-40" />
+          </section>
+
+          <section className="mb-8 bg-card/50 border border-border rounded-xl p-4">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-3 md:gap-4 items-center">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-44" />
+            </div>
+          </section>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 9 }).map((_, i) => (
+              <TeamCardSkeleton key={i} />
+            ))}
+          </div>
+        </main>
       </MainLayout>
     );
   }
@@ -177,9 +374,6 @@ const Teams = () => {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
         <div className="container mx-auto px-4 relative z-10 text-center">
           <div className="inline-flex items-center justify-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-              <Users className="w-5 h-5 text-primary" />
-            </div>
             <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight">
               Equipes
             </h1>
@@ -199,21 +393,18 @@ const Teams = () => {
                 value="players"
                 className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <Users className="w-4 h-4" />
                 Jogadores
               </TabsTrigger>
               <TabsTrigger
                 value="explore"
                 className="flex items-center gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
               >
-                <Users className="w-4 h-4" />
                 Explorar
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
           <p className="text-sm text-muted-foreground md:text-right">
-            <Filter className="w-4 h-4 inline mr-1" />
             {viewMode === "players"
               ? `${filteredPlayers.length} jogador${filteredPlayers.length !== 1 ? "es" : ""}`
               : `${filteredTeams.length} equipe${filteredTeams.length !== 1 ? "s" : ""}`}
@@ -226,7 +417,9 @@ const Teams = () => {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome ou tag..."
+                placeholder={
+                  viewMode === "players" ? "Buscar jogador, @, função ou time..." : "Buscar por nome ou tag..."
+                }
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10 bg-background/40"
@@ -258,63 +451,58 @@ const Teams = () => {
 
         {/* Content */}
         {viewMode === "players" ? (
-          filteredPlayers.length === 0 ? (
+          playersLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 justify-items-center">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <PlayerTradingCardSkeleton key={i} className="w-full max-w-[232px]" />
+              ))}
+            </div>
+          ) : filteredPlayers.length === 0 ? (
             <div className="text-center py-16">
-              <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-semibold mb-2">Nenhum jogador encontrado</h3>
               <p className="text-muted-foreground">Tente ajustar a busca</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2 justify-items-center">
               {filteredPlayers.map((p) => (
-                <Card
+                <button
                   key={p.id}
-                  className="p-4 bg-card border-border hover:border-primary/30 transition-all cursor-pointer"
+                  type="button"
+                  className="text-left flex"
                   onClick={() => navigate(`/profile/${p.id}`)}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-muted overflow-hidden flex items-center justify-center">
-                      {p.avatar_url ? (
-                        <img
-                          src={p.avatar_url}
-                          alt={p.full_name ? `Avatar de ${p.full_name}` : "Avatar do jogador"}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <Users className="w-6 h-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-bold uppercase truncate">
-                        {p.full_name || "Jogador"}
-                      </div>
-                      <div className="text-sm text-muted-foreground truncate">
-                        @{p.username || "sem-username"}
-                      </div>
-                    </div>
-                  </div>
-                </Card>
+                  <PlayerTradingCard player={p} frame={p.frame} />
+                </button>
               ))}
             </div>
           )
         ) : filteredTeams.length === 0 ? (
           <div className="text-center py-16">
-            <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-semibold mb-2">Nenhuma equipe encontrada</h3>
             <p className="text-muted-foreground">Tente ajustar os filtros de busca</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTeams.map((team) => (
+                <div
+                  key={team.id}
+                  style={
+                    {
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      ["--team-primary" as any]:
+                        (team.primary_color ? hexToHslTriplet(team.primary_color as any) : null) ||
+                        "var(--primary)",
+                    } as React.CSSProperties
+                  }
+                >
               <Card
-                key={team.id}
-                className="overflow-hidden bg-card border-border hover:border-primary/30 transition-all cursor-pointer group"
+                  className={
+                    "overflow-hidden bg-card border-border transition-all cursor-pointer group " +
+                    "hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 " +
+                    "hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.995] motion-reduce:transform-none " +
+                    "border-t-[3px] border-t-[hsl(var(--team-primary))]"
+                  }
                 onClick={() => navigate(`/team/${team.id}`)}
-                style={{
-                  borderTopColor: team.primary_color,
-                  borderTopWidth: "3px",
-                }}
               >
                 {/* Banner */}
                 <div
@@ -322,15 +510,9 @@ const Teams = () => {
                   style={{
                     background: team.banner_url
                       ? `url(${team.banner_url}) center/cover`
-                      : `linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary)/0.6) 100%)`,
+                        : `linear-gradient(135deg, hsl(var(--team-primary) / 0.55) 0%, hsl(var(--team-primary) / 0.18) 100%)`,
                   }}
                 >
-                  {/* Rating Badge */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded bg-background/80 backdrop-blur-sm">
-                    <Trophy className="w-3 h-3 text-primary" />
-                    <span className="text-xs font-bold">{team.rating}</span>
-                  </div>
-
                   {/* Badges */}
                   <div className="absolute top-2 right-2 flex items-center gap-1">
                     {team.is_verified && (
@@ -358,7 +540,7 @@ const Teams = () => {
                           loading="lazy"
                         />
                       ) : (
-                        <Users className="w-8 h-8 text-muted-foreground" />
+                        <div className="text-xs font-black text-muted-foreground">{team.tag}</div>
                       )}
                     </div>
                   </div>
@@ -366,7 +548,7 @@ const Teams = () => {
 
                 {/* Content */}
                 <div className="pt-10 pb-4 px-4">
-                  <h3 className="font-bold text-lg group-hover:text-primary transition-colors line-clamp-1">
+                    <h3 className="font-black uppercase tracking-tight text-lg group-hover:text-primary transition-colors line-clamp-1">
                     {team.name}
                   </h3>
                   <p className="text-muted-foreground text-sm">[{team.tag}]</p>
@@ -378,16 +560,14 @@ const Teams = () => {
                   )}
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                      <Users className="w-4 h-4" />
-                      {team.memberCount}
-                    </span>
+                    <span className="text-sm text-muted-foreground">{team.memberCount} membros</span>
                     <Badge variant="outline" className="text-xs">
                       {team.region || "BR"}
                     </Badge>
                   </div>
                 </div>
               </Card>
+                </div>
             ))}
           </div>
         )}

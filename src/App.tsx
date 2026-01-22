@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LazyRouteErrorBoundary } from "@/components/LazyRouteErrorBoundary";
+import { TwitchOAuthCallbackForwarder } from "@/components/twitch/TwitchOAuthCallbackForwarder";
 
 const Home = lazy(() => import("./pages/Home"));
 const Auth = lazy(() => import("./pages/Auth"));
@@ -22,9 +23,11 @@ const Scrims = lazy(() => import("./pages/Scrims"));
 const Ranking = lazy(() => import("./pages/Ranking"));
 const Players = lazy(() => import("./pages/Players"));
 const Terms = lazy(() => import("./pages/Terms"));
+const Privacy = lazy(() => import("./pages/Privacy"));
 const PendingInvites = lazy(() => import("./pages/PendingInvites"));
 const SentInvites = lazy(() => import("./pages/SentInvites"));
 const Notifications = lazy(() => import("./pages/Notifications"));
+const FAQ = lazy(() => import("./pages/FAQ"));
 
 const OverlayTabelaGeral = lazy(() => import("./pages/overlays/OverlayTabelaGeral"));
 const OverlayQueda = lazy(() => import("./pages/overlays/OverlayQueda"));
@@ -39,6 +42,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <TwitchOAuthCallbackForwarder />
         <LazyRouteErrorBoundary>
           <Suspense
             fallback={
@@ -55,6 +59,9 @@ const App = () => (
               <Route path="/players" element={<Players />} />
               <Route path="/ranking" element={<Ranking />} />
               <Route path="/equipes" element={<Teams />} />
+              <Route path="/faq" element={<FAQ />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
               <Route path="/training/:id" element={<TrainingDetails />} />
               <Route path="/my-team" element={<MyTeam />} />
@@ -66,7 +73,6 @@ const App = () => (
               <Route path="/invites" element={<PendingInvites />} />
               <Route path="/sent-invites" element={<SentInvites />} />
               <Route path="/notificacoes" element={<Notifications />} />
-
               {/* Overlays (para OBS) */}
               <Route path="/overlays/tabela-geral" element={<OverlayTabelaGeral />} />
               <Route path="/overlays/queda" element={<OverlayQueda />} />

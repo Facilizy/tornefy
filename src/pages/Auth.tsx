@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import MainLayout from "@/components/MainLayout";
+import { LanguageSelector } from "@/components/LanguageSelector";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -430,6 +431,9 @@ const Auth = () => {
           <div className="flex justify-center">
             <div className="w-full max-w-md">
               <div className="bg-card/50 border border-border rounded-2xl p-6 sm:p-8">
+                <div className="mb-4 flex justify-end">
+                  <LanguageSelector />
+                </div>
                 <h2 className="text-2xl font-semibold mb-6 text-center">
                   {forgotPassword ? "Recuperar Senha" : isLogin ? "Entrar" : "Criar Conta"}
                 </h2>
@@ -728,7 +732,14 @@ const Auth = () => {
                                     className="mt-1"
                                   />
                                   <Label htmlFor="terms" className="text-sm leading-relaxed cursor-pointer">
-                                    Aceito os termos e diretrizes da plataforma
+                                    Aceito os{" "}
+                                    <Link to="/terms" className="underline underline-offset-2 hover:text-foreground">
+                                      Termos de Uso
+                                    </Link>
+                                    {" "}e a{" "}
+                                    <Link to="/privacy" className="underline underline-offset-2 hover:text-foreground">
+                                      Política de Privacidade
+                                    </Link>
                                   </Label>
                                 </div>
                               </div>

@@ -4,6 +4,7 @@ import MainLayout from "@/components/MainLayout";
 import TrainingCard from "@/components/TrainingCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select,
   SelectContent,
@@ -15,6 +16,7 @@ import { Calendar, Gamepad2, Trophy, Users, SlidersHorizontal, User } from "luci
 import { addDays, endOfDay, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useFollowedOrganizers } from "@/hooks/useFollowedOrganizers";
+import { TrainingCardSkeleton } from "@/components/skeletons/TrainingCardSkeleton";
 
 const Scrims = () => {
   const navigate = useNavigate();
@@ -172,26 +174,31 @@ const Scrims = () => {
       <header className="relative py-12 mb-8 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
         <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col items-center text-center gap-3">
-            <div className="inline-flex items-center justify-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center">
-                <Gamepad2 className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight">
-                  Scrims
-                </h1>
-                <p className="text-sm text-muted-foreground">
-                  Encontre treinos abertos e participe em minutos
-                </p>
+            <div className="flex flex-col items-center text-center gap-3">
+             <div className="inline-flex items-center justify-center gap-3">
+               <div>
+                {loading ? (
+                  <>
+                    <Skeleton className="h-10 md:h-12 w-48 mx-auto" />
+                    <Skeleton className="mt-2 h-4 w-72 mx-auto" />
+                  </>
+                ) : (
+                  <>
+                    <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight">
+                      Scrims
+                    </h1>
+                    <p className="text-sm text-muted-foreground">
+                      Encontre treinos abertos e participe em minutos
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card/70 rounded-lg border border-border">
-                <Users className="w-4 h-4 text-primary" />
-                <span className="text-foreground">{totals.total} scrims</span>
-              </div>
+              <div className="flex flex-wrap items-center justify-center gap-2 text-sm">
+               <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card/70 rounded-lg border border-border">
+                 {loading ? <Skeleton className="h-4 w-20" /> : <span className="text-foreground">{totals.total} scrims</span>}
+               </div>
               {totals.live > 0 && (
                 <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-card/70 rounded-lg border border-border">
                   <span className="w-2 h-2 rounded-full bg-destructive animate-pulse" />
@@ -280,79 +287,111 @@ const Scrims = () => {
         <section className="bg-card/50 border border-border rounded-xl p-4 mb-8">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <SlidersHorizontal className="w-4 h-4 text-primary" />
               <span>Filtros</span>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              <Select value={dateFilter} onValueChange={setDateFilter}>
-                <SelectTrigger className="w-[160px] bg-background/40">
-                  <Calendar className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Data" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas as datas</SelectItem>
-                  <SelectItem value="today">Hoje</SelectItem>
-                  <SelectItem value="tomorrow">Amanhã</SelectItem>
-                  <SelectItem value="week">Esta semana</SelectItem>
-                </SelectContent>
-              </Select>
+            {loading ? (
+              <div className="flex flex-wrap gap-3">
+                <Skeleton className="h-10 w-[160px]" />
+                <Skeleton className="h-10 w-[140px]" />
+                <Skeleton className="h-10 w-[170px]" />
+                <Skeleton className="h-10 w-[170px]" />
+                <Skeleton className="h-9 w-20" />
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                <Select value={dateFilter} onValueChange={setDateFilter}>
+                  <SelectTrigger className="w-[160px] bg-background/40">
+                    <SelectValue placeholder="Data" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as datas</SelectItem>
+                    <SelectItem value="today">Hoje</SelectItem>
+                    <SelectItem value="tomorrow">Amanhã</SelectItem>
+                    <SelectItem value="week">Esta semana</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Select value={modeFilter} onValueChange={setModeFilter}>
-                <SelectTrigger className="w-[140px] bg-background/40">
-                  <Users className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Modo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os modos</SelectItem>
-                  <SelectItem value="Solo">Solo</SelectItem>
-                  <SelectItem value="Duo">Duo</SelectItem>
-                  <SelectItem value="Squad">Squad</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={modeFilter} onValueChange={setModeFilter}>
+                  <SelectTrigger className="w-[140px] bg-background/40">
+                    <SelectValue placeholder="Modo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os modos</SelectItem>
+                    <SelectItem value="Solo">Solo</SelectItem>
+                    <SelectItem value="Duo">Duo</SelectItem>
+                    <SelectItem value="Squad">Squad</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Select value={gameFilter} onValueChange={setGameFilter}>
-                <SelectTrigger className="w-[170px] bg-background/40">
-                  <Gamepad2 className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Jogo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos os jogos</SelectItem>
-                  <SelectItem value="free_fire">Free Fire</SelectItem>
-                  <SelectItem value="blood_strike">Blood Strike</SelectItem>
-                  <SelectItem value="farlight_84">Farlight 84</SelectItem>
-                  <SelectItem value="prime_rush">Prime Rush</SelectItem>
-                  <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={gameFilter} onValueChange={setGameFilter}>
+                  <SelectTrigger className="w-[170px] bg-background/40">
+                    <SelectValue placeholder="Jogo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os jogos</SelectItem>
+                    <SelectItem value="free_fire">Free Fire</SelectItem>
+                    <SelectItem value="blood_strike">Blood Strike</SelectItem>
+                    <SelectItem value="farlight_84">Farlight 84</SelectItem>
+                    <SelectItem value="prime_rush">Prime Rush</SelectItem>
+                    <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              <Select value={platformFilter} onValueChange={setPlatformFilter}>
-                <SelectTrigger className="w-[170px] bg-background/40">
-                  <Users className="w-4 h-4 mr-2 text-muted-foreground" />
-                  <SelectValue placeholder="Plataforma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas plataformas</SelectItem>
-                  <SelectItem value="PC">PC</SelectItem>
-                  <SelectItem value="Mobile">Mobile</SelectItem>
-                  <SelectItem value="console">Console</SelectItem>
-                  <SelectItem value="Misto">Misto</SelectItem>
-                </SelectContent>
-              </Select>
+                <Select value={platformFilter} onValueChange={setPlatformFilter}>
+                  <SelectTrigger className="w-[170px] bg-background/40">
+                    <SelectValue placeholder="Plataforma" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas plataformas</SelectItem>
+                    <SelectItem value="PC">PC</SelectItem>
+                    <SelectItem value="Mobile">Mobile</SelectItem>
+                    <SelectItem value="console">Console</SelectItem>
+                    <SelectItem value="Misto">Misto</SelectItem>
+                  </SelectContent>
+                </Select>
 
-              {hasActiveFilters && (
-                <Button variant="outline" size="sm" onClick={clearFilters}>
-                  Limpar
-                </Button>
-              )}
-            </div>
+                {hasActiveFilters && (
+                  <Button variant="outline" size="sm" onClick={clearFilters}>
+                    Limpar
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
         </section>
 
         {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
+          <>
+            <section className="mb-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-destructive/30" />
+                  <h2 className="text-base md:text-lg font-bold uppercase tracking-wide">Ao vivo</h2>
+                </div>
+                <span className="text-sm text-muted-foreground">Carregando…</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <TrainingCardSkeleton key={`live-${i}`} />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-end justify-between mb-4 gap-4 flex-wrap">
+                <div>
+                  <h2 className="text-base md:text-lg font-bold uppercase tracking-wide">Próximas scrims</h2>
+                  <p className="text-sm text-muted-foreground">Carregando lista</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <TrainingCardSkeleton key={`up-${i}`} />
+                ))}
+              </div>
+            </section>
+          </>
         ) : (
           <>
             {liveTrainings.length > 0 && (
@@ -376,7 +415,6 @@ const Scrims = () => {
 
             {filteredTrainings.length === 0 ? (
               <section className="text-center py-20">
-                <Trophy className="w-16 h-16 mx-auto mb-4 text-muted-foreground/40" />
                 <h3 className="text-xl font-semibold mb-2">Nenhuma scrim encontrada</h3>
                 <p className="text-muted-foreground mb-6">
                   Tente ajustar os filtros ou volte mais tarde.

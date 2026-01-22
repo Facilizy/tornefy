@@ -3,12 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Send, Loader2, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { buildNotificationRow } from "@/lib/notifications";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   id: string;
@@ -20,18 +21,39 @@ interface Message {
 interface TrainingChatProps {
   trainingId: string;
   isOrganizer: boolean;
+  chatEnabled?: boolean;
+  chatDisabledReason?: string;
+  organizerName?: string | null;
+  organizerAvatarUrl?: string | null;
 }
 
-export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => {
+export const TrainingChat = ({
+  trainingId,
+  isOrganizer,
+  chatEnabled = true,
+  chatDisabledReason,
+  organizerName,
+  organizerAvatarUrl,
+}: TrainingChatProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [senderProfiles, setSenderProfiles] = useState<Record<string, { username: string | null; full_name: string | null; avatar_url: string | null }>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const [newBelowCount, setNewBelowCount] = useState(0);
+
+  const canSend = isOrganizer && chatEnabled;
+
+  useEffect(() => {
+    if (!chatEnabled) {
+      setEditingId(null);
+      setEditText("");
+    }
+  }, [chatEnabled]);
 
   useEffect(() => {
     fetchMessages();
@@ -39,7 +61,7 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
     
     // Subscribe to new messages
     const channel = supabase
-      .channel('training-messages')
+      .channel(`training-messages-${trainingId}`)
       .on(
         'postgres_changes',
         {
@@ -93,6 +115,34 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages]);
 
+  useEffect(() => {
+    const ids = Array.from(new Set(messages.map((m) => m.sender_id).filter(Boolean)));
+    const missing = ids.filter((id) => !senderProfiles[id]);
+    if (missing.length === 0) return;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, username, full_name, avatar_url")
+        .in("id", missing);
+
+      if (error || !data) return;
+
+      setSenderProfiles((prev) => {
+        const next = { ...prev };
+        for (const row of data as any[]) {
+          next[String(row.id)] = {
+            username: row.username ?? null,
+            full_name: row.full_name ?? null,
+            avatar_url: row.avatar_url ?? null,
+          };
+        }
+        return next;
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages]);
+
   const scrollToBottom = () => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -116,6 +166,7 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   };
 
   const fetchMessages = async () => {
+    setLoading(true);
     const { data, error } = await supabase
       .from("training_messages")
       .select("*")
@@ -125,9 +176,16 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
     if (!error && data) {
       setMessages(data);
     }
+
+    setLoading(false);
   };
 
   const handleSendMessage = async () => {
+    if (!canSend) {
+      toast.error(chatDisabledReason || "Apenas o organizador pode enviar mensagens agora.");
+      return;
+    }
+
     if (!newMessage.trim()) return;
 
     try {
@@ -193,6 +251,10 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   };
 
   const handleEditMessage = async (messageId: string) => {
+    if (!canSend) {
+      toast.error(chatDisabledReason || "Chat indisponível no momento.");
+      return;
+    }
     if (!editText.trim()) return;
 
     try {
@@ -213,6 +275,10 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   };
 
   const handleDeleteMessage = async (messageId: string) => {
+    if (!canSend) {
+      toast.error(chatDisabledReason || "Chat indisponível no momento.");
+      return;
+    }
     try {
       const { error } = await supabase
         .from("training_messages")
@@ -229,13 +295,30 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
   };
 
   const startEditing = (message: Message) => {
+    if (!canSend) return;
+    if (!message.id) return;
     setEditingId(message.id);
     setEditText(message.message);
+  };
+
+  const getSenderDisplay = (senderId: string) => {
+    const p = senderProfiles[senderId];
+    const name = organizerName || p?.username || p?.full_name || "Organizador";
+    const username = p?.username || null;
+    const avatar = organizerAvatarUrl || p?.avatar_url || null;
+    const initials = String(name || "O").trim().slice(0, 2).toUpperCase();
+    return { name, username, avatar, initials };
   };
 
   return (
     <Card className="p-4 backdrop-blur-sm bg-card/80 border-border">
       <h3 className="font-semibold mb-3">💬 Chat do Treino</h3>
+
+      {!chatEnabled && (
+        <div className="mb-3 rounded-lg border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          {chatDisabledReason || "Chat indisponível no momento."}
+        </div>
+      )}
       
       <div className="relative h-64 mb-3">
         {newBelowCount > 0 && !isAtBottom && (
@@ -256,14 +339,38 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
 
         <div className="h-full overflow-y-auto" ref={scrollRef} onScroll={handleScroll}>
         <div className="space-y-3">
-          {messages.length === 0 ? (
+           {loading ? (
+             <div className="flex items-center justify-center py-10">
+               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+             </div>
+           ) : messages.length === 0 ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               Nenhuma mensagem ainda
             </p>
           ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className="bg-background/50 p-3 rounded-lg">
-                {editingId === msg.id ? (
+             messages.map((msg, idx) => {
+               const key = msg.id ?? `${msg.sender_id}-${idx}`;
+               const sender = getSenderDisplay(msg.sender_id);
+               const isEditing = !!editingId && !!msg.id && editingId === msg.id;
+               return (
+               <div key={key} className="bg-background/50 p-3 rounded-lg">
+                 <div className="flex items-center justify-between gap-3 mb-2">
+                   <div className="flex items-center gap-2 min-w-0">
+                   <Avatar className="h-7 w-7">
+                     <AvatarImage src={sender.avatar || undefined} alt={sender.name || "Organizador"} />
+                     <AvatarFallback>{sender.initials}</AvatarFallback>
+                   </Avatar>
+                   <div className="min-w-0">
+                     <p className="text-sm font-medium leading-none truncate">{sender.name}</p>
+                     <p className="text-xs text-muted-foreground truncate">
+                       enviado por {sender.username ? `@${sender.username}` : "@organizador"}
+                     </p>
+                   </div>
+                   </div>
+                   <Badge variant="secondary" className="text-[10px] h-5">Organizador</Badge>
+                 </div>
+
+                 {isEditing ? (
                   <div className="space-y-2">
                     <Textarea
                       value={editText}
@@ -297,9 +404,11 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
                     <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        {msg.created_at
+                          ? format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                          : ""}
                       </p>
-                      {isOrganizer && currentUserId === msg.sender_id && (
+                      {chatEnabled && isOrganizer && currentUserId === msg.sender_id && (
                         <div className="flex gap-1">
                           <Button
                             size="sm"
@@ -325,7 +434,8 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
                   </>
                 )}
               </div>
-            ))
+             );
+             })
           )}
         </div>
         </div>
@@ -339,10 +449,11 @@ export const TrainingChat = ({ trainingId, isOrganizer }: TrainingChatProps) => 
             onChange={(e) => setNewMessage(e.target.value)}
             className="resize-none"
             rows={3}
+            disabled={!chatEnabled}
           />
           <Button
             onClick={handleSendMessage}
-            disabled={loading || !newMessage.trim()}
+            disabled={loading || !newMessage.trim() || !chatEnabled}
             className="w-full"
             size="sm"
           >

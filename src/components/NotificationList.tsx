@@ -42,26 +42,50 @@ export function NotificationList({
     }
 
     // Navigate based on notification type
-    if (notification.related_id) {
-      if (
-        notification.type === "new_training" ||
+    // IMPORTANT: some legacy notifications may not carry related_id, but they should still be actionable.
+    if (notification.type === "team_invite") {
+      navigate("/invites");
+      onClose();
+      return;
+    }
+
+    if (
+      notification.type === "invite_accepted" ||
+      notification.type === "invite_rejected"
+    ) {
+      navigate("/sent-invites");
+      onClose();
+      return;
+    }
+
+    if (
+      notification.related_id &&
+      (notification.type === "new_training" ||
         notification.type === "status_change" ||
         notification.type === "live_status" ||
         notification.type === "team_registration" ||
-        notification.type === "team_unregistration"
-      ) {
-        navigate(`/training/${notification.related_id}`);
-        onClose();
-      } else if (notification.type === "team_invite") {
-        navigate("/invites");
-        onClose();
-      } else if (
-        notification.type === "invite_accepted" ||
-        notification.type === "invite_rejected"
-      ) {
-        navigate("/sent-invites");
-        onClose();
-      }
+        notification.type === "team_unregistration")
+    ) {
+      navigate(`/training/${notification.related_id}`);
+      onClose();
+      return;
+    }
+
+    // Chat notifications: go straight to the chat tab
+    if (
+      notification.related_id &&
+      (notification.type === "chat_message" || notification.type === "training_message")
+    ) {
+      navigate(`/training/${notification.related_id}?tab=chat`);
+      onClose();
+      return;
+    }
+
+    // Ranking updates: go to ranking tab when related to a training
+    if (notification.related_id && notification.type === "ranking_update") {
+      navigate(`/training/${notification.related_id}?tab=ranking`);
+      onClose();
+      return;
     }
   };
 
@@ -72,7 +96,10 @@ export function NotificationList({
       case "status_change":
         return "📢";
       case "chat_message":
+      case "training_message":
         return "💬";
+      case "ranking_update":
+        return "🏆";
       case "live_status":
         return "🔴";
       case "team_registration":

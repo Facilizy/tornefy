@@ -10,6 +10,7 @@ import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { buildNotificationRow } from "@/lib/notifications";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface Message {
   id: string;
@@ -22,9 +23,21 @@ interface FloatingChatProps {
   trainingId: string;
   isOrganizer: boolean;
   primaryColor?: string;
+  chatEnabled?: boolean;
+  chatDisabledReason?: string;
+  organizerName?: string | null;
+  organizerAvatarUrl?: string | null;
 }
 
-export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF" }: FloatingChatProps) {
+export function FloatingChat({
+  trainingId,
+  isOrganizer,
+  primaryColor = "#9146FF",
+  chatEnabled = true,
+  chatDisabledReason,
+  organizerName,
+  organizerAvatarUrl,
+}: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -41,6 +54,15 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
       setUnreadCount(0);
     }
   }, [isOpen, trainingId]);
+
+  useEffect(() => {
+    if (!chatEnabled && isOpen) {
+      setIsOpen(false);
+      setIsMinimized(false);
+      toast.error(chatDisabledReason || "Chat indisponível no momento");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatEnabled]);
 
   useEffect(() => {
     // Subscribe to realtime messages
@@ -103,6 +125,11 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
   };
 
   const handleSendMessage = async () => {
+    if (!chatEnabled) {
+      toast.error(chatDisabledReason || "Chat indisponível no momento");
+      return;
+    }
+
     if (!newMessage.trim() || !isOrganizer) return;
 
     try {
@@ -179,6 +206,7 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
         className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg z-50"
         style={{ backgroundColor: primaryColor }}
         size="icon"
+        disabled={!chatEnabled}
       >
         <MessageCircle className="w-6 h-6" />
         {unreadCount > 0 && (
@@ -204,9 +232,16 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
         className="flex items-center justify-between p-3 rounded-t-2xl"
         style={{ backgroundColor: primaryColor }}
       >
-        <div className="flex items-center gap-2 text-white">
-          <MessageCircle className="w-5 h-5" />
-          <span className="font-semibold">Chat do Treino</span>
+        <div className="flex items-center gap-2 text-white min-w-0">
+          <MessageCircle className="w-5 h-5 flex-shrink-0" />
+          <Avatar className="h-7 w-7 border border-white/20">
+            <AvatarImage src={organizerAvatarUrl || undefined} alt={organizerName || "Organizador"} />
+            <AvatarFallback>{String(organizerName || "O").trim().slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold leading-none truncate">{organizerName || "Chat do Treino"}</p>
+            <p className="text-[11px] text-white/80 truncate">Organizador</p>
+          </div>
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -250,22 +285,31 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
                 <p className="text-sm">Nenhuma mensagem ainda</p>
               </div>
             ) : (
-              messages.map((msg) => (
-                <div key={msg.id} className="space-y-1">
-                  <div 
-                    className="rounded-lg p-3 border-l-2"
-                    style={{ 
-                      backgroundColor: `${primaryColor}15`,
-                      borderLeftColor: primaryColor 
-                    }}
-                  >
-                    <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+              messages.map((msg, idx) => {
+                const key = msg.id ?? `${msg.sender_id}-${idx}`;
+                return (
+                  <div key={key} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span className="truncate">
+                        enviado por {organizerName ? `@${organizerName}` : "@organizador"}
+                      </span>
+                      <Badge variant="secondary" className="text-[10px] h-5">Organizador</Badge>
+                    </div>
+                    <div 
+                      className="rounded-lg p-3 border-l-2"
+                      style={{ 
+                        backgroundColor: `${primaryColor}15`,
+                        borderLeftColor: primaryColor 
+                      }}
+                    >
+                      <p className="text-sm whitespace-pre-wrap">{msg.message}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {msg.created_at ? format(new Date(msg.created_at), "dd/MM HH:mm", { locale: ptBR }) : ""}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(msg.created_at), "dd/MM HH:mm", { locale: ptBR })}
-                  </p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
 
@@ -280,10 +324,11 @@ export function FloatingChat({ trainingId, isOrganizer, primaryColor = "#9146FF"
                   placeholder="Digite sua mensagem..."
                   className="min-h-[40px] max-h-[80px] resize-none text-sm"
                   rows={1}
+                   disabled={!chatEnabled}
                 />
                 <Button
                   onClick={handleSendMessage}
-                  disabled={!newMessage.trim() || sending}
+                   disabled={!newMessage.trim() || sending || !chatEnabled}
                   size="icon"
                   className="flex-shrink-0"
                   style={{ backgroundColor: primaryColor }}

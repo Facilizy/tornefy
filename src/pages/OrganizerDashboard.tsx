@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -1229,29 +1230,59 @@ const OrganizerDashboard = () => {
           </>
         )}
 
-        {/* Guia rápido (agora abaixo dos treinos) */}
+        {/* Organizador Verificado */}
         <Card className="p-6 bg-card/80 border-border mt-8">
-          <h2 className="font-bold uppercase mb-3">Guia rápido do Organizador</h2>
-          <div className="grid gap-4 md:grid-cols-3 text-sm">
-            <div className="space-y-1">
-              <p className="font-semibold">Metas & selo verificado</p>
-              <p className="text-muted-foreground">
-                Organize treinos regularmente para destravar conquistas. A partir de um certo volume (ex: 10+ treinos) você ganha o selo de
-                <span className="font-semibold"> Organizador Verificado</span>, destacado no painel.
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="font-bold uppercase">Organizador Verificado</h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+                O selo verificado destaca seu perfil e aumenta a confiança das equipes ao se
+                inscreverem nos seus treinos.
               </p>
             </div>
-            <div className="space-y-1">
-              <p className="font-semibold">Treinos privados & convidados</p>
-              <p className="text-muted-foreground">
-                Ative <span className="font-semibold">Treino Privado</span> e preencha as <span className="font-semibold">TAGs</span> das equipes convidadas. Só essas TAGs conseguem se inscrever.
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="font-semibold">Links de Discord & WhatsApp</p>
-              <p className="text-muted-foreground">
-                Informe links de <span className="font-semibold">Discord</span> e <span className="font-semibold">WhatsApp</span> ao criar/editar o treino para facilitar contato.
-              </p>
-            </div>
+
+            {isVerifiedOrganizer ? (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-semibold uppercase tracking-wide">
+                Verificado
+              </span>
+            ) : (
+              <span className="text-xs px-2.5 py-1 rounded-full bg-background/40 text-muted-foreground border border-border uppercase tracking-wide">
+                Em progresso
+              </span>
+            )}
+          </div>
+
+          <div className="mt-5">
+            {(() => {
+              const target = 10;
+              const current = organizerStats.totalTrainings || 0;
+              const missing = Math.max(0, target - current);
+              const pct = Math.min(100, Math.round((current / target) * 100));
+
+              if (isVerifiedOrganizer) {
+                return (
+                  <p className="text-sm text-muted-foreground">
+                    Parabéns! Você já atingiu os requisitos para o selo.
+                  </p>
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Progresso</span>
+                    <span className="tabular-nums">
+                      {current} / {target} treinos
+                    </span>
+                  </div>
+                  <Progress value={pct} className="h-2" />
+                  <p className="text-sm text-muted-foreground">
+                    Faltam <span className="font-semibold text-foreground">{missing}</span> treinos
+                    para destravar o selo.
+                  </p>
+                </div>
+              );
+            })()}
           </div>
         </Card>
       </main>

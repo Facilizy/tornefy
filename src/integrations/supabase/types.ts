@@ -158,47 +158,241 @@ export type Database = {
         }
         Relationships: []
       }
+      player_card_frames: {
+        Row: {
+          accent_hsl: string | null
+          background_hsl: string | null
+          border_hsl: string | null
+          created_at: string
+          id: string
+          meta: Json | null
+          name: string
+          rarity: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          accent_hsl?: string | null
+          background_hsl?: string | null
+          border_hsl?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          name: string
+          rarity?: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          accent_hsl?: string | null
+          background_hsl?: string | null
+          border_hsl?: string | null
+          created_at?: string
+          id?: string
+          meta?: Json | null
+          name?: string
+          rarity?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      player_rank_adjustments: {
+        Row: {
+          created_at: string
+          created_by: string
+          game_id: string
+          id: string
+          match_id: string | null
+          points: number
+          reason: string
+          season_id: string
+          target_user_id: string
+          training_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          game_id: string
+          id?: string
+          match_id?: string | null
+          points: number
+          reason: string
+          season_id: string
+          target_user_id: string
+          training_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          game_id?: string
+          id?: string
+          match_id?: string | null
+          points?: number
+          reason?: string
+          season_id?: string
+          target_user_id?: string
+          training_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_rank_adjustments_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_rank_events: {
+        Row: {
+          breakdown: Json | null
+          created_at: string
+          created_by: string | null
+          game_id: string
+          id: string
+          match_id: string | null
+          points: number
+          season_id: string
+          source: string
+          training_id: string | null
+          user_id: string
+        }
+        Insert: {
+          breakdown?: Json | null
+          created_at?: string
+          created_by?: string | null
+          game_id: string
+          id?: string
+          match_id?: string | null
+          points: number
+          season_id: string
+          source?: string
+          training_id?: string | null
+          user_id: string
+        }
+        Update: {
+          breakdown?: Json | null
+          created_at?: string
+          created_by?: string | null
+          game_id?: string
+          id?: string
+          match_id?: string | null
+          points?: number
+          season_id?: string
+          source?: string
+          training_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_rank_events_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      player_season_points: {
+        Row: {
+          game_id: string
+          points: number
+          season_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          game_id: string
+          points?: number
+          season_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          game_id?: string
+          points?: number
+          season_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "player_season_points_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "ranking_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
           banner_url: string | null
           created_at: string | null
           discord_contact: string | null
+          discord_url: string | null
           full_name: string | null
           id: string
+          instagram_url: string | null
+          player_card_frame_id: string | null
           preferred_games: Json | null
+          preferred_language: string
           role: string | null
           tracker_url: string | null
+          twitter_url: string | null
           updated_at: string | null
           username: string | null
+          youtube_url: string | null
         }
         Insert: {
           avatar_url?: string | null
           banner_url?: string | null
           created_at?: string | null
           discord_contact?: string | null
+          discord_url?: string | null
           full_name?: string | null
           id: string
+          instagram_url?: string | null
+          player_card_frame_id?: string | null
           preferred_games?: Json | null
+          preferred_language?: string
           role?: string | null
           tracker_url?: string | null
+          twitter_url?: string | null
           updated_at?: string | null
           username?: string | null
+          youtube_url?: string | null
         }
         Update: {
           avatar_url?: string | null
           banner_url?: string | null
           created_at?: string | null
           discord_contact?: string | null
+          discord_url?: string | null
           full_name?: string | null
           id?: string
+          instagram_url?: string | null
+          player_card_frame_id?: string | null
           preferred_games?: Json | null
+          preferred_language?: string
           role?: string | null
           tracker_url?: string | null
+          twitter_url?: string | null
           updated_at?: string | null
           username?: string | null
+          youtube_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_player_card_frame_id_fkey"
+            columns: ["player_card_frame_id"]
+            isOneToOne: false
+            referencedRelation: "player_card_frames"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_subscriptions: {
         Row: {
@@ -233,6 +427,30 @@ export type Database = {
           updated_at?: string
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      ranking_seasons: {
+        Row: {
+          created_at: string
+          end_at: string | null
+          id: string
+          name: string
+          start_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_at?: string | null
+          id?: string
+          name: string
+          start_at: string
+        }
+        Update: {
+          created_at?: string
+          end_at?: string | null
+          id?: string
+          name?: string
+          start_at?: string
         }
         Relationships: []
       }
@@ -287,6 +505,7 @@ export type Database = {
       team_invites: {
         Row: {
           created_at: string | null
+          expires_at: string | null
           external_discord: string | null
           external_game_id: string | null
           external_player_name: string | null
@@ -301,6 +520,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          expires_at?: string | null
           external_discord?: string | null
           external_game_id?: string | null
           external_player_name?: string | null
@@ -315,6 +535,7 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          expires_at?: string | null
           external_discord?: string | null
           external_game_id?: string | null
           external_player_name?: string | null
@@ -465,6 +686,7 @@ export type Database = {
           tag: string | null
           twitter_url: string | null
           updated_at: string | null
+          youtube_url: string | null
         }
         Insert: {
           banner_url?: string | null
@@ -488,6 +710,7 @@ export type Database = {
           tag?: string | null
           twitter_url?: string | null
           updated_at?: string | null
+          youtube_url?: string | null
         }
         Update: {
           banner_url?: string | null
@@ -511,6 +734,7 @@ export type Database = {
           tag?: string | null
           twitter_url?: string | null
           updated_at?: string | null
+          youtube_url?: string | null
         }
         Relationships: []
       }
@@ -645,25 +869,25 @@ export type Database = {
       }
       training_messages: {
         Row: {
-          created_at: string | null
-          id: string | null
-          message: string | null
-          sender_id: string | null
-          training_id: string | null
+          created_at: string
+          id: string
+          message: string
+          sender_id: string
+          training_id: string
         }
         Insert: {
-          created_at?: string | null
-          id?: string | null
-          message?: string | null
-          sender_id?: string | null
-          training_id?: string | null
+          created_at?: string
+          id?: string
+          message: string
+          sender_id: string
+          training_id: string
         }
         Update: {
-          created_at?: string | null
-          id?: string | null
-          message?: string | null
-          sender_id?: string | null
-          training_id?: string | null
+          created_at?: string
+          id?: string
+          message?: string
+          sender_id?: string
+          training_id?: string
         }
         Relationships: []
       }
@@ -1161,6 +1385,14 @@ export type Database = {
       }
     }
     Functions: {
+      apply_rank_adjustment: {
+        Args: { _adjustment_id: string }
+        Returns: undefined
+      }
+      apply_rank_points_for_match: {
+        Args: { _match_id: string }
+        Returns: undefined
+      }
       claim_waitlist_slot: {
         Args: { _line_id?: string; _team_id: string; _training_id: string }
         Returns: Json
@@ -1169,6 +1401,8 @@ export type Database = {
         Args: { _organizer_id: string }
         Returns: number
       }
+      get_ranking_season_id: { Args: { at_time: string }; Returns: string }
+      is_organizer_verified: { Args: { _user_id: string }; Returns: boolean }
       is_team_admin: {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean

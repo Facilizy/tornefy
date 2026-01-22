@@ -100,6 +100,14 @@ const Header = ({ user }: HeaderProps) => {
                       Início
                     </Button>
 
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => navigate("/faq")}
+                    >
+                      FAQ
+                    </Button>
+
                     {role === "player" && (
                       <>
                         <Button

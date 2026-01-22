@@ -12,7 +12,7 @@ import { Trash2 } from "lucide-react";
 type FilterKey = "all" | "convites" | "mensagens" | "sistema";
 
 const inviteTypes = new Set(["team_invite", "invite_accepted", "invite_rejected"]);
-const messageTypes = new Set(["chat_message"]);
+const messageTypes = new Set(["chat_message", "training_message"]);
 
 export default function Notifications() {
   const navigate = useNavigate();

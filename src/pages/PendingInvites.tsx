@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { formatDistanceToNowStrict } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { 
   Loader2, 
   Mail, 
@@ -24,6 +26,7 @@ interface TeamInvite {
   status: string;
   permission: string;
   created_at: string;
+  expires_at?: string | null;
   teams: {
     id: string;
     name: string;
@@ -39,6 +42,7 @@ const PendingInvites = () => {
   const [invites, setInvites] = useState<TeamInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [showExpired, setShowExpired] = useState(false);
 
   useEffect(() => {
     checkUser();
@@ -76,6 +80,7 @@ const PendingInvites = () => {
           status,
           permission,
           created_at,
+          expires_at,
           teams (
             id,
             name,
@@ -99,6 +104,11 @@ const PendingInvites = () => {
   const handleAcceptInvite = async (invite: TeamInvite) => {
     try {
       setActionLoading(invite.id);
+
+      if (isExpiredInvite(invite)) {
+        toast.error("Este convite expirou");
+        return;
+      }
 
       // Check if user already has a team
       const { data: existingTeam } = await supabase
@@ -218,6 +228,17 @@ const PendingInvites = () => {
     return <UserPlus className="w-4 h-4" />;
   };
 
+  const isExpiredInvite = (invite: TeamInvite) => {
+    if (!invite.expires_at) return false;
+    const dt = new Date(invite.expires_at);
+    return !Number.isNaN(dt.getTime()) && dt.getTime() < Date.now();
+  };
+
+  const visibleInvites = useMemo(() => {
+    if (showExpired) return invites;
+    return invites.filter((i) => !isExpiredInvite(i));
+  }, [invites, showExpired]);
+
   if (loading) {
     return (
       <MainLayout showFooter={false}>
@@ -265,8 +286,38 @@ const PendingInvites = () => {
             </p>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {invites.map((invite) => (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge variant={showExpired ? "secondary" : "outline"} className="text-[11px]">
+                  {showExpired ? "Mostrando expirados" : "Ocultando expirados"}
+                </Badge>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExpired((v) => !v)}
+              >
+                {showExpired ? "Ocultar expirados" : "Mostrar expirados"}
+              </Button>
+            </div>
+
+            {visibleInvites.length === 0 ? (
+              <Card className="p-12 text-center bg-card/80">
+                <Users className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-semibold mb-2">Nenhum convite ativo</h3>
+                <p className="text-muted-foreground">
+                  Seus convites pendentes ativos aparecerão aqui.
+                </p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {visibleInvites.map((invite) => {
+                  const expired = isExpiredInvite(invite);
+                  const acceptDisabled = expired || actionLoading === invite.id;
+
+                  return (
               <Card key={invite.id} className="p-6 bg-card/80 border-border">
                 <div className="flex items-start gap-4">
                   {/* Team Logo */}
@@ -291,6 +342,11 @@ const PendingInvites = () => {
                       <Badge variant="secondary" className="text-xs">
                         [{invite.teams?.tag}]
                       </Badge>
+                      {expired && (
+                        <Badge variant="destructive" className="text-[11px]">
+                          Expirado
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 mb-3">
@@ -302,13 +358,22 @@ const PendingInvites = () => {
 
                     <p className="text-xs text-muted-foreground mb-4">
                       Recebido em {new Date(invite.created_at).toLocaleDateString("pt-BR")}
+                      {invite.expires_at && !isExpiredInvite(invite) && (
+                        <>
+                          {" "}· Expira em{" "}
+                          {formatDistanceToNowStrict(new Date(invite.expires_at), {
+                            addSuffix: true,
+                            locale: ptBR,
+                          })}
+                        </>
+                      )}
                     </p>
 
                     {/* Actions */}
                     <div className="flex gap-2">
                       <Button
                         onClick={() => handleAcceptInvite(invite)}
-                        disabled={actionLoading === invite.id}
+                        disabled={acceptDisabled}
                         className="flex-1 bg-green-600 hover:bg-green-700"
                       >
                         {actionLoading === invite.id ? (
@@ -316,7 +381,7 @@ const PendingInvites = () => {
                         ) : (
                           <>
                             <Check className="w-4 h-4 mr-2" />
-                            Aceitar
+                            {expired ? "Expirado" : "Aceitar"}
                           </>
                         )}
                       </Button>
@@ -333,7 +398,10 @@ const PendingInvites = () => {
                   </div>
                 </div>
               </Card>
-            ))}
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </main>

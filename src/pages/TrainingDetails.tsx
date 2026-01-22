@@ -1,5 +1,5 @@
 import { useMemo, useEffect, useRef, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -51,6 +51,9 @@ import { MvpListCard } from "@/components/training/MvpListCard";
 import { MinimumTeamsProgress } from "@/components/training/MinimumTeamsProgress";
 import { LoginRequiredCard } from "@/components/LoginRequiredCard";
 import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
+import { TrainingDetailsSkeleton } from "@/components/skeletons/TrainingDetailsSkeleton";
+import { TrainingTeamsPreviewSkeleton } from "@/components/skeletons/TrainingTeamsPreviewSkeleton";
+import { TrainingScoreboardSkeleton } from "@/components/skeletons/TrainingScoreboardSkeleton";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -61,6 +64,7 @@ export const BANNER_SIZES = {
 const TrainingDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [training, setTraining] = useState<any>(null);
@@ -72,6 +76,8 @@ const TrainingDetails = () => {
   const [registeredTeams, setRegisteredTeams] = useState<any[]>([]);
   const [registeredTeamsCount, setRegisteredTeamsCount] = useState(0);
   const [hasAnyScores, setHasAnyScores] = useState(false);
+  const [registeredTeamsLoading, setRegisteredTeamsLoading] = useState(false);
+  const [scoresLoading, setScoresLoading] = useState(false);
   const [myTeam, setMyTeam] = useState<any>(null);
   const [myTeamLines, setMyTeamLines] = useState<any[]>([]);
   const [isRegistered, setIsRegistered] = useState(false);
@@ -191,6 +197,8 @@ const TrainingDetails = () => {
   const fetchTrainingDetails = async (userId?: string) => {
     try {
       setLoading(true);
+      setRegisteredTeamsLoading(!!userId);
+      setScoresLoading(true);
       const { data: trainingData, error: trainingError } = await supabase
         .from("trainings")
         .select("*")
@@ -219,6 +227,8 @@ const TrainingDetails = () => {
         setHasAnyScores(!!anyScore);
       } catch {
         setHasAnyScores(false);
+      } finally {
+        setScoresLoading(false);
       }
 
       // Organizer info (perfil + selo verificado) + próximos treinos do organizador
@@ -229,7 +239,7 @@ const TrainingDetails = () => {
           Promise.all([
             supabase
               .from("profiles")
-              .select("id, username, full_name")
+              .select("id, username, full_name, avatar_url")
               .eq("id", organizerId)
               .maybeSingle(),
             supabase
@@ -276,6 +286,7 @@ const TrainingDetails = () => {
         setRegisteredTeamsCount(count || 0);
         setRegisteredTeams([]);
         setIsRegistered(false);
+        setRegisteredTeamsLoading(false);
         return;
       }
 
@@ -305,6 +316,7 @@ const TrainingDetails = () => {
     } catch (error: any) {
       toast.error("Erro ao carregar detalhes do treino");
     } finally {
+      setRegisteredTeamsLoading(false);
       setLoading(false);
     }
   };
@@ -701,6 +713,22 @@ const TrainingDetails = () => {
     return { canCheckIn: true, reason: "" };
   }, [training?.datetime, nowTick]);
 
+  // Chat: o organizador precisa poder enviar a qualquer momento (organização do evento).
+  // Mantemos a janela sempre habilitada no frontend; regras de horário (se houver) devem ser tratadas no backend.
+  const chatWindow = useMemo(() => {
+    return { enabled: true, reason: "" };
+  }, []);
+
+  // Support deep links like /training/:id?tab=chat
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tab = params.get("tab");
+    if (!tab) return;
+    const allowed = new Set(["overview", "ranking", "teams", "matches", "chat", "live", "settings"]);
+    if (allowed.has(tab)) setActiveTab(tab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.search]);
+
   const handleCheckinClick = async () => {
     if (!id || !myTeam || !user) return;
 
@@ -743,13 +771,7 @@ const TrainingDetails = () => {
   const organizerVerified = isVerifiedOrganizer || isVerifiedOrganizerRole;
 
   if (loading) {
-    return (
-      <MainLayout showFooter={false} showUpcomingScrimWidget={false}>
-        <div className="min-h-[50vh] flex items-center justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        </div>
-      </MainLayout>
-    );
+    return <TrainingDetailsSkeleton />;
   }
 
   if (!training) {
@@ -1141,7 +1163,9 @@ const TrainingDetails = () => {
 
                   <Separator className="my-4" />
 
-                  {registeredTeams.length === 0 ? (
+                  {registeredTeamsLoading ? (
+                    <TrainingTeamsPreviewSkeleton items={6} />
+                  ) : registeredTeams.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
                       Nenhuma equipe inscrita ainda.
                     </div>
@@ -1645,7 +1669,9 @@ const TrainingDetails = () => {
                  message="Faça login para visualizar o ranking completo do evento."
                  primaryColor={eventPrimaryColor}
                />
-             ) : !hasAnyScores ? (
+              ) : scoresLoading ? (
+                <TrainingScoreboardSkeleton />
+              ) : !hasAnyScores ? (
                <Card className="p-6 bg-card/80 border-border">
                  <div className="flex items-start gap-3">
                    <div className="mt-0.5">
@@ -1659,7 +1685,7 @@ const TrainingDetails = () => {
                    </div>
                  </div>
                </Card>
-              ) : registeredTeams.length > 0 ? (
+               ) : registeredTeams.length > 0 ? (
                <>
                   <div className="flex items-center justify-end">
                     <Button
@@ -1818,7 +1844,14 @@ const TrainingDetails = () => {
                   </Badge>
                 </div>
                 <div className="p-4">
-                  <TrainingChat trainingId={id!} isOrganizer={isOrganizer} />
+                  <TrainingChat
+                    trainingId={id!}
+                    isOrganizer={isOrganizer}
+                    chatEnabled={chatWindow.enabled}
+                    chatDisabledReason={chatWindow.reason}
+                    organizerName={organizerProfile?.username || organizerProfile?.full_name}
+                    organizerAvatarUrl={organizerProfile?.avatar_url}
+                  />
                 </div>
               </Card>
             </TabsContent>
@@ -1871,6 +1904,10 @@ const TrainingDetails = () => {
           trainingId={id!}
           isOrganizer={isOrganizer}
           primaryColor={eventPrimaryColor}
+          chatEnabled={chatWindow.enabled}
+          chatDisabledReason={chatWindow.reason}
+          organizerName={organizerProfile?.username || organizerProfile?.full_name}
+          organizerAvatarUrl={organizerProfile?.avatar_url}
         />
       )}
     </MainLayout>

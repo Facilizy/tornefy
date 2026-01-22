@@ -1,7 +1,10 @@
 import { Link } from "react-router-dom";
 import TornefyLogo from "@/components/TornefyLogo";
+import { LanguageSelector } from "@/components/LanguageSelector";
+import { useI18n } from "@/i18n";
 
 const Footer = () => {
+  const { t } = useI18n();
   const socialLinks = [
     { name: "Twitch", href: "https://www.twitch.tv/tornefytv", icon: TwitchIcon },
     { name: "Discord", href: "https://discord.gg/bHgPsBfN7r", icon: DiscordIcon },
@@ -12,11 +15,12 @@ const Footer = () => {
   ];
 
   const navLinks = [
-    { name: "Home", href: "/" },
-    { name: "Scrims", href: "/scrims" },
-    { name: "Players", href: "/players" },
-    { name: "Equipes", href: "/equipes" },
-    { name: "Termos e Privacidade", href: "/terms" },
+    { name: t("nav.home"), href: "/" },
+    { name: t("nav.scrims"), href: "/scrims" },
+    { name: t("nav.players"), href: "/ranking" },
+    { name: t("nav.teams"), href: "/equipes" },
+    { name: t("nav.terms"), href: "/terms" },
+    { name: t("nav.privacy"), href: "/privacy" },
   ];
 
   return (
@@ -27,13 +31,17 @@ const Footer = () => {
           <div>
             <TornefyLogo className="h-8 mb-4" />
             <p className="text-muted-foreground text-sm">
-              Plataforma de scrims competitivas para esports. Participe das melhores scrims e evolua com a comunidade.
+              {t("footer.about")}
             </p>
+
+            <div className="mt-5">
+              <LanguageSelector />
+            </div>
           </div>
 
           {/* Links Section */}
           <div>
-            <h4 className="text-primary font-semibold mb-4 uppercase tracking-wider text-sm">Links</h4>
+            <h4 className="text-primary font-semibold mb-4 uppercase tracking-wider text-sm">{t("footer.links")}</h4>
             <ul className="space-y-2">
               {navLinks.map((link) => (
                 <li key={link.name}>
@@ -50,7 +58,7 @@ const Footer = () => {
 
           {/* Social Section */}
           <div>
-            <h4 className="text-primary font-semibold mb-4 uppercase tracking-wider text-sm">Social</h4>
+            <h4 className="text-primary font-semibold mb-4 uppercase tracking-wider text-sm">{t("footer.social")}</h4>
             <div className="flex flex-wrap gap-3">
               {socialLinks.map((social) => (
                 <a

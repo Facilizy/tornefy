@@ -19,9 +19,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Mail } from "lucide-react";
+import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Mail, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
+import { useI18n } from "@/i18n";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -32,6 +33,7 @@ interface MainLayoutProps {
 const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = true }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { t } = useI18n();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -86,10 +88,11 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
   };
 
   const navItems = [
-    { name: "Home", href: "/", icon: HomeIcon },
-    { name: "Scrims", href: "/scrims", icon: Gamepad2 },
-    { name: "Players", href: "/players", icon: Award },
-    { name: "Equipes", href: "/equipes", icon: Users },
+    { name: t("nav.home"), href: "/", icon: HomeIcon },
+    { name: t("nav.scrims"), href: "/scrims", icon: Gamepad2 },
+    { name: t("nav.players"), href: "/ranking", icon: Award },
+    { name: t("nav.teams"), href: "/equipes", icon: Users },
+    { name: "FAQ", href: "/faq", icon: HelpCircle },
   ];
 
   // Light prefetch to speed up route transitions (no behavior changes)
@@ -112,6 +115,9 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
         break;
       case "/equipes":
         void import("@/pages/Teams").catch(() => {});
+        break;
+      case "/faq":
+        void import("@/pages/FAQ").catch(() => {});
         break;
       default:
         break;
@@ -208,10 +214,10 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
             ) : (
               <div className="hidden md:flex items-center gap-3">
                 <Button variant="ghost" onClick={() => navigate('/auth?mode=login')}>
-                  Entrar
+                  {t("auth.login")}
                 </Button>
                 <Button onClick={() => navigate('/auth?mode=signup')} className="bg-primary hover:bg-primary/90">
-                  Criar Conta
+                  {t("auth.signup")}
                 </Button>
                 <a
                   href="https://discord.gg/bHgPsBfN7r"

@@ -35,6 +35,10 @@ import {
 import { toast } from "sonner";
 import { buildNotificationRow } from "@/lib/notifications";
 
+const INVITE_TTL_DAYS = 7;
+const buildExpiresAt = () =>
+  new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
 interface TeamInviteDialogProps {
   teamId: string;
   onInviteSent?: () => void;
@@ -181,6 +185,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
             is_external: "false",
             permission: selectedPermission,
             status: "pending",
+            expires_at: buildExpiresAt(),
           },
         ])
         .select("id")
@@ -232,6 +237,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
           external_game_id: externalForm.game_id || null,
           permission: selectedPermission,
           status: "accepted", // External players are auto-accepted
+          expires_at: buildExpiresAt(),
         },
       ]);
 
