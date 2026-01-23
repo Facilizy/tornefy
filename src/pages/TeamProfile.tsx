@@ -38,6 +38,7 @@ import { VerifiedBadge } from "@/components/VerifiedBadge";
 import TeamTagBadge from "@/components/TeamTagBadge";
 import LiveNowSection from "@/components/twitch/LiveNowSection";
 import { SocialLinksChips } from "@/components/SocialLinksChips";
+import { IntegratedGamesChips } from "@/components/IntegratedGamesChips";
 import { hexToHslTriplet } from "@/lib/color";
 import { TeamProfileSkeleton } from "@/components/skeletons/TeamProfileSkeleton";
 import { PlayerTradingCardSkeleton } from "@/components/skeletons/PlayerTradingCardSkeleton";
@@ -424,6 +425,14 @@ const TeamProfile = () => {
                 {team.bio && (
                   <p className="text-muted-foreground mb-3">{team.bio}</p>
                 )}
+
+                <IntegratedGamesChips
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  gameIds={(team as any)?.integrated_games}
+                  className="mb-3"
+                  variant="icons"
+                  size="md"
+                />
 
                 <SocialLinksChips links={team} />
 

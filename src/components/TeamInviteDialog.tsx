@@ -63,11 +63,6 @@ interface Invite {
   permission: string;
   status: string;
   created_at: string;
-  profiles?: {
-    username: string;
-    full_name: string;
-    avatar_url: string | null;
-  };
 }
 
 export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps) => {
@@ -118,14 +113,11 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
       setLoadingInvites(true);
       const { data, error } = await supabase
         .from("team_invites")
-        .select(`
-          *,
-          profiles:invited_user_id (
-            username,
-            full_name,
-            avatar_url
-          )
-        `)
+        // NOTE: Don't join profiles here. There is no FK relationship and PostgREST can fail,
+        // which makes the UI show "Convites (0)" even when there are invites.
+        .select(
+          "id, invited_user_id, invited_username, is_external, external_player_name, external_discord, external_game_id, permission, status, created_at, expires_at"
+        )
         .eq("team_id", teamId)
         .order("created_at", { ascending: false });
 
@@ -175,12 +167,16 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
         return;
       }
 
-      const { data: inserted, error } = await supabase
+      // Create new invite row. If it already exists (unique pending constraint), update it.
+      const newId = crypto.randomUUID();
+      let inviteId: string | null = null;
+
+      const { data: inserted, error: insertError } = await supabase
         .from("team_invites")
         .insert([
           {
             // Ensure we always have an id (some legacy rows ended up with NULL id)
-            id: crypto.randomUUID(),
+            id: newId,
             team_id: teamId,
             invited_user_id: userId,
             invited_username: username,
@@ -188,12 +184,47 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
             permission: selectedPermission,
             status: "pending",
             expires_at: buildExpiresAt(),
+            updated_at: new Date().toISOString(),
           },
         ])
         .select("id")
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (!insertError) {
+        inviteId = (inserted as any)?.id ?? newId;
+      } else {
+        // 23505 = unique_violation (partial unique index for pending invites)
+        const code = (insertError as any)?.code;
+        if (code !== "23505") throw insertError;
+
+        const { data: existingRow, error: findErr } = await supabase
+          .from("team_invites")
+          .select("id")
+          .eq("team_id", teamId)
+          .eq("invited_user_id", userId)
+          .eq("is_external", "false")
+          .or("status.eq.pending,status.is.null")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (findErr) throw findErr;
+        inviteId = (existingRow as any)?.id ?? null;
+        if (!inviteId) throw insertError;
+
+        const { error: updateErr } = await supabase
+          .from("team_invites")
+          .update({
+            invited_username: username,
+            permission: selectedPermission,
+            status: "pending",
+            expires_at: buildExpiresAt(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", inviteId);
+
+        if (updateErr) throw updateErr;
+      }
 
       // Create notification for invited user
       await supabase
@@ -206,7 +237,7 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
               ? `Você foi convidado para a equipe ${teamInfo.name} [${teamInfo.tag}]`
               : "Você recebeu um novo convite de equipe.",
             type: "team_invite",
-            related_id: inserted.id,
+            related_id: inviteId,
           })
         );
       toast.success(`Convite enviado para @${username}`);
@@ -523,29 +554,25 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                        {invite.is_external ? (
+                        {invite.is_external === "true" ? (
                           <User className="w-5 h-5 text-muted-foreground" />
-                        ) : invite.profiles?.avatar_url ? (
-                          <img
-                            src={invite.profiles.avatar_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
                         ) : (
                           <UserCheck className="w-5 h-5 text-muted-foreground" />
                         )}
                       </div>
                       <div>
                         <p className="font-medium">
-                          {invite.is_external
-                            ? invite.external_player_name
-                            : invite.profiles?.full_name || invite.invited_username}
+                          {invite.is_external === "true"
+                            ? invite.external_player_name || "Jogador Externo"
+                            : invite.invited_username
+                              ? `@${invite.invited_username}`
+                              : "Jogador"}
                         </p>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs">
                             {getPermissionLabel(invite.permission)}
                           </Badge>
-                          {invite.is_external && (
+                          {invite.is_external === "true" && (
                             <Badge variant="secondary" className="text-xs">
                               Externo
                             </Badge>

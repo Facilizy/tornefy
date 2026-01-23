@@ -21,12 +21,14 @@ import { hexToHslTriplet } from "@/lib/color";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TeamCardSkeleton } from "@/components/skeletons/TeamCardSkeleton";
 import { PlayerTradingCardSkeleton } from "@/components/skeletons/PlayerTradingCardSkeleton";
+import { IntegratedGamesChips } from "@/components/IntegratedGamesChips";
 import {
   PlayerTradingCard,
   type PlayerTradingCardData,
   type PlayerCardFrame,
 } from "@/components/players/PlayerTradingCard";
 import type { GameId } from "@/lib/ranking";
+import { GAMES } from "@/lib/games";
 
 interface Team {
   id: string;
@@ -42,6 +44,7 @@ interface Team {
   rating: number;
   memberCount: number;
   primary_color: string;
+  integrated_games?: any | null;
 }
 
 type PlayerProfile = PlayerTradingCardData & {
@@ -61,6 +64,10 @@ const Teams = () => {
   const [typeFilter, setTypeFilter] = useState("all");
   const [recruitingOnly, setRecruitingOnly] = useState(false);
   const [viewMode, setViewMode] = useState<"players" | "explore">("explore");
+  const [positionFilter, setPositionFilter] = useState<string>("all");
+  const [teamGameFilter, setTeamGameFilter] = useState<string>("all");
+  const [playerGameFilter, setPlayerGameFilter] = useState<string>("all");
+  const [availableOnly, setAvailableOnly] = useState(false);
 
   const [activeSeasonId, setActiveSeasonId] = useState<string | null>(null);
 
@@ -92,7 +99,7 @@ const Teams = () => {
 
   useEffect(() => {
     filterTeamsAndPlayers();
-  }, [teams, players, searchTerm, typeFilter, recruitingOnly, viewMode]);
+  }, [teams, players, searchTerm, typeFilter, recruitingOnly, viewMode, positionFilter, teamGameFilter, playerGameFilter, availableOnly]);
 
   const fetchTeams = async () => {
     try {
@@ -128,7 +135,9 @@ const Teams = () => {
       const { data, error } = await supabase
         .from("profiles")
         // NOTE: player_card_frame_id is new; query via raw string.
-        .select("id, username, full_name, avatar_url, player_card_frame_id")
+        .select(
+          "id, username, full_name, avatar_url, player_card_frame_id, player_function, available_for_team"
+        )
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -139,53 +148,42 @@ const Teams = () => {
         full_name: string | null;
         avatar_url: string | null;
         player_card_frame_id?: string | null;
+        player_function?: string | null;
+        available_for_team?: boolean | null;
       }>;
 
       const ids = profs.map((p) => p.id).filter(Boolean);
 
-      const mainByUser = new Map<
+      // Team mini info
+      const teamByUser = new Map<
         string,
         {
-          function: string | null;
-          game_id: string | null;
-          team: {
-            id: string;
-            name: string | null;
-            tag: string | null;
-            logo_url: string | null;
-            primary_color: string | null;
-          } | null;
+          id: string;
+          name: string | null;
+          tag: string | null;
+          logo_url: string | null;
+          primary_color: string | null;
         }
       >();
 
       if (ids.length) {
-        const { data: memberRows, error: mErr } = await (supabase as any)
+        const { data: memberRows } = await (supabase as any)
           .from("team_members")
-          .select(
-            "user_id, function, game_id, created_at, teams(id, name, tag, logo_url, primary_color)"
-          )
+          .select("user_id, created_at, teams(id, name, tag, logo_url, primary_color)")
           .in("user_id", ids)
           .order("created_at", { ascending: true });
-
-        if (!mErr) {
-          (memberRows || []).forEach((row: any) => {
-            const uid = row.user_id as string | null;
-            if (!uid || mainByUser.has(uid)) return;
-            mainByUser.set(uid, {
-              function: (row.function as string | null) ?? null,
-              game_id: (row.game_id as string | null) ?? null,
-              team: row.teams
-                ? {
-                    id: row.teams.id,
-                    name: row.teams.name ?? null,
-                    tag: row.teams.tag ?? null,
-                    logo_url: row.teams.logo_url ?? null,
-                    primary_color: row.teams.primary_color ?? null,
-                  }
-                : null,
-            });
+        (memberRows || []).forEach((row: any) => {
+          const uid = row.user_id as string | null;
+          if (!uid || teamByUser.has(uid)) return;
+          if (!row.teams) return;
+          teamByUser.set(uid, {
+            id: row.teams.id,
+            name: row.teams.name ?? null,
+            tag: row.teams.tag ?? null,
+            logo_url: row.teams.logo_url ?? null,
+            primary_color: row.teams.primary_color ?? null,
           });
-        }
+        });
       }
 
       // Active season (for rank cards)
@@ -223,16 +221,29 @@ const Teams = () => {
         (frames || []).forEach((f: any) => frameById.set(String(f.id), f as PlayerCardFrame));
       }
 
-      // Rank maps (top 500 leaderboard per game)
-      const games = Array.from(
-        new Set(
-          Array.from(mainByUser.values())
-            .map((v) => v.game_id)
-            .filter((g): g is string => typeof g === "string" && g.length > 0)
-        )
-      ).slice(0, 6);
+      // Best game per user (by season points)
+      const bestByUser = new Map<string, { gameId: string; points: number }>();
+      if (seasonId && ids.length) {
+        const { data: seasonPoints } = await supabase
+          .from("player_season_points")
+          .select("user_id, game_id, points")
+          .eq("season_id", seasonId)
+          .in("user_id", ids)
+          .order("points", { ascending: false });
+        (seasonPoints || []).forEach((r: any) => {
+          const uid = String(r.user_id);
+          if (bestByUser.has(uid)) return;
+          bestByUser.set(uid, { gameId: String(r.game_id), points: Number(r.points ?? 0) });
+        });
+      }
 
-      const rankByUser = new Map<string, { points: number; position: number | null; gameId: string }>();// uid ->
+      // Rank maps (top 500 leaderboard per best-game)
+      const games = Array.from(new Set(Array.from(bestByUser.values()).map((v) => v.gameId))).slice(
+        0,
+        6
+      );
+
+      const rankByUser = new Map<string, { points: number; position: number | null; gameId: string }>(); // uid ->
       if (seasonId && games.length) {
         await Promise.all(
           games.map(async (g) => {
@@ -245,9 +256,10 @@ const Teams = () => {
               .limit(500);
             const rows = (lb || []) as Array<{ user_id: string; points: number }>;
             rows.forEach((r, idx) => {
-              if (!rankByUser.has(r.user_id)) {
-                rankByUser.set(r.user_id, { points: r.points ?? 0, position: idx + 1, gameId: g });
-              }
+              const best = bestByUser.get(r.user_id);
+              if (!best || best.gameId !== g) return;
+              if (rankByUser.has(r.user_id)) return;
+              rankByUser.set(r.user_id, { points: r.points ?? 0, position: idx + 1, gameId: g });
             });
           })
         );
@@ -255,14 +267,15 @@ const Teams = () => {
 
       setPlayers(
         profs.map((p) => {
-          const extra = mainByUser.get(p.id);
-          const gameId = (extra?.game_id ?? null) as GameId | string | null;
+          const best = bestByUser.get(p.id);
+          const gameId = (best?.gameId ?? null) as GameId | string | null;
           const rankRow = seasonId && p.id ? rankByUser.get(p.id) : null;
           return {
             ...p,
-            function: extra?.function ?? null,
+            function: (p as any).player_function ?? null,
+            available_for_team: (p as any).available_for_team ?? null,
             game_id: gameId,
-            team: extra?.team ?? null,
+            team: teamByUser.get(p.id) ?? null,
             rank:
               seasonId && rankRow
                 ? {
@@ -307,10 +320,31 @@ const Teams = () => {
       filteredT = filteredT.filter((team) => team.is_recruiting);
     }
 
+    if (viewMode === "explore" && teamGameFilter !== "all") {
+      filteredT = filteredT.filter((t) => {
+        const arr = Array.isArray((t as any).integrated_games) ? (t as any).integrated_games : [];
+        return arr.includes(teamGameFilter);
+      });
+    }
+
     setFilteredTeams(filteredT);
 
     // Players
     let filteredP = [...players];
+
+    if (viewMode === "players" && positionFilter !== "all") {
+      const target = positionFilter.toLowerCase();
+      filteredP = filteredP.filter((p) => (p.function || "").toLowerCase() === target);
+    }
+
+    if (viewMode === "players" && playerGameFilter !== "all") {
+      filteredP = filteredP.filter((p) => String(p.game_id || "") === playerGameFilter);
+    }
+
+    if (viewMode === "players" && availableOnly) {
+      filteredP = filteredP.filter((p) => !!p.available_for_team && !p.team);
+    }
+
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filteredP = filteredP.filter((p) => {
@@ -413,7 +447,14 @@ const Teams = () => {
 
         {/* Filters */}
         <section className="mb-8 bg-card/50 border border-border rounded-xl p-4">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_180px_auto] gap-3 md:gap-4 items-center">
+          <div
+            className={
+              "grid grid-cols-1 gap-3 md:gap-4 items-center " +
+              (viewMode === "players"
+                ? "md:grid-cols-[1fr_180px_180px_auto_auto]"
+                : "md:grid-cols-[1fr_180px_180px_auto]")
+            }
+          >
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
@@ -436,6 +477,50 @@ const Teams = () => {
               </SelectContent>
             </Select>
 
+            {viewMode === "players" ? (
+              <>
+                <Select value={positionFilter} onValueChange={setPositionFilter}>
+                  <SelectTrigger className="w-full bg-background/40">
+                    <SelectValue placeholder="Posição" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="rush">Rush</SelectItem>
+                    <SelectItem value="suporte">Suporte</SelectItem>
+                    <SelectItem value="capitão">Capitão</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={playerGameFilter} onValueChange={setPlayerGameFilter}>
+                  <SelectTrigger className="w-full bg-background/40">
+                    <SelectValue placeholder="Jogo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    {GAMES.map((g) => (
+                      <SelectItem key={g.id} value={g.id}>
+                        {g.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </>
+            ) : (
+              <Select value={teamGameFilter} onValueChange={setTeamGameFilter}>
+                <SelectTrigger className="w-full bg-background/40">
+                  <SelectValue placeholder="Jogo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos</SelectItem>
+                  {GAMES.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
             <div className="flex items-center gap-2 justify-between md:justify-start">
               <Label htmlFor="recruiting" className="text-sm whitespace-nowrap">
                 Só recrutando
@@ -446,6 +531,19 @@ const Teams = () => {
                 onCheckedChange={setRecruitingOnly}
               />
             </div>
+
+            {viewMode === "players" && (
+              <div className="flex items-center gap-2 justify-between md:justify-start">
+                <Label htmlFor="available" className="text-sm whitespace-nowrap">
+                  Só disponíveis
+                </Label>
+                <Switch
+                  id="available"
+                  checked={availableOnly}
+                  onCheckedChange={setAvailableOnly}
+                />
+              </div>
+            )}
           </div>
         </section>
 
@@ -558,6 +656,13 @@ const Teams = () => {
                       {team.bio}
                     </p>
                   )}
+
+                  <IntegratedGamesChips
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    gameIds={(team as any).integrated_games}
+                    className="mt-3"
+                    variant="icons"
+                  />
 
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                     <span className="text-sm text-muted-foreground">{team.memberCount} membros</span>

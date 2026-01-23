@@ -50,12 +50,19 @@ const Header = ({ user }: HeaderProps) => {
   };
 
   const fetchPendingInvites = async (userId: string) => {
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from("team_invites")
       .select("*", { count: "exact", head: true })
       .eq("invited_user_id", userId)
-      .eq("status", "pending");
-    
+      // Legacy support: NULL status should be treated as pending
+      .or("status.eq.pending,status.is.null");
+
+    if (error) {
+      console.error("Error fetching pending invites count:", error);
+      setPendingInvitesCount(0);
+      return;
+    }
+
     setPendingInvitesCount(count || 0);
   };
 
@@ -86,7 +93,7 @@ const Header = ({ user }: HeaderProps) => {
                     <Menu className="w-5 h-5" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-72">
+                <SheetContent side="right">
                   <SheetHeader>
                     <SheetTitle>Menu</SheetTitle>
                   </SheetHeader>

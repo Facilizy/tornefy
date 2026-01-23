@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { hexToHslTriplet } from "@/lib/color";
 import { getRankTier, type GameId } from "@/lib/ranking";
+import { getGameLabel, getGameLogo } from "@/lib/games";
 import { useMemo, useState } from "react";
 
 type TeamMini = {
@@ -31,6 +32,7 @@ export type PlayerTradingCardData = {
   function?: string | null;
   team?: TeamMini | null;
   game_id?: GameId | string | null;
+  available_for_team?: boolean | null;
   rank?: {
     seasonId: string;
     gameId: GameId | string;
@@ -61,6 +63,9 @@ export function PlayerTradingCard({
   const handle = player.username ? `@${player.username}` : "@sem-username";
   const role = player.function || "—";
   const teamTag = player.team?.tag ? `[${player.team.tag}]` : null;
+  const bestGameLabel = getGameLabel(player.game_id ?? null);
+  const bestGameLogo = getGameLogo(player.game_id ?? null);
+  const showAvailableBadge = !!player.available_for_team && !player.team;
 
   const accent = player.team?.primary_color
     ? hexToHslTriplet(player.team.primary_color)
@@ -256,6 +261,23 @@ export function PlayerTradingCard({
               {labelName}
             </h3>
             <p className="mt-1 text-[13px] text-muted-foreground truncate">{handle}</p>
+
+            <div className="mt-2 flex items-center gap-2">
+              {bestGameLogo ? (
+                <img
+                  src={bestGameLogo}
+                  alt={bestGameLabel}
+                  className="h-5 w-5 rounded object-cover border border-border"
+                  loading="lazy"
+                />
+              ) : null}
+              <p className="text-[12px] text-muted-foreground truncate">{bestGameLabel}</p>
+              {showAvailableBadge ? (
+                <span className="ml-auto inline-flex items-center rounded-full border border-border bg-background/40 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest">
+                  Disponível
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">

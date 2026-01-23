@@ -27,12 +27,12 @@ interface TeamInvite {
   permission: string;
   created_at: string;
   expires_at?: string | null;
-  teams: {
+  team?: {
     id: string;
-    name: string;
-    tag: string;
+    name: string | null;
+    tag: string | null;
     logo_url: string | null;
-  };
+  } | null;
 }
 
 const PendingInvites = () => {
@@ -74,27 +74,46 @@ const PendingInvites = () => {
       setLoading(true);
       const { data, error } = await supabase
         .from("team_invites")
-        .select(`
-          id,
-          team_id,
-          status,
-          permission,
-          created_at,
-          expires_at,
-          teams (
-            id,
-            name,
-            tag,
-            logo_url
-          )
-        `)
+        // NOTE: Don't join teams here (may fail without FK and break the page)
+        .select("id, team_id, status, permission, created_at, expires_at")
         .eq("invited_user_id", user.id)
         // Legacy support: some rows may have NULL status but should be treated as pending
         .or("status.eq.pending,status.is.null")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setInvites(((data || []) as unknown) as TeamInvite[]);
+
+      const rows = (data || []) as Array<{
+        id: string;
+        team_id: string;
+        status: string | null;
+        permission: string;
+        created_at: string;
+        expires_at: string | null;
+      }>;
+
+      const teamIds = Array.from(new Set(rows.map((r) => r.team_id).filter(Boolean)));
+      const teamById = new Map<string, { id: string; name: string | null; tag: string | null; logo_url: string | null }>();
+      if (teamIds.length) {
+        const { data: teamsData, error: teamsError } = await supabase
+          .from("teams")
+          .select("id, name, tag, logo_url")
+          .in("id", teamIds);
+        if (teamsError) throw teamsError;
+        (teamsData || []).forEach((t: any) => teamById.set(String(t.id), t));
+      }
+
+      setInvites(
+        rows.map((r) => ({
+          id: r.id,
+          team_id: r.team_id,
+          status: r.status ?? "pending",
+          permission: r.permission,
+          created_at: r.created_at,
+          expires_at: r.expires_at,
+          team: teamById.get(r.team_id) ?? null,
+        }))
+      );
     } catch (error: any) {
       toast.error("Erro ao carregar convites");
     } finally {
@@ -123,26 +142,16 @@ const PendingInvites = () => {
         return;
       }
 
-      // Update invite status
-      const { error: updateError } = await supabase
-        .from("team_invites")
-        .update({ status: "accepted", updated_at: new Date().toISOString() })
-        .eq("id", invite.id);
+      // Accept invite via RPC (avoids RLS issues on team_members)
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        "accept_team_invite",
+        { _invite_id: invite.id }
+      );
 
-      if (updateError) throw updateError;
-
-      // Add player to team_members
-      const { error: memberError } = await supabase
-        .from("team_members")
-        .insert({
-          team_id: invite.team_id,
-          player_name: profile?.full_name || profile?.username || "Jogador",
-          game_id: user.id,
-          discord: profile?.discord_contact || "",
-          function: invite.permission === "admin" ? "CAPITÃO" : "SUPORTE"
-        });
-
-      if (memberError) throw memberError;
+      if (rpcError) throw rpcError;
+      if (rpcData && (rpcData as any).ok !== true) {
+        throw new Error("Não foi possível aceitar o convite");
+      }
 
       // Create notification for team owner
       const { data: team } = await supabase
@@ -322,10 +331,10 @@ const PendingInvites = () => {
               <Card key={invite.id} className="p-6 bg-card/80 border-border">
                 <div className="flex items-start gap-4">
                   {/* Team Logo */}
-                  {invite.teams?.logo_url ? (
+                   {invite.team?.logo_url ? (
                     <img
-                      src={invite.teams.logo_url}
-                      alt={invite.teams?.name}
+                       src={invite.team.logo_url}
+                       alt={invite.team?.name || "Logo da equipe"}
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
                     />
                   ) : (
@@ -338,10 +347,10 @@ const PendingInvites = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-bold text-lg uppercase truncate">
-                        {invite.teams?.name}
+                         {invite.team?.name || "Equipe"}
                       </h3>
                       <Badge variant="secondary" className="text-xs">
-                        [{invite.teams?.tag}]
+                         [{invite.team?.tag || "-"}]
                       </Badge>
                       {expired && (
                         <Badge variant="destructive" className="text-[11px]">

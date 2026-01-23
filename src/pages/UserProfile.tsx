@@ -159,10 +159,15 @@ const UserProfile = () => {
         tag: string | null;
         name: string | null;
         primary_color: string | null;
+        logo_url?: string | null;
+        banner_url?: string | null;
+        bio?: string | null;
+        region?: string | null;
         discord_url?: string | null;
         twitter_url?: string | null;
         instagram_url?: string | null;
         youtube_url?: string | null;
+        integrated_games?: unknown;
       }
     | null
   >(null);
@@ -343,7 +348,9 @@ const UserProfile = () => {
       // NOTE: `youtube_url` is a recently added column; we query via `any` to avoid stale generated types.
       const { data: t, error: tErr } = await (supabase as any)
         .from("teams")
-        .select("id, tag, name, primary_color, discord_url, twitter_url, instagram_url, youtube_url")
+        .select(
+          "id, tag, name, primary_color, logo_url, banner_url, bio, region, discord_url, twitter_url, instagram_url, youtube_url, integrated_games"
+        )
         .eq("id", mainTeamId)
         .maybeSingle();
       if (!tErr && t?.id) {
@@ -352,10 +359,15 @@ const UserProfile = () => {
           tag: t.tag ?? null,
           name: t.name ?? null,
           primary_color: t.primary_color ?? null,
+          logo_url: t.logo_url ?? null,
+          banner_url: t.banner_url ?? null,
+          bio: t.bio ?? null,
+          region: t.region ?? null,
           discord_url: t.discord_url ?? null,
           twitter_url: t.twitter_url ?? null,
           instagram_url: t.instagram_url ?? null,
           youtube_url: t.youtube_url ?? null,
+          integrated_games: t.integrated_games ?? null,
         });
       } else {
         setMainTeam(null);
@@ -997,7 +1009,50 @@ const UserProfile = () => {
                     ) : null}
                   </div>
                   <aside className="space-y-4">
-                    <ProfileTeamCard team={mainTeam} />
+                    {mainTeam?.id ? (
+                      <ProfileTeamCard team={mainTeam} />
+                    ) : (
+                      <Card className="p-6 bg-card/50 border-border">
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
+                            <Award className="w-6 h-6 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="font-semibold uppercase">Conquistas</h3>
+                            <p className="text-sm text-muted-foreground">
+                              {stats.unlockedBadges} de {stats.totalBadges}
+                            </p>
+                          </div>
+                        </div>
+                        <Progress
+                          value={
+                            stats.totalBadges
+                              ? (stats.unlockedBadges / stats.totalBadges) * 100
+                              : 0
+                          }
+                          className="h-1 mb-4"
+                        />
+                        <div className="grid grid-cols-1 gap-2">
+                          {rarestAchievements.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              Nenhuma conquista desbloqueada ainda.
+                            </p>
+                          ) : (
+                            rarestAchievements.slice(0, 3).map((ach) => (
+                              <div
+                                key={ach.id}
+                                className="rounded-lg border border-border bg-background/40 px-3 py-2"
+                              >
+                                <p className="text-sm font-semibold line-clamp-1">{ach.name}</p>
+                                <p className="text-xs text-muted-foreground line-clamp-1">
+                                  {ach.description || `Meta: ${ach.targetValue}`}
+                                </p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </Card>
+                    )}
                     {profile?.id ? (
                       <ProfileSeasonSummaryCard
                         userId={profile.id}

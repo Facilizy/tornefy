@@ -361,6 +361,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          available_for_team: boolean
           avatar_url: string | null
           banner_url: string | null
           created_at: string | null
@@ -370,6 +371,7 @@ export type Database = {
           id: string
           instagram_url: string | null
           player_card_frame_id: string | null
+          player_function: string | null
           preferred_games: Json | null
           preferred_language: string
           role: string | null
@@ -380,6 +382,7 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          available_for_team?: boolean
           avatar_url?: string | null
           banner_url?: string | null
           created_at?: string | null
@@ -389,6 +392,7 @@ export type Database = {
           id: string
           instagram_url?: string | null
           player_card_frame_id?: string | null
+          player_function?: string | null
           preferred_games?: Json | null
           preferred_language?: string
           role?: string | null
@@ -399,6 +403,7 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          available_for_team?: boolean
           avatar_url?: string | null
           banner_url?: string | null
           created_at?: string | null
@@ -408,6 +413,7 @@ export type Database = {
           id?: string
           instagram_url?: string | null
           player_card_frame_id?: string | null
+          player_function?: string | null
           preferred_games?: Json | null
           preferred_language?: string
           role?: string | null
@@ -705,6 +711,7 @@ export type Database = {
           discord_url: string | null
           id: string
           instagram_url: string | null
+          integrated_games: Json | null
           is_external: boolean | null
           is_recruiting: boolean | null
           is_verified: boolean | null
@@ -729,6 +736,7 @@ export type Database = {
           discord_url?: string | null
           id?: string
           instagram_url?: string | null
+          integrated_games?: Json | null
           is_external?: boolean | null
           is_recruiting?: boolean | null
           is_verified?: boolean | null
@@ -753,6 +761,7 @@ export type Database = {
           discord_url?: string | null
           id?: string
           instagram_url?: string | null
+          integrated_games?: Json | null
           is_external?: boolean | null
           is_recruiting?: boolean | null
           is_verified?: boolean | null
@@ -1273,6 +1282,33 @@ export type Database = {
         }
         Relationships: []
       }
+      tutorial_video_progress: {
+        Row: {
+          created_at: string
+          current_time_seconds: number
+          duration_seconds: number
+          updated_at: string
+          user_id: string
+          video_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_time_seconds?: number
+          duration_seconds?: number
+          updated_at?: string
+          user_id: string
+          video_id: string
+        }
+        Update: {
+          created_at?: string
+          current_time_seconds?: number
+          duration_seconds?: number
+          updated_at?: string
+          user_id?: string
+          video_id?: string
+        }
+        Relationships: []
+      }
       twitch_connections: {
         Row: {
           access_token: string
@@ -1418,6 +1454,7 @@ export type Database = {
       }
     }
     Functions: {
+      accept_team_invite: { Args: { _invite_id: string }; Returns: Json }
       apply_rank_adjustment: {
         Args: { _adjustment_id: string }
         Returns: undefined

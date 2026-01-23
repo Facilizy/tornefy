@@ -116,8 +116,8 @@ export const UpcomingScrimWidget = () => {
   const scrimDate = new Date(scrim.datetime);
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 flex flex-col gap-2 items-stretch">
-      <Card className="bg-card border-border shadow-xl overflow-hidden w-80">
+    <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 z-40 flex flex-col gap-2 items-stretch">
+      <Card className="bg-card border-border shadow-xl overflow-hidden w-full max-w-80">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 bg-primary/10 border-b border-border">
           <div className="flex items-center gap-2">
@@ -227,7 +227,7 @@ export const UpcomingScrimWidget = () => {
       </Card>
 
       {/* Botão de debug pequeno abaixo do card */}
-      <div className="w-80 flex justify-end">
+      <div className="w-full max-w-80 flex justify-end">
         <Button
           type="button"
           size="icon"

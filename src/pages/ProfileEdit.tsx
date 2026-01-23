@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Switch } from "@/components/ui/switch";
 import { TwitchMark } from "@/components/twitch/TwitchMark";
 import { ArrowLeft, Upload, User, Loader2, Gamepad2, Link2 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +44,8 @@ const ProfileEdit = () => {
   const [linkingGoogle, setLinkingGoogle] = useState(false);
   const [linkedProviders, setLinkedProviders] = useState<string[]>([]);
 
+  const [mainTeam, setMainTeam] = useState<any>(null);
+
   const [connectingTwitch, setConnectingTwitch] = useState(false);
   const [syncingTwitch, setSyncingTwitch] = useState(false);
   const [twitchConnected, setTwitchConnected] = useState(false);
@@ -65,6 +68,8 @@ const ProfileEdit = () => {
     preferred_games: [] as string[],
     preferred_language: "pt-BR" as SupportedLanguage,
     player_card_frame_id: "" as string,
+    player_function: "" as string,
+    available_for_team: false as boolean,
   });
 
   const [frames, setFrames] = useState<PlayerCardFrame[]>([]);
@@ -169,6 +174,8 @@ const ProfileEdit = () => {
             ? (data as any).preferred_language
             : "pt-BR",
         player_card_frame_id: (data as any)?.player_card_frame_id || "",
+        player_function: ((data as any)?.player_function as string | null) || "",
+        available_for_team: !!(data as any)?.available_for_team,
       });
 
       // Keep UI language synced with profile preference.
@@ -176,6 +183,34 @@ const ProfileEdit = () => {
       if (profileLang && profileLang !== language) setLanguage(profileLang);
 
       await refreshTwitchConnection(uid);
+
+      // Main team (oldest membership)
+      try {
+        const { data: memberRows } = await (supabase as any)
+          .from("team_members")
+          .select("team_id, created_at")
+          .eq("user_id", uid)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        const mainTeamId = (memberRows || [])?.[0]?.team_id as string | undefined;
+        if (mainTeamId) {
+          const { data: t } = await (supabase as any)
+            .from("teams")
+            .select(
+              "id, tag, name, discord_url, twitter_url, instagram_url, youtube_url, integrated_games"
+            )
+            .eq("id", mainTeamId)
+            .maybeSingle();
+          setMainTeam(t?.id ? t : null);
+
+          // If user has a team, availability must not be enabled.
+          setFormData((p) => ({ ...p, available_for_team: false }));
+        } else {
+          setMainTeam(null);
+        }
+      } catch {
+        setMainTeam(null);
+      }
 
       // load frames
       setLoadingFrames(true);
@@ -421,6 +456,8 @@ const ProfileEdit = () => {
           preferred_games: formData.preferred_games.length > 0 ? formData.preferred_games : ["free_fire"],
           preferred_language: formData.preferred_language,
           player_card_frame_id: formData.player_card_frame_id || null,
+          player_function: formData.player_function || null,
+          available_for_team: mainTeam?.id ? false : !!formData.available_for_team,
         })
         .eq("id", user.id);
 
@@ -656,6 +693,51 @@ const ProfileEdit = () => {
             </div>
 
             <Separator />
+
+            {/* Função + Disponibilidade */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="player_function">Função (posição)</Label>
+                <select
+                  id="player_function"
+                  value={formData.player_function || ""}
+                  onChange={(e) => setFormData((p) => ({ ...p, player_function: e.target.value }))}
+                  className="w-full h-10 rounded-md border border-border bg-background/50 px-3 text-sm"
+                >
+                  <option value="">Não definido</option>
+                  <option value="RUSH">Rush</option>
+                  <option value="SUPORTE">Suporte</option>
+                  <option value="CAPITÃO">Capitão</option>
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Isso será usado para filtro na página Equipes (Jogadores).
+                </p>
+              </div>
+
+              {!mainTeam?.id ? (
+                <div className="rounded-lg border border-border bg-card/50 p-4 flex items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-semibold">Disponível para entrar em time</p>
+                    <p className="text-xs text-muted-foreground">
+                      Ative se você estiver sem equipe e quiser aparecer como disponível.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!!formData.available_for_team}
+                    onCheckedChange={(checked) =>
+                      setFormData((p) => ({ ...p, available_for_team: !!checked }))
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border bg-card/50 p-4">
+                  <p className="font-semibold">Disponível para entrar em time</p>
+                  <p className="text-xs text-muted-foreground">
+                    Você já está em um time — essa opção fica desativada.
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* Username */}
             <div className="space-y-2">

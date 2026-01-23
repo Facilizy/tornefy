@@ -171,6 +171,8 @@ const SentInvites = () => {
     try {
       setResendLoading(inviteId ?? "legacy");
 
+      let relatedIdForNotification: string | null = inviteId;
+
       // Re-send should NOT create a new row (prevents duplicates and avoids unique-index conflicts).
       // Prefer updating the existing invite row. If it's a legacy row without id, create a fresh one.
       if (inviteId) {
@@ -185,11 +187,12 @@ const SentInvites = () => {
 
         if (updateError) throw updateError;
       } else {
+        const newInviteId = crypto.randomUUID();
         const { error: insertError } = await supabase
           .from("team_invites")
           .insert([
             {
-              id: crypto.randomUUID(),
+              id: newInviteId,
               team_id: team.id,
               invited_user_id: invite.invited_user_id,
               invited_username: invite.invited_username,
@@ -201,6 +204,7 @@ const SentInvites = () => {
             },
           ]);
         if (insertError) throw insertError;
+        relatedIdForNotification = newInviteId;
       }
 
       await supabase.from("notifications").insert(
@@ -211,7 +215,7 @@ const SentInvites = () => {
             ? `Você foi convidado para a equipe ${team.name} [${team.tag}]`
             : "Você recebeu um novo convite de equipe.",
           type: "team_invite",
-          related_id: inviteId,
+          related_id: relatedIdForNotification,
         })
       );
 

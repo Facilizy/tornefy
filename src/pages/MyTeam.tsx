@@ -78,6 +78,7 @@ const MyTeam = () => {
     twitter_url: "",
     instagram_url: "",
     is_recruiting: false,
+    integrated_games: [] as string[],
   });
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -135,33 +136,98 @@ const MyTeam = () => {
   const fetchTeam = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      // 1) Owner team
+      const { data: ownedTeam, error: ownedErr } = await supabase
         .from("teams")
         .select("*")
         .eq("owner_id", user.id)
         .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
-      
-      if (data) {
-        setTeam(data);
-        setTeamForm({
-          name: data.name,
-          tag: data.tag,
-          logo_url: data.logo_url || "",
-          banner_url: data.banner_url || "",
-          bio: data.bio || "",
-          description: data.description || "",
-          region: data.region || "BR",
-          platform: data.platform || "PC",
-          primary_color: data.primary_color || "#9146FF",
-          secondary_color: data.secondary_color || "#1F2937",
-          discord_url: data.discord_url || "",
-          twitter_url: data.twitter_url || "",
-          instagram_url: data.instagram_url || "",
-          is_recruiting: data.is_recruiting || false,
-        });
+      if (ownedErr && ownedErr.code !== "PGRST116") throw ownedErr;
+
+      // 2) If not owner: check membership and redirect or allow admin
+      if (!ownedTeam) {
+        const { data: memberRows, error: memberErr } = await (supabase as any)
+          .from("team_members")
+          .select("team_id, created_at")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        if (memberErr) throw memberErr;
+
+        const memberTeamId = (memberRows || [])?.[0]?.team_id as string | undefined;
+        if (memberTeamId) {
+          const { data: isAdminRow, error: adminErr } = await (supabase as any).rpc(
+            "is_team_admin",
+            {
+              _user_id: user.id,
+              _team_id: memberTeamId,
+            }
+          );
+          if (adminErr) throw adminErr;
+
+          if (!isAdminRow) {
+            navigate(`/team/${memberTeamId}`);
+            return;
+          }
+
+          const { data: adminTeam, error: adminTeamErr } = await supabase
+            .from("teams")
+            .select("*")
+            .eq("id", memberTeamId)
+            .maybeSingle();
+          if (adminTeamErr) throw adminTeamErr;
+          if (adminTeam) {
+            setTeam(adminTeam);
+            const integratedGames = Array.isArray((adminTeam as any).integrated_games)
+              ? ((adminTeam as any).integrated_games as any[]).filter((g) => typeof g === "string")
+              : [];
+            setTeamForm({
+              name: adminTeam.name,
+              tag: adminTeam.tag,
+              logo_url: adminTeam.logo_url || "",
+              banner_url: adminTeam.banner_url || "",
+              bio: adminTeam.bio || "",
+              description: adminTeam.description || "",
+              region: adminTeam.region || "BR",
+              platform: adminTeam.platform || "PC",
+              primary_color: adminTeam.primary_color || "#9146FF",
+              secondary_color: adminTeam.secondary_color || "#1F2937",
+              discord_url: adminTeam.discord_url || "",
+              twitter_url: adminTeam.twitter_url || "",
+              instagram_url: adminTeam.instagram_url || "",
+              is_recruiting: adminTeam.is_recruiting || false,
+              integrated_games: integratedGames,
+            });
+          }
+        }
+
+        // Not owner and not member: stays on empty state
+        return;
       }
+
+      // Owner team case
+      setTeam(ownedTeam);
+      const integratedGames = Array.isArray((ownedTeam as any).integrated_games)
+        ? ((ownedTeam as any).integrated_games as any[]).filter((g) => typeof g === "string")
+        : [];
+      setTeamForm({
+        name: ownedTeam.name,
+        tag: ownedTeam.tag,
+        logo_url: ownedTeam.logo_url || "",
+        banner_url: ownedTeam.banner_url || "",
+        bio: ownedTeam.bio || "",
+        description: ownedTeam.description || "",
+        region: ownedTeam.region || "BR",
+        platform: ownedTeam.platform || "PC",
+        primary_color: ownedTeam.primary_color || "#9146FF",
+        secondary_color: ownedTeam.secondary_color || "#1F2937",
+        discord_url: ownedTeam.discord_url || "",
+        twitter_url: ownedTeam.twitter_url || "",
+        instagram_url: ownedTeam.instagram_url || "",
+        is_recruiting: ownedTeam.is_recruiting || false,
+        integrated_games: integratedGames,
+      });
     } catch (error: any) {
       toast.error("Erro ao carregar equipe");
     } finally {
@@ -324,6 +390,7 @@ const MyTeam = () => {
         twitter_url: teamForm.twitter_url || null,
         instagram_url: teamForm.instagram_url || null,
         is_recruiting: teamForm.is_recruiting,
+        integrated_games: Array.isArray(teamForm.integrated_games) ? teamForm.integrated_games : [],
       };
 
       if (team) {
@@ -622,6 +689,40 @@ const MyTeam = () => {
                   </div>
                 </div>
 
+                <div className="mt-4">
+                  <Label>Jogos integrados</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Selecione os jogos em que seu time compete (usado no filtro da página Equipes).
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {[
+                      { id: "free_fire", label: "Free Fire" },
+                      { id: "blood_strike", label: "Blood Strike" },
+                      { id: "farlight_84", label: "Farlight 84" },
+                      { id: "prime_rush", label: "Prime Rush" },
+                      { id: "battlefield_6", label: "Battlefield 6" },
+                    ].map((g) => (
+                      <label
+                        key={g.id}
+                        className="flex items-center gap-2 rounded-lg border border-border bg-background/40 px-3 py-2"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={teamForm.integrated_games.includes(g.id)}
+                          onChange={(e) => {
+                            const next = new Set(teamForm.integrated_games);
+                            if (e.target.checked) next.add(g.id);
+                            else next.delete(g.id);
+                            setTeamForm({ ...teamForm, integrated_games: Array.from(next) });
+                          }}
+                        />
+                        <span className="text-sm font-medium">{g.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <Label htmlFor="bio">Bio (frase curta)</Label>
                   <Input
@@ -842,7 +943,7 @@ const MyTeam = () => {
                     </div>
                     <Card className="flex-1 p-4 bg-background/50">
                       <p className="text-sm text-muted-foreground">
-                        ℹ️ Times Diamante, Mestre ou Elite podem usar GIF animado como logo.
+                        
                       </p>
                     </Card>
                   </div>

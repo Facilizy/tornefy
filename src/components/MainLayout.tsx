@@ -239,7 +239,7 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                     <Menu className="w-6 h-6" />
                   </Button>
                 </SheetTrigger>
-                <SheetContent side="right" className="w-80 p-0">
+                <SheetContent side="right" className="p-0">
                   <div className="flex flex-col h-full">
                     {/* Mobile Header */}
                     <div className="flex items-center justify-between p-4 border-b border-border">
