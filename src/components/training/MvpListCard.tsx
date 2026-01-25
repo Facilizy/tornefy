@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import {
@@ -14,6 +14,8 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { MvpPlayerDetailsDialog } from "@/components/training/MvpPlayerDetailsDialog";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
+import { Trophy } from "lucide-react";
 
 type TeamLite = { id: string; name: string; tag: string; logo_url?: string | null };
 
@@ -29,7 +31,94 @@ type MvpRow = {
 
 const PAGE_SIZE = 10;
 
-export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: TeamLite[] }) {
+function StatPill({ children, variant }: { children: ReactNode; variant: "neutral" | "accent" }) {
+  return (
+    <Badge
+      variant={variant === "accent" ? "secondary" : "outline"}
+      className="rounded-full px-3 py-1 text-xs font-semibold tabular-nums"
+    >
+      {children}
+    </Badge>
+  );
+}
+
+function PodiumCard({ 
+  player, 
+  rank, 
+  teamLabel, 
+  onClick 
+}: { 
+  player: MvpRow; 
+  rank: number; 
+  teamLabel?: string;
+  onClick: () => void;
+}) {
+  const isFirst = rank === 1;
+  const medalColor = rank === 1 ? "text-yellow-400" : rank === 2 ? "text-gray-400" : "text-amber-700";
+  
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-left w-full motion-safe:transition-transform motion-safe:hover:scale-[1.02]"
+    >
+      <Card className={
+        "relative overflow-hidden p-4 bg-card/60 border-border hover:border-primary/40 motion-safe:transition-colors " +
+        (isFirst ? "border-primary/35" : "")
+      }>
+        {isFirst ? (
+          <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/18 via-transparent to-transparent" />
+        ) : null}
+        
+        <div className="flex items-center gap-3">
+          <div className="relative shrink-0">
+            <Avatar className="h-14 w-14 border-2 border-border">
+              {player.avatar_url ? (
+                <AvatarImage src={player.avatar_url} alt={player.player_name} />
+              ) : null}
+              <AvatarFallback>
+                <DefaultAvatarMark className="h-6 w-6 text-muted-foreground" />
+              </AvatarFallback>
+            </Avatar>
+            <div className={`absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border-2 border-border flex items-center justify-center ${medalColor}`}>
+              <Trophy className="w-3.5 h-3.5" />
+            </div>
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="font-bold truncate text-sm">{player.player_name}</div>
+            {teamLabel ? (
+              <div className="text-xs text-muted-foreground truncate mt-0.5">{teamLabel}</div>
+            ) : null}
+            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+              <span>{player.matchesPlayed} partida(s)</span>
+              <span>•</span>
+              <span>K.D {player.kd.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          <div className="text-right shrink-0">
+            <div className={"text-2xl font-black leading-none tabular-nums " + (isFirst ? "text-primary" : "")}>
+              {player.kills}
+            </div>
+            <div className="text-xs text-muted-foreground mt-0.5">kills</div>
+          </div>
+        </div>
+      </Card>
+    </button>
+  );
+}
+
+export function MvpListCard({
+  trainingId,
+  teams,
+  selectedRoundId,
+}: {
+  trainingId: string;
+  teams: TeamLite[];
+  /** "all" = todas as rodadas */
+  selectedRoundId?: string;
+}) {
   const [rows, setRows] = useState<MvpRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
@@ -53,10 +142,15 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
 
         const { data: matches } = await supabase
           .from("training_matches")
-          .select("id")
+          .select("id, round_id")
           .eq("training_id", trainingId);
 
-        const matchIds = (matches || []).map((m: any) => m.id).filter(Boolean);
+        const filteredMatches =
+          selectedRoundId && selectedRoundId !== "all"
+            ? (matches || []).filter((m: any) => String(m.round_id || "") === selectedRoundId)
+            : (matches || []);
+
+        const matchIds = filteredMatches.map((m: any) => m.id).filter(Boolean);
         if (matchIds.length === 0) {
           if (!cancelled) setRows([]);
           return;
@@ -64,9 +158,8 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
 
         const { data: stats, error } = await supabase
           .from("training_player_stats")
-          .select("player_name, team_id, kills, is_mvp, match_id, team_member_id")
-          .in("match_id", matchIds)
-          .eq("is_mvp", true);
+          .select("player_name, team_id, kills, match_id, team_member_id")
+          .in("match_id", matchIds);
 
         if (error) throw error;
 
@@ -112,7 +205,11 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
         >();
 
         (stats || []).forEach((s: any) => {
-          const key = `${s.player_name}::${s.team_id}`;
+          const userId = s.team_member_id ? memberToUser.get(String(s.team_member_id)) : undefined;
+          // Regra: só entra no ranking quem tem conta na plataforma
+          if (!userId) return;
+
+          const key = `${userId}::${s.team_id}`;
           const prev =
             agg.get(key) ||
             {
@@ -127,8 +224,7 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
           prev.kills += Number(s.kills || 0);
           if (s.match_id) prev.matchIds.add(String(s.match_id));
 
-          const userId = s.team_member_id ? memberToUser.get(String(s.team_member_id)) : undefined;
-          if (userId && !prev.user_id) {
+          if (!prev.user_id) {
             prev.user_id = userId;
             prev.avatar_url = userToAvatar.get(userId) || null;
           }
@@ -162,7 +258,7 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
     return () => {
       cancelled = true;
     };
-  }, [trainingId]);
+  }, [trainingId, selectedRoundId]);
 
   if (loading) {
     return (
@@ -175,8 +271,25 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
     );
   }
 
-  if (rows.length === 0) return null;
+  if (rows.length === 0) {
+    return (
+      <Card className="p-6 bg-card/80 border-border">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="text-lg font-bold">Ranking de Kills</h3>
+          <p className="text-xs text-muted-foreground">
+            Só jogadores com conta. Respeita o filtro da Classificação Geral.
+          </p>
+        </div>
 
+        <div className="mt-4 text-sm text-muted-foreground">
+          Ainda não há kills lançadas para este filtro.
+        </div>
+      </Card>
+    );
+  }
+
+  const top3 = rows.slice(0, 3);
+  const hasTop3 = top3.length === 3;
   const visibleRows = rows.slice(0, visibleCount);
   const canShowMore = visibleCount < rows.length;
 
@@ -189,17 +302,62 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
 
   return (
     <Card className="p-6 bg-card/80 border-border">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h3 className="text-lg font-bold">MVPs do Treino</h3>
-        <p className="text-xs text-muted-foreground">
-          Lista (10 por vez). Clique no jogador para abrir o perfil.
-        </p>
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h3 className="text-lg font-bold leading-tight">Ranking de Kills</h3>
+          <p className="text-xs text-muted-foreground mt-1">
+            Top 3 em destaque. Clique no jogador para ver detalhes.
+          </p>
+        </div>
+        <div className="text-xs text-muted-foreground tabular-nums">
+          Total: <span className="text-foreground font-semibold">{rows.length}</span>
+        </div>
       </div>
 
-      <div className="mt-4 overflow-x-auto">
+      {/* Pódio Top 3 */}
+      {hasTop3 ? (
+        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="md:order-2">
+            <PodiumCard
+              player={top3[0]}
+              rank={1}
+              teamLabel={teamById.get(top3[0].team_id)?.name}
+              onClick={() => {
+                setSelected(top3[0]);
+                setDetailsOpen(true);
+              }}
+            />
+          </div>
+          <div className="md:order-1">
+            <PodiumCard
+              player={top3[1]}
+              rank={2}
+              teamLabel={teamById.get(top3[1].team_id)?.name}
+              onClick={() => {
+                setSelected(top3[1]);
+                setDetailsOpen(true);
+              }}
+            />
+          </div>
+          <div className="md:order-3">
+            <PodiumCard
+              player={top3[2]}
+              rank={3}
+              teamLabel={teamById.get(top3[2].team_id)?.name}
+              onClick={() => {
+                setSelected(top3[2]);
+                setDetailsOpen(true);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      {/* Tabela completa */}
+      <div className="mt-4 overflow-x-auto rounded-xl border border-border bg-background/20">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="hover:bg-transparent">
               <TableHead className="w-12">#</TableHead>
               <TableHead>Jogador</TableHead>
               <TableHead>Equipe</TableHead>
@@ -211,22 +369,26 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
           <TableBody>
             {visibleRows.map((r, idx) => {
               const team = teamById.get(r.team_id);
+              const rank = idx + 1;
               return (
                 <TableRow
-                  key={`${r.player_name}-${r.team_id}`}
-                  className="cursor-pointer hover:bg-muted/30"
+                  key={`${r.user_id || r.player_name}-${r.team_id}`}
+                  className={
+                    "cursor-pointer motion-safe:transition-colors hover:bg-muted/30 " +
+                    (rank === 1 ? "bg-muted/20" : "")
+                  }
                   onClick={() => {
                     setSelected(r);
                     setDetailsOpen(true);
                   }}
                 >
-                  <TableCell className="font-bold">{idx + 1}</TableCell>
+                  <TableCell className="font-bold tabular-nums">{rank}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
                         {r.avatar_url ? <AvatarImage src={r.avatar_url} alt={r.player_name} /> : null}
                         <AvatarFallback>
-                          {(r.player_name || "??").slice(0, 2).toUpperCase()}
+                          <DefaultAvatarMark className="h-4 w-4 text-muted-foreground" title={`Avatar padrão de ${r.player_name}`} />
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
@@ -247,13 +409,13 @@ export function MvpListCard({ trainingId, teams }: { trainingId: string; teams: 
                     )}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline">{r.kills}</Badge>
+                    <StatPill variant="neutral">{r.kills}</StatPill>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="secondary">{r.matchesPlayed}</Badge>
+                    <StatPill variant="accent">{r.matchesPlayed}</StatPill>
                   </TableCell>
                   <TableCell className="text-center">
-                    <Badge variant="outline">{r.kd.toFixed(2)}</Badge>
+                    <StatPill variant="neutral">{r.kd.toFixed(2)}</StatPill>
                   </TableCell>
                 </TableRow>
               );

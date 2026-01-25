@@ -15,6 +15,9 @@ import { Separator } from '@/components/ui/separator';
 import { Users, Download, Copy, Loader2, AlertTriangle, Flag, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReportTeamDialog } from './ReportTeamDialog';
+import { fetchVerifiedMap } from '@/hooks/useVerifiedEntities';
+import { TeamVerifiedBadge } from '@/components/TeamVerifiedBadge';
+import { DefaultAvatarMark } from '@/components/DefaultAvatarMark';
 
 interface TeamMember {
   player_name: string;
@@ -45,12 +48,21 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
   const [loading, setLoading] = useState(false);
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
+  const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
 
   useEffect(() => {
     if (open) {
       fetchTeams();
     }
   }, [open]);
+
+  useEffect(() => {
+    const ids = teams.map((t) => t.id).filter(Boolean);
+    void (async () => {
+      const map = await fetchVerifiedMap('team', ids);
+      setVerifiedMap(map);
+    })();
+  }, [teams]);
 
   const fetchTeams = async () => {
     try {
@@ -224,27 +236,30 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button variant="outline" size="sm">
-            <Users className="w-4 h-4 mr-2" />
+          <Button variant="outline" size="xs" className="w-full justify-center gap-2">
+            <Users className="w-4 h-4" />
             Ver Equipes
           </Button>
         </DialogTrigger>
-        <DialogContent className="max-w-4xl max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>Equipes Inscritas - {trainingName}</span>
-              {teams.length > 0 && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={downloadAllInfo}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Baixar Tudo
-                </Button>
-              )}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="max-w-5xl p-0 overflow-hidden">
+          <div className="border-b border-border bg-card/60 backdrop-blur">
+            <DialogHeader className="p-4 sm:p-5">
+              <DialogTitle className="flex items-start sm:items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Equipes inscritas</p>
+                  <span className="block text-base sm:text-lg font-black uppercase tracking-tight truncate">
+                    {trainingName}
+                  </span>
+                </div>
+                {teams.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={downloadAllInfo} className="shrink-0">
+                    <Download className="w-4 h-4 mr-2" />
+                    Baixar tudo
+                  </Button>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
 
           {loading ? (
             <div className="flex items-center justify-center p-8">
@@ -258,54 +273,60 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
               </p>
             </div>
           ) : (
-            <ScrollArea className="max-h-[70vh] pr-4">
-              <div className="space-y-4">
+            <ScrollArea className="max-h-[75vh]">
+              <div className="p-4 sm:p-5 space-y-4">
                 {teams.map((team) => (
-                  <Card key={team.id} className="overflow-hidden">
+                  <Card key={team.id} className="overflow-hidden bg-card/60 border-border">
                     <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div className="flex items-start gap-3 min-w-0">
                           {team.logo_url ? (
                             <img
                               src={team.logo_url}
                               alt={team.name}
-                              className="w-12 h-12 rounded-lg object-cover border-2 border-primary"
+                              className="w-12 h-12 rounded-xl object-cover border border-border bg-background/40"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-gradient-primary flex items-center justify-center">
-                              <Users className="w-6 h-6 text-white" />
+                            <div className="w-12 h-12 rounded-xl border border-border bg-background/40 grid place-items-center">
+                              <DefaultAvatarMark className="h-6 w-6 text-muted-foreground" />
                             </div>
                           )}
-                          <div className="flex-1">
+
+                          <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <CardTitle className="text-lg uppercase">
+                              <CardTitle className="text-lg uppercase truncate">
                                 {team.name}
                               </CardTitle>
+                              {verifiedMap.get(team.id) ? <TeamVerifiedBadge variant="icon" size="sm" /> : null}
                               {team.is_external && (
-                                <Badge variant="outline" className="gap-1 border-primary text-primary">
+                                <Badge variant="outline" className="gap-1">
                                   <Users className="w-3 h-3" />
                                   Convidado
                                 </Badge>
                               )}
-                              {team.blacklist_count && team.blacklist_count >= 3 && (
+                            </div>
+
+                            <div className="mt-1 flex items-center gap-2 flex-wrap">
+                              <Badge variant="secondary" className="uppercase">
+                                {team.tag || 'CONVIDADO'}
+                              </Badge>
+                              {team.blacklist_count && team.blacklist_count >= 3 ? (
                                 <Badge variant="destructive" className="gap-1">
                                   <AlertTriangle className="w-3 h-3" />
-                                  {team.blacklist_count} Blacklists
+                                  {team.blacklist_count} blacklists
                                 </Badge>
-                              )}
-                              {team.report_count && team.report_count > 0 && (
-                                <Badge variant="outline" className="gap-1 border-yellow-500 text-yellow-600">
+                              ) : null}
+                              {team.report_count && team.report_count > 0 ? (
+                                <Badge variant="outline" className="gap-1">
                                   <Flag className="w-3 h-3" />
-                                  {team.report_count} Denúncia{team.report_count > 1 ? 's' : ''}
+                                  {team.report_count} denúncia{team.report_count > 1 ? 's' : ''}
                                 </Badge>
-                              )}
+                              ) : null}
                             </div>
-                            <Badge variant="secondary" className="mt-1 uppercase">
-                              {team.tag || 'CONVIDADO'}
-                            </Badge>
                           </div>
                         </div>
-                         <div className="flex gap-2">
+
+                        <div className="flex gap-2 sm:justify-end">
                           <Button
                             variant="destructive"
                             size="sm"
@@ -350,10 +371,7 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                           Membros ({team.members.length})
                         </h4>
                         {team.members.map((member, index) => (
-                          <div
-                            key={index}
-                            className="p-3 rounded-lg bg-accent/30 space-y-1"
-                          >
+                          <div key={index} className="p-3 rounded-xl border border-border bg-background/30 space-y-1">
                             <div className="flex items-center justify-between">
                               <p className="font-semibold">{member.player_name}</p>
                               <Badge variant={getFunctionBadgeVariant(member.function)}>

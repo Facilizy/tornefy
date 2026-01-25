@@ -11,7 +11,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { setSeo } from "@/lib/seo";
+import { getCanonicalOrigin, setJsonLd, setSeo } from "@/lib/seo";
 import { z } from "zod";
 import { Play, FileText } from "lucide-react";
 import { YouTubeTutorialPlayer } from "@/components/faq/YouTubeTutorialPlayer";
@@ -117,10 +117,33 @@ export default function FAQ() {
 
   useEffect(() => {
     setSeo({
-      title: "FAQ e Tutoriais | Tornefy",
+      title: "FAQ • Tornefy",
       description:
         "Perguntas frequentes e vídeos tutoriais: aprenda a criar equipe, participar de scrims e organizar treinos no Tornefy.",
-      canonical: `${window.location.origin}/faq`,
+      canonical: `${getCanonicalOrigin()}/faq`,
+    });
+
+    const origin = getCanonicalOrigin();
+    setJsonLd("breadcrumbs-faq", {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Início", item: origin + "/" },
+        { "@type": "ListItem", position: 2, name: "FAQ", item: origin + "/faq" },
+      ],
+    });
+
+    setJsonLd("faqpage", {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: FAQ_ITEMS.map((it) => ({
+        "@type": "Question",
+        name: it.question,
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: it.answer,
+        },
+      })),
     });
   }, []);
 
@@ -167,6 +190,15 @@ export default function FAQ() {
     });
   }, [safeQuery, categoryFilter]);
 
+  const groupedText = useMemo(() => {
+    const groups: Record<"jogador" | "organizador", FaqItem[]> = {
+      jogador: [],
+      organizador: [],
+    };
+    filtered.forEach((it) => groups[it.category].push(it));
+    return groups;
+  }, [filtered]);
+
   const handleVideoProgress = (videoId: string, seconds: number, duration?: number) => {
     setWatchedSeconds((prev) => {
       const updated = { ...prev, [videoId]: seconds };
@@ -182,17 +214,41 @@ export default function FAQ() {
     <MainLayout showUpcomingScrimWidget={false}>
       <main className="container mx-auto px-4 py-8">
         <header className="mb-6">
-          <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">
-            FAQ & Tutoriais
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-            Aprenda com textos ou vídeos. Filtre por jogador ou organizador.
-          </p>
+          <div className="relative overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur p-5 sm:p-6">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
+            <div className="relative">
+              <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">
+                FAQ & Tutoriais
+              </h1>
+              <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
+                Aprenda com textos ou vídeos. Filtre por jogador ou organizador.
+              </p>
+
+              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <Card className="p-3 bg-background/40 border-border">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Perguntas</p>
+                  <p className="text-lg font-black leading-none">{FAQ_ITEMS.length}</p>
+                </Card>
+                <Card className="p-3 bg-background/40 border-border">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vídeos</p>
+                  <p className="text-lg font-black leading-none">{VIDEO_ITEMS.length}</p>
+                </Card>
+                <Card className="p-3 bg-background/40 border-border">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Jogador</p>
+                  <p className="text-lg font-black leading-none">{FAQ_ITEMS.filter((i) => i.category === "jogador").length}</p>
+                </Card>
+                <Card className="p-3 bg-background/40 border-border">
+                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Organizador</p>
+                  <p className="text-lg font-black leading-none">{FAQ_ITEMS.filter((i) => i.category === "organizador").length}</p>
+                </Card>
+              </div>
+            </div>
+          </div>
         </header>
 
         <Card className="p-5 bg-card/60 border-border backdrop-blur mb-6">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
-            <TabsList className="bg-card/50 mb-4">
+            <TabsList className="bg-card/50 mb-4 w-full sm:w-auto">
               <TabsTrigger value="text" className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 Texto
@@ -219,11 +275,12 @@ export default function FAQ() {
             />
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 variant={categoryFilter === "all" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setCategoryFilter("all")}
+                className="rounded-full"
               >
                 Todos
               </Button>
@@ -231,6 +288,7 @@ export default function FAQ() {
                 variant={categoryFilter === "jogador" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setCategoryFilter("jogador")}
+                className="rounded-full"
               >
                 Jogador
               </Button>
@@ -238,6 +296,7 @@ export default function FAQ() {
                 variant={categoryFilter === "organizador" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setCategoryFilter("organizador")}
+                className="rounded-full"
               >
                 Organizador
               </Button>
@@ -248,24 +307,57 @@ export default function FAQ() {
         {viewMode === "text" ? (
           <Card className="p-5 bg-card/60 border-border backdrop-blur">
             {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
+              <p className="text-sm text-muted-foreground text-center py-10">
                 Nenhum resultado. Tente outra palavra.
               </p>
             ) : (
-              <Accordion type="single" collapsible className="w-full">
-                {filtered.map((it) => (
-                  <AccordionItem key={it.id} value={it.id}>
-                    <AccordionTrigger className="text-left">
-                      {it.question}
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                        {it.answer}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                ))}
-              </Accordion>
+              <div className="space-y-6">
+                {(categoryFilter === "all" || categoryFilter === "jogador") && (
+                  <section>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h2 className="text-sm font-black uppercase tracking-wide">Jogador</h2>
+                      <span className="text-xs text-muted-foreground">{groupedText.jogador.length} itens</span>
+                    </div>
+                    <Accordion type="single" collapsible className="w-full">
+                      {groupedText.jogador.map((it) => (
+                        <AccordionItem key={it.id} value={it.id}>
+                          <AccordionTrigger className="text-left">
+                            {it.question}
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {it.answer}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </section>
+                )}
+
+                {(categoryFilter === "all" || categoryFilter === "organizador") && (
+                  <section>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h2 className="text-sm font-black uppercase tracking-wide">Organizador</h2>
+                      <span className="text-xs text-muted-foreground">{groupedText.organizador.length} itens</span>
+                    </div>
+                    <Accordion type="single" collapsible className="w-full">
+                      {groupedText.organizador.map((it) => (
+                        <AccordionItem key={it.id} value={it.id}>
+                          <AccordionTrigger className="text-left">
+                            {it.question}
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
+                              {it.answer}
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      ))}
+                    </Accordion>
+                  </section>
+                )}
+              </div>
             )}
           </Card>
         ) : (
@@ -292,6 +384,9 @@ export default function FAQ() {
                       />
                     </div>
                     <div className="p-4">
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+                        {video.category === "jogador" ? "Jogador" : "Organizador"}
+                      </p>
                       <h3 className="font-semibold text-lg mb-2">{video.title}</h3>
                       <p className="text-sm text-muted-foreground mb-3">{video.description}</p>
                       <div className="space-y-2">

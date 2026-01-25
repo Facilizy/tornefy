@@ -28,6 +28,7 @@ const PendingInvites = lazy(() => import("./pages/PendingInvites"));
 const SentInvites = lazy(() => import("./pages/SentInvites"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const FAQ = lazy(() => import("./pages/FAQ"));
+const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 
 const OverlayTabelaGeral = lazy(() => import("./pages/overlays/OverlayTabelaGeral"));
 const OverlayQueda = lazy(() => import("./pages/overlays/OverlayQueda"));
@@ -60,6 +61,7 @@ const App = () => (
               <Route path="/ranking" element={<Ranking />} />
               <Route path="/equipes" element={<Teams />} />
               <Route path="/faq" element={<FAQ />} />
+              <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />

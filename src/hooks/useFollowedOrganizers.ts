@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchVerifiedMap } from "@/hooks/useVerifiedEntities";
 
 export type FollowedOrganizer = {
   id: string;
   full_name: string | null;
   username: string | null;
   avatar_url: string | null;
+  organizer_verified?: boolean;
 };
 
 export function useFollowedOrganizers(userId: string | null | undefined) {
@@ -37,11 +39,17 @@ export function useFollowedOrganizers(userId: string | null | undefined) {
         return;
       }
 
-      const { data: profs, error: pErr } = await supabase
-        .from("profiles")
-        .select("id, full_name, username, avatar_url")
-        .in("id", ids);
+      const [profilesRes, verifiedMap] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, full_name, username, avatar_url")
+          .in("id", ids),
+        // Verificação pública/unificada (funciona para player e deslogado).
+        fetchVerifiedMap("user", ids),
+      ]);
 
+      const profs = profilesRes.data;
+      const pErr = profilesRes.error;
       if (pErr) throw pErr;
 
       // keep order of follow
@@ -55,6 +63,7 @@ export function useFollowedOrganizers(userId: string | null | undefined) {
             full_name: p.full_name ?? null,
             username: p.username ?? null,
             avatar_url: p.avatar_url ?? null,
+            organizer_verified: !!verifiedMap.get(String(p.id)),
           }))
       );
     } catch (e) {

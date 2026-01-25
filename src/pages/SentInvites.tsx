@@ -11,6 +11,7 @@ import { buildNotificationRow } from "@/lib/notifications";
 import { formatDistanceToNowStrict } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ResendInviteConfirmDialog } from "@/components/invites/ResendInviteConfirmDialog";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 const INVITE_TTL_DAYS = 7;
 const INVITE_RESEND_COOLDOWN_MINUTES = 30;
@@ -299,7 +300,7 @@ const SentInvites = () => {
                     />
                   ) : (
                     <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Users className="w-8 h-8 text-primary" />
+                      <DefaultAvatarMark className="h-8 w-8 text-primary" title="Logo padrão da equipe" />
                     </div>
                   )}
 

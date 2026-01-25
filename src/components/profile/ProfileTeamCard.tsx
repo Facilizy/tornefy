@@ -6,6 +6,7 @@ import { ExternalLink, Users } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { hexToHslTriplet } from "@/lib/color";
 import type { CSSProperties } from "react";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 export function ProfileTeamCard({
   team,
@@ -67,8 +68,8 @@ export function ProfileTeamCard({
                   loading="lazy"
                 />
               ) : (
-                <div className="text-xs font-black text-muted-foreground">
-                  {(team.tag || "").slice(0, 4) || "TIME"}
+                <div className="h-full w-full grid place-items-center bg-background/40">
+                  <DefaultAvatarMark className="h-7 w-7 text-muted-foreground" />
                 </div>
               )}
             </div>

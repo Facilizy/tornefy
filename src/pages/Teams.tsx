@@ -16,12 +16,14 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Loader2, UserPlus } from "lucide-react";
-import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { fetchVerifiedMap } from "@/hooks/useVerifiedEntities";
+import { TeamVerifiedBadge } from "@/components/TeamVerifiedBadge";
 import { hexToHslTriplet } from "@/lib/color";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TeamCardSkeleton } from "@/components/skeletons/TeamCardSkeleton";
 import { PlayerTradingCardSkeleton } from "@/components/skeletons/PlayerTradingCardSkeleton";
 import { IntegratedGamesChips } from "@/components/IntegratedGamesChips";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 import {
   PlayerTradingCard,
   type PlayerTradingCardData,
@@ -29,6 +31,7 @@ import {
 } from "@/components/players/PlayerTradingCard";
 import type { GameId } from "@/lib/ranking";
 import { GAMES } from "@/lib/games";
+import { getCanonicalOrigin, setJsonLd, setSeo } from "@/lib/seo";
 
 interface Team {
   id: string;
@@ -50,6 +53,7 @@ interface Team {
 type PlayerProfile = PlayerTradingCardData & {
   player_card_frame_id?: string | null;
   frame?: PlayerCardFrame | null;
+  verified?: boolean;
 };
 
 const Teams = () => {
@@ -75,6 +79,23 @@ const Teams = () => {
 
   useEffect(() => {
     Promise.all([fetchTeams(), fetchPlayers()]).finally(() => setLoading(false));
+
+    setSeo({
+      title: "Equipes • Tornefy",
+      description:
+        "Explore equipes competitivas, encontre jogadores disponíveis e filtre por jogo, função e recrutamento no Tornefy.",
+      canonical: getCanonicalOrigin() + "/equipes",
+    });
+
+    const origin = getCanonicalOrigin();
+    setJsonLd("breadcrumbs-equipes", {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Início", item: origin + "/" },
+        { "@type": "ListItem", position: 2, name: "Equipes", item: origin + "/equipes" },
+      ],
+    });
 
     const schedule = () => {
       if (rtRefetchTimeoutRef.current) window.clearTimeout(rtRefetchTimeoutRef.current);
@@ -123,7 +144,18 @@ const Teams = () => {
         primary_color: team.primary_color || null,
       })) as Team[];
 
-      setTeams(teamsWithCount || []);
+      const verifiedMap = await fetchVerifiedMap(
+        "team",
+        (teamsWithCount || []).map((t) => String(t.id))
+      );
+
+      const merged = (teamsWithCount || []).map((t) => ({
+        ...t,
+        // keep legacy flag working, but prefer new model
+        is_verified: !!(t.is_verified || verifiedMap.get(String(t.id))),
+      }));
+
+      setTeams(merged || []);
     } catch (error) {
       console.error("Error fetching teams:", error);
     }
@@ -153,6 +185,8 @@ const Teams = () => {
       }>;
 
       const ids = profs.map((p) => p.id).filter(Boolean);
+
+      const verifiedPlayers = await fetchVerifiedMap("user", ids);
 
       // Team mini info
       const teamByUser = new Map<
@@ -289,6 +323,7 @@ const Teams = () => {
             // convenience for rendering
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             frame: frameById.get(String((p as any).player_card_frame_id || "")) || null,
+            verified: !!verifiedPlayers.get(String(p.id)),
           } satisfies PlayerProfile;
         })
       );
@@ -615,8 +650,8 @@ const Teams = () => {
                   <div className="absolute top-2 right-2 flex items-center gap-1">
                     {team.is_verified && (
                       <Badge className="bg-card/80 text-foreground border-border text-xs backdrop-blur-sm">
-                        <VerifiedBadge />
-                        Verificado
+                        <TeamVerifiedBadge variant="icon" size="sm" />
+                        Verificada
                       </Badge>
                     )}
                     {team.is_recruiting && (
@@ -638,7 +673,9 @@ const Teams = () => {
                           loading="lazy"
                         />
                       ) : (
-                        <div className="text-xs font-black text-muted-foreground">{team.tag}</div>
+                        <div className="h-full w-full grid place-items-center bg-background/40">
+                          <DefaultAvatarMark className="h-7 w-7 text-muted-foreground" title={`Logo padrão da equipe ${team.name}`} />
+                        </div>
                       )}
                     </div>
                   </div>

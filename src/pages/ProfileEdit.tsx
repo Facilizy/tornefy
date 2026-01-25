@@ -26,7 +26,7 @@ const GAMES = [
   { id: "blood_strike", name: "Blood Strike", logo: "/game-logos/blood-strike.png" },
   { id: "farlight_84", name: "Farlight 84", logo: "/game-logos/farlight-84.png" },
   { id: "prime_rush", name: "Prime Rush", logo: "/game-logos/prime-rush.png" },
-  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.png" },
+  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.webp" },
 ];
 
 const ProfileEdit = () => {

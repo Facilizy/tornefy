@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { buildNotificationRow } from "@/lib/notifications";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 interface TeamInvite {
   id: string;
@@ -338,9 +339,9 @@ const PendingInvites = () => {
                       className="w-16 h-16 rounded-xl object-cover flex-shrink-0"
                     />
                   ) : (
-                    <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      <Users className="w-8 h-8 text-primary" />
-                    </div>
+                     <div className="w-16 h-16 rounded-xl border border-border bg-background/40 flex items-center justify-center flex-shrink-0">
+                       <DefaultAvatarMark className="h-8 w-8 text-muted-foreground" />
+                     </div>
                   )}
 
                   {/* Team Info */}

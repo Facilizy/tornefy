@@ -17,6 +17,10 @@ import { addDays, endOfDay, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useFollowedOrganizers } from "@/hooks/useFollowedOrganizers";
 import { TrainingCardSkeleton } from "@/components/skeletons/TrainingCardSkeleton";
+import { withOrganizerMeta } from "@/lib/training-organizer-meta";
+import { OrganizerBadge } from "@/components/OrganizerBadge";
+import { setSeo } from "@/lib/seo";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 const Scrims = () => {
   const navigate = useNavigate();
@@ -37,6 +41,15 @@ const Scrims = () => {
 
   useEffect(() => {
     fetchTrainings();
+  }, []);
+
+  useEffect(() => {
+    setSeo({
+      title: "Scrims — Tornefy",
+      description:
+        "Encontre scrims e treinos abertos, siga organizadores verificados e participe em minutos.",
+      canonical: window.location.origin + "/scrims",
+    });
   }, []);
 
   useEffect(() => {
@@ -64,37 +77,15 @@ const Scrims = () => {
 
       if (error) throw error;
 
-      const organizerIds = Array.from(
-        new Set(
-          (trainingsData || [])
-            .map((t) => t.organizer_id)
-            .filter((id): id is string => Boolean(id))
-        )
-      );
-
-      const organizerMap = new Map<string, { name: string | null; avatar_url: string | null }>();
-      if (organizerIds.length > 0) {
-        const { data: profilesData } = await supabase
-          .from("profiles")
-          .select("id, username, full_name, avatar_url")
-          .in("id", organizerIds);
-
-        (profilesData || []).forEach((p) => {
-          const name = p.username || p.full_name || null;
-          organizerMap.set(p.id, { name, avatar_url: p.avatar_url || null });
-        });
-      }
-
-      const trainingsWithCount = trainingsData?.map((training) => ({
+      const trainingsWithCount = (trainingsData || []).map((training) => ({
         ...training,
         registrations: training.training_registrations?.[0]?.count || 0,
-        organizer_name: training.organizer_id ? organizerMap.get(training.organizer_id)?.name ?? null : null,
-        organizer_avatar_url:
-          training.organizer_id ? organizerMap.get(training.organizer_id)?.avatar_url ?? null : null,
       }));
 
-      setTrainings(trainingsWithCount || []);
-      setLiveTrainings(trainingsWithCount?.filter((t) => t.is_live) || []);
+      const enriched = await withOrganizerMeta(trainingsWithCount);
+
+      setTrainings(enriched || []);
+      setLiveTrainings(enriched?.filter((t) => t.is_live) || []);
     } catch (error) {
       console.error("Erro ao carregar scrims:", error);
     } finally {
@@ -256,11 +247,16 @@ const Scrims = () => {
                                 loading="lazy"
                               />
                             ) : (
-                              <User className="w-5 h-5 text-muted-foreground" />
+                              <DefaultAvatarMark className="h-6 w-6 text-muted-foreground" />
                             )}
                           </div>
                           <div className="min-w-0">
-                            <div className="font-semibold uppercase truncate">{o.full_name || "Organizador"}</div>
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="font-semibold uppercase truncate">
+                                {o.full_name || "Organizador"}
+                              </div>
+                              {o.organizer_verified ? <OrganizerBadge variant="icon" size="sm" /> : null}
+                            </div>
                             {o.username ? (
                               <div className="text-xs text-muted-foreground truncate">@{o.username}</div>
                             ) : null}

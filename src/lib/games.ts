@@ -16,7 +16,7 @@ export const GAMES: GameMeta[] = [
   { id: "blood_strike", label: "Blood Strike", logo: "/game-logos/blood-strike.png" },
   { id: "farlight_84", label: "Farlight 84", logo: "/game-logos/farlight-84.png" },
   { id: "prime_rush", label: "Prime Rush", logo: "/game-logos/prime-rush.png" },
-  { id: "battlefield_6", label: "Battlefield 6", logo: "/game-logos/battlefield-6.png" },
+  { id: "battlefield_6", label: "Battlefield 6", logo: "/game-logos/battlefield-6.webp" },
 ];
 
 const GAME_BY_ID = new Map(GAMES.map((g) => [g.id, g] as const));

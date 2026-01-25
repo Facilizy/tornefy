@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, UserPlus, UserMinus } from "lucide-react";
+import { FileText, UserPlus, UserMinus, Trophy } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -13,6 +13,16 @@ interface EventLog {
   team_tag: string;
   action: string;
   created_at: string;
+}
+
+function parseAction(action: string): { type: string; raw: any } {
+  try {
+    const parsed = JSON.parse(action);
+    if (parsed && typeof parsed.type === "string") return { type: parsed.type, raw: parsed };
+  } catch {
+    // ignore
+  }
+  return { type: action, raw: null };
 }
 
 interface EventLogsDialogProps {
@@ -52,10 +62,10 @@ export const EventLogsDialog = ({ trainingId, trainingName }: EventLogsDialogPro
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <FileText className="w-4 h-4 mr-2" />
-          Event Logs
-        </Button>
+          <Button variant="outline" size="xs" className="w-full justify-center gap-2">
+            <FileText className="w-4 h-4" />
+            Event Logs
+          </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
@@ -75,17 +85,25 @@ export const EventLogsDialog = ({ trainingId, trainingName }: EventLogsDialogPro
                   key={log.id}
                   className="flex items-center gap-3 p-3 rounded-lg border bg-card"
                 >
-                  {log.action === "joined" ? (
-                    <UserPlus className="w-5 h-5 text-green-500 flex-shrink-0" />
-                  ) : (
-                    <UserMinus className="w-5 h-5 text-red-500 flex-shrink-0" />
-                  )}
+                  {(() => {
+                    const a = parseAction(log.action);
+                    if (a.type === "joined") return <UserPlus className="w-5 h-5 text-primary flex-shrink-0" />;
+                    if (a.type === "left") return <UserMinus className="w-5 h-5 text-destructive flex-shrink-0" />;
+                    if (a.type === "score_saved") return <Trophy className="w-5 h-5 text-primary flex-shrink-0" />;
+                    return <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />;
+                  })()}
                   <div className="flex-1">
                     <p className="font-medium">
                       {log.team_name} [{log.team_tag}]
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      {log.action === "joined" ? "Inscreveu-se" : "Saiu"} •{" "}
+                      {(() => {
+                        const a = parseAction(log.action);
+                        if (a.type === "joined") return "Inscreveu-se";
+                        if (a.type === "left") return "Saiu";
+                        if (a.type === "score_saved") return "Pontuação atualizada";
+                        return "Evento";
+                      })()} •{" "}
                       {format(new Date(log.created_at), "dd/MM/yyyy HH:mm")}
                     </p>
                   </div>

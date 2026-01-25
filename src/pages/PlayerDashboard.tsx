@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Search, Filter, Zap, Trophy, Target } from "lucide-react";
 import { toast } from "sonner";
+import { withOrganizerMeta } from "@/lib/training-organizer-meta";
 
 const PlayerDashboard = () => {
   const navigate = useNavigate();
@@ -81,13 +82,15 @@ const PlayerDashboard = () => {
 
       if (trainingsError) throw trainingsError;
 
-      const trainingsWithCount = trainingsData?.map((training) => ({
+      const trainingsWithCount = (trainingsData || []).map((training) => ({
         ...training,
         registrations: training.training_registrations?.[0]?.count || 0,
       }));
 
-      setTrainings(trainingsWithCount || []);
-      setLiveTrainings(trainingsWithCount?.filter(t => t.is_live) || []);
+      const enriched = await withOrganizerMeta(trainingsWithCount);
+
+      setTrainings(enriched || []);
+      setLiveTrainings(enriched?.filter((t) => t.is_live) || []);
     } catch (error: any) {
       toast.error("Erro ao carregar treinos");
     } finally {

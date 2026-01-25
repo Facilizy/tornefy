@@ -9,12 +9,13 @@ import FollowUsSection from "@/components/FollowUsSection";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { isSameDay } from "date-fns";
-import { setSeo, setJsonLd } from "@/lib/seo";
+import { getCanonicalOrigin, setSeo, setJsonLd } from "@/lib/seo";
 import { HeroSection } from "@/components/home/HeroSection";
 import { GamesShowcase } from "@/components/home/GamesShowcase";
 import { NextLevelSection } from "@/components/home/NextLevelSection";
 import { FeedbackSection } from "@/components/home/FeedbackSection";
 import heroBg from "@/assets/hero-bg-ref.png";
+import { withOrganizerMeta } from "@/lib/training-organizer-meta";
 
 const Home = () => {
   const navigate = useNavigate();
@@ -31,20 +32,29 @@ const Home = () => {
     fetchTrainings();
 
     setSeo({
-      title: "Tornefy — Scrims e Treinos Competitivos",
+      title: "Tornefy — Plataforma de Torneios Competitivos",
       description:
-        "Encontre scrims, acompanhe o calendário e participe dos próximos treinos competitivos. Plataforma com foco em organização e evolução.",
-      canonical: window.location.origin + "/",
+        "Tornefy é a plataforma que conecta organizadores verificados e jogadores para torneios competitivos de Free Fire, Blood Strike, Prime Rush e mais.",
+      canonical: getCanonicalOrigin() + "/",
+    });
+
+    const origin = getCanonicalOrigin();
+
+    setJsonLd("org", {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "Tornefy",
+      url: origin + "/",
     });
 
     setJsonLd("home", {
       "@context": "https://schema.org",
       "@type": "WebSite",
       name: "Tornefy",
-      url: window.location.origin + "/",
+      url: origin + "/",
       potentialAction: {
         "@type": "SearchAction",
-        target: window.location.origin + "/scrims?search={search_term_string}",
+        target: origin + "/scrims?search={search_term_string}",
         "query-input": "required name=search_term_string",
       },
     });
@@ -94,13 +104,15 @@ const Home = () => {
 
       if (error) throw error;
 
-      const trainingsWithCount = trainingsData?.map((training) => ({
+      const trainingsWithCount = (trainingsData || []).map((training) => ({
         ...training,
         registrations: training.training_registrations?.[0]?.count || 0,
       }));
 
-      setTrainings(trainingsWithCount || []);
-      setLiveTrainings(trainingsWithCount?.filter(t => t.is_live) || []);
+      const enriched = await withOrganizerMeta(trainingsWithCount);
+
+      setTrainings(enriched || []);
+      setLiveTrainings(enriched?.filter((t) => t.is_live) || []);
     } catch (error) {
       console.error("Erro ao carregar treinos:", error);
     }

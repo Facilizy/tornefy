@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { buildNotificationRow } from "@/lib/notifications";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 interface Message {
   id: string;
@@ -236,7 +237,9 @@ export function FloatingChat({
           <MessageCircle className="w-5 h-5 flex-shrink-0" />
           <Avatar className="h-7 w-7 border border-white/20">
             <AvatarImage src={organizerAvatarUrl || undefined} alt={organizerName || "Organizador"} />
-            <AvatarFallback>{String(organizerName || "O").trim().slice(0, 2).toUpperCase()}</AvatarFallback>
+            <AvatarFallback>
+              <DefaultAvatarMark className="h-4 w-4 text-white/90" title="Avatar padrão do organizador" />
+            </AvatarFallback>
           </Avatar>
           <div className="min-w-0">
             <p className="text-sm font-semibold leading-none truncate">{organizerName || "Chat do Treino"}</p>

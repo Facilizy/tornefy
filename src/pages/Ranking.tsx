@@ -19,6 +19,8 @@ import { RankPill } from "@/components/ranking/RankPill";
 import { RankingPodium, type RankingPlayer } from "@/components/ranking/RankingPodium";
 import { TriunfanteInfoDialog } from "@/components/ranking/TriunfanteInfoDialog";
 import { useCountdown } from "@/hooks/useCountdown";
+import { getCanonicalOrigin, setJsonLd, setSeo } from "@/lib/seo";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 const RANKING_START_AT = new Date("2026-03-01T00:00:00-03:00");
 
@@ -46,6 +48,25 @@ const Ranking = () => {
 
   useEffect(() => {
     fetchSeasons();
+  }, []);
+
+  useEffect(() => {
+    setSeo({
+      title: "Ranking • Tornefy",
+      description:
+        "Ranking de jogadores por jogo e temporada no Tornefy. Compare pontos, KD e descubra o Top da temporada.",
+      canonical: getCanonicalOrigin() + "/ranking",
+    });
+
+    const origin = getCanonicalOrigin();
+    setJsonLd("breadcrumbs-ranking", {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Início", item: origin + "/" },
+        { "@type": "ListItem", position: 2, name: "Ranking", item: origin + "/ranking" },
+      ],
+    });
   }, []);
 
   useEffect(() => {
@@ -456,7 +477,7 @@ const Ranking = () => {
                         loading="lazy"
                       />
                     ) : (
-                      <Users className="w-5 h-5 text-muted-foreground" />
+                      <DefaultAvatarMark className="h-6 w-6 text-muted-foreground" />
                     )}
                   </div>
 

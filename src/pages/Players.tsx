@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Users, Search, Loader2 } from "lucide-react";
 import TeamTagBadge from "@/components/TeamTagBadge";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 type PlayerProfile = {
   id: string;
@@ -218,7 +219,7 @@ const Players = () => {
                         loading="lazy"
                       />
                     ) : (
-                      <Users className="w-6 h-6 text-muted-foreground" />
+                      <DefaultAvatarMark className="h-7 w-7 text-muted-foreground" />
                     )}
                   </div>
                   <div className="min-w-0">

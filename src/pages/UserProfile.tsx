@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
-import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { OrganizerBadge } from "@/components/OrganizerBadge";
 import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 import TeamTagBadge from "@/components/TeamTagBadge";
 import LiveNowSection from "@/components/twitch/LiveNowSection";
@@ -24,6 +24,7 @@ import {
   Users,
 } from "lucide-react";
 import { toast } from "sonner";
+import { getCanonicalOrigin, setSeo } from "@/lib/seo";
 import type { GameId } from "@/lib/ranking";
 import { SeasonRankCard } from "@/components/profile/SeasonRankCard";
 import { ProfileRankingSelectors } from "@/components/profile/ProfileRankingSelectors";
@@ -50,6 +51,11 @@ import {
 } from "recharts";
 import { UserProfileSkeleton } from "@/components/skeletons/UserProfileSkeleton";
 import { ProfileGameStatCardSkeleton } from "@/components/skeletons/ProfileGameStatCardSkeleton";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useVerifiedEntity } from "@/hooks/useVerifiedEntities";
+import { PlayerVerifiedBadge } from "@/components/PlayerVerifiedBadge";
+import { hexToHslTriplet } from "@/lib/color";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 function StatChip({
   icon,
@@ -152,6 +158,7 @@ const UserProfile = () => {
 
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
 
   const [mainTeam, setMainTeam] = useState<
     | {
@@ -175,10 +182,39 @@ const UserProfile = () => {
   const selectedGame = (searchParams.get("game") || "free_fire") as GameId;
   const selectedSeasonId = searchParams.get("season");
 
+  const targetUid = userId || user?.id || null;
+  const { verified: playerVerified } = useVerifiedEntity("user", targetUid);
+
+  const headerAccentA = useMemo(() => {
+    // If player has a team, use the team color as accent.
+    if (mainTeam?.primary_color) return hexToHslTriplet(mainTeam.primary_color) || "var(--primary)";
+    return "var(--primary)";
+  }, [mainTeam?.primary_color]);
+
+  const headerAccentB = useMemo(() => {
+    // secondary color is optional; if absent, reuse primary
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const secondary = (mainTeam as any)?.secondary_color as string | null | undefined;
+    if (secondary) return hexToHslTriplet(secondary) || headerAccentA;
+    return headerAccentA;
+  }, [headerAccentA, mainTeam]);
+
   useEffect(() => {
     checkUser();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    const name = profile?.full_name || profile?.username || "Perfil";
+    setSeo({
+      title: `${name} — Tornefy`,
+      description:
+        "Veja estatísticas de scrims, kills e conquistas, além dos treinos criados por organizadores verificados.",
+      canonical: getCanonicalOrigin() + (userId ? `/profile/${userId}` : "/profile"),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -243,30 +279,55 @@ const UserProfile = () => {
     setIsOwnProfile(currentUserId === targetUserId);
 
     try {
-      const [profileData, roleRow] = await Promise.all([
+      const [profileData, rolesRes] = await Promise.all([
         fetchProfile(targetUserId),
-        supabase
+        (supabase as any)
           .from("user_roles")
           .select("role")
           .eq("user_id", targetUserId)
-          .eq("role", "organizer")
-          .maybeSingle(),
+          .in("role", ["organizer", "organizer_verified"]),
       ]);
 
       setProfile(profileData);
 
-      // Verifica se é organizador pela tabela user_roles OU pelo campo role na tabela profiles
-      const organizerByRoleTable = !!roleRow.data;
-      const organizerByProfileRole = profileData?.role === "organizer";
-      const organizer = organizerByRoleTable || organizerByProfileRole;
+      const rolesError = rolesRes?.error;
+      const roles = (rolesRes?.data || []).map((r: any) => String(r.role));
+
+      // Fallback-first strategy: when RLS blocks user_roles (logged out), check trainings directly.
+      let organizer = false;
+      let verifiedByRpc = false;
+
+      if (rolesError) {
+        // RLS blocked => deslogado. Use trainings como fonte de verdade.
+        const { data: anyTraining } = await supabase
+          .from("trainings")
+          .select("id")
+          .eq("organizer_id", targetUserId)
+          .limit(1)
+          .maybeSingle();
+        organizer = !!anyTraining;
+        
+        // Verificado via RPC público (fallback)
+        try {
+          const { data: vData } = await (supabase as any).rpc("is_organizer_verified", { _user_id: targetUserId });
+          verifiedByRpc = !!vData;
+        } catch {
+          verifiedByRpc = false;
+        }
+      } else {
+        // Logado => usa role table
+        organizer = roles.includes("organizer") || roles.includes("organizer_verified");
+        verifiedByRpc = roles.includes("organizer_verified");
+      }
+
       setIsOrganizer(organizer);
 
       if (organizer) {
         const trainings = await fetchOrganizerTrainings(targetUserId);
         setOrganizerTrainings(trainings);
-        // Verificado se tiver 10+ treinos criados
-        const organizerIsVerified = trainings.length >= 10;
-        setOrganizerVerified(organizerIsVerified);
+        // Verificado por RPC (fallback se RLS bloqueou)
+        const verifiedByMilestone = trainings.length >= 10;
+        setOrganizerVerified(verifiedByRpc || verifiedByMilestone);
       } else {
         await fetchPlayerStats(targetUserId);
       }
@@ -323,7 +384,46 @@ const UserProfile = () => {
 
   const fetchPlayerStats = async (uid: string) => {
     setStatsLoading(true);
+    setStatsError(null);
+
+    const fetchPublicCoreStats = async () => {
+      try {
+        const { data, error } = await (supabase as any).rpc("get_public_player_stats", {
+          _user_id: uid,
+        });
+        if (error) throw error;
+        const scrims = Number(data?.scrims ?? 0);
+        const kills = Number(data?.kills ?? 0);
+        const mvps = Number(data?.mvps ?? 0);
+        return {
+          scrims: Number.isFinite(scrims) ? scrims : 0,
+          kills: Number.isFinite(kills) ? kills : 0,
+          mvps: Number.isFinite(mvps) ? mvps : 0,
+        };
+      } catch {
+        return null;
+      }
+    };
+
     try {
+      // Logged-out mode: always use public RPC for core stats (avoids any RLS surprises).
+      if (!user?.id) {
+        const core = await fetchPublicCoreStats();
+        const totalScrims = core?.scrims ?? 0;
+        const totalKills = core?.kills ?? 0;
+        const mvps = core?.mvps ?? 0;
+        const kd = totalScrims ? totalKills / totalScrims : 0;
+
+        setStats((prev) => ({
+          ...prev,
+          totalScrims,
+          totalKills,
+          mvps,
+          kd,
+        }));
+        return;
+      }
+
     // Buscar times em que o jogador está cadastrado
     const { data: teamMembers, error: tmError } = await supabase
       .from("team_members")
@@ -573,18 +673,40 @@ const UserProfile = () => {
       });
     }
 
-    setStats({
-      totalScrims,
-      totalBadges,
-      unlockedBadges,
-      totalKills,
-      mvps,
-      kd,
-      firstPlaces,
-      killsByMatch: killsByMatchSeries,
-      achievements,
-      byGame,
-    });
+      setStats({
+        totalScrims,
+        totalBadges,
+        unlockedBadges,
+        totalKills,
+        mvps,
+        kd,
+        firstPlaces,
+        killsByMatch: killsByMatchSeries,
+        achievements,
+        byGame,
+      });
+    } catch (error: any) {
+      console.error("Erro ao carregar stats do jogador:", error);
+
+      // Fallback: public RPC (scrims/kills/MVP) — never block UI.
+      const core = await fetchPublicCoreStats();
+      if (core) {
+        const totalScrims = core.scrims;
+        const totalKills = core.kills;
+        const mvps = core.mvps;
+        const kd = totalScrims ? totalKills / totalScrims : 0;
+
+        setStats((prev) => ({
+          ...prev,
+          totalScrims,
+          totalKills,
+          mvps,
+          kd,
+        }));
+        setStatsError(null);
+      } else {
+        setStatsError("Não foi possível carregar as estatísticas agora.");
+      }
     } finally {
       setStatsLoading(false);
     }
@@ -689,7 +811,17 @@ const UserProfile = () => {
     <MainLayout showUpcomingScrimWidget={false}>
       {/* Hero */}
       <header className="relative overflow-hidden">
-        <div className="relative h-[320px] md:h-[380px]">
+        <div
+          className="relative h-[320px] md:h-[380px]"
+          style={
+            {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ["--profile-a" as any]: headerAccentA,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ["--profile-b" as any]: headerAccentB,
+            } as React.CSSProperties
+          }
+        >
           {profile?.banner_url ? (
             <img
               src={profile.banner_url}
@@ -698,7 +830,13 @@ const UserProfile = () => {
               loading="lazy"
             />
           ) : (
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/20 via-muted/10 to-background" />
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "linear-gradient(135deg, hsl(var(--profile-a) / 0.62) 0%, hsl(var(--profile-b) / 0.18) 100%)",
+              }}
+            />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-transparent" />
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent" />
@@ -717,7 +855,7 @@ const UserProfile = () => {
                     loading="lazy"
                   />
                 ) : (
-                  <User className="w-12 h-12 text-muted-foreground" />
+                  <DefaultAvatarMark className="h-10 w-10 text-muted-foreground" />
                 )}
               </div>
 
@@ -730,7 +868,10 @@ const UserProfile = () => {
                     <TeamTagBadge tag={mainTeam.tag} primaryColor={mainTeam.primary_color} />
                   ) : null}
                   {isOrganizer && organizerVerified ? (
-                    <VerifiedBadge variant="pill" size="md" label="Organizador verificado" />
+                    <OrganizerBadge variant="pill" size="md" />
+                  ) : null}
+                  {!isOrganizer && playerVerified ? (
+                    <PlayerVerifiedBadge variant="pill" size="md" />
                   ) : null}
                 </div>
 
@@ -933,6 +1074,11 @@ const UserProfile = () => {
         ) : (
           <section>
             {/* 'Organizadores que sigo' foi movido para a página /scrims */}
+            {statsError ? (
+              <Alert className="mb-6">
+                <AlertDescription>{statsError}</AlertDescription>
+              </Alert>
+            ) : null}
             <Tabs defaultValue="overview" className="mb-12">
               <TabsList className="grid w-full max-w-xl grid-cols-4 mb-8">
                 <TabsTrigger value="overview" className="flex items-center gap-2">

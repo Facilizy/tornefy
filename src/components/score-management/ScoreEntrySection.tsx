@@ -1,4 +1,4 @@
-import { Loader2, Save, Trash2 } from "lucide-react";
+import { Loader2, Save, Trash2, Crown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -25,7 +25,8 @@ interface Props {
 
   playerStatsByTeam: Record<string, PlayerStat[]>;
   onReloadTeamPlayers: (teamId: string) => void;
-  onUpdatePlayerKills: (teamId: string, teamMemberId: string | null, kills: number) => void;
+  onUpdatePlayerKills: (teamId: string, playerClientId: string, kills: number) => void;
+  onToggleMvp: (teamId: string, playerClientId: string) => void;
 
   saving: boolean;
   onSave: () => void;
@@ -59,6 +60,7 @@ export function ScoreEntrySection({
   playerStatsByTeam,
   onReloadTeamPlayers,
   onUpdatePlayerKills,
+  onToggleMvp,
   saving,
   onSave,
 }: Props) {
@@ -72,7 +74,7 @@ export function ScoreEntrySection({
     const used = new Set(scores.map((s) => s.position));
     let pos = 1;
     while (used.has(pos)) pos++;
-    onScoresChange([...scores, { team_id: teamId, position: pos, kills: 0, bonus_points: 0 }]);
+    onScoresChange([...scores, { team_id: teamId, position: pos, kills: 0, extra_kills: 0, bonus_points: 0 }]);
     onReloadTeamPlayers(teamId);
   };
 
@@ -88,6 +90,22 @@ export function ScoreEntrySection({
 
   const updateTeamKills = (teamId: string, kills: number) => {
     onScoresChange(scores.map((s) => (s.team_id === teamId ? { ...s, kills } : s)));
+  };
+
+  const updateTeamExtraKills = (teamId: string, extraKills: number) => {
+    onScoresChange(
+      scores.map((s) => {
+        if (s.team_id !== teamId) return s;
+        const players = playerStatsByTeam[teamId] || [];
+        const playersTotal = players.reduce((sum, p) => sum + (Number(p.kills) || 0), 0);
+        const extra = Math.max(0, Number(extraKills) || 0);
+        return {
+          ...s,
+          extra_kills: extra,
+          kills: playersTotal + extra,
+        };
+      })
+    );
   };
 
   return (
@@ -137,10 +155,12 @@ export function ScoreEntrySection({
             const team = teams.find((t) => t.id === score.team_id);
             const players = playerStatsByTeam[score.team_id] || [];
             const playersTotalKills = players.reduce((sum, p) => sum + (p.kills || 0), 0);
+            const extraKills = Number(score.extra_kills ?? 0) || 0;
+            const totalKills = playersTotalKills + extraKills;
             const isAutoSummingKills = players.length > 0;
             const pts = calculatePoints(
               score.position,
-              isAutoSummingKills ? playersTotalKills : score.kills,
+              isAutoSummingKills ? totalKills : score.kills,
               score.bonus_points,
               pointsPerKill,
               positionPointsMap
@@ -198,13 +218,24 @@ export function ScoreEntrySection({
                   </div>
 
                   <div className="col-span-4 sm:col-span-2">
-                    <Label className="text-xs">Kills</Label>
+                    <Label className="text-xs">Kills (players)</Label>
                     <Input
                       type="number"
                       min="0"
                       value={isAutoSummingKills ? playersTotalKills : score.kills}
                       onChange={(e) => updateTeamKills(score.team_id, parseInt(e.target.value) || 0)}
                       disabled={isAutoSummingKills}
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="col-span-4 sm:col-span-2">
+                    <Label className="text-xs">Kills extras</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={extraKills}
+                      onChange={(e) => updateTeamExtraKills(score.team_id, parseInt(e.target.value) || 0)}
                       className="w-full"
                     />
                   </div>
@@ -244,12 +275,12 @@ export function ScoreEntrySection({
                       <p className="text-sm font-medium">Players (kills)</p>
                       {isAutoSummingKills && (
                         <p className="text-[11px] leading-tight text-muted-foreground">
-                          Kills do time somadas automaticamente pela line
+                          Kills totais = kills dos players + kills extras
                         </p>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      <p className="text-xs text-muted-foreground">Total: {playersTotalKills}</p>
+                      <p className="text-xs text-muted-foreground">Total: {totalKills}</p>
                       <Button
                         type="button"
                         variant="outline"
@@ -275,6 +306,19 @@ export function ScoreEntrySection({
                           <div className="min-w-0 flex-1">
                             <p className="text-sm truncate">{p.player_name}</p>
                           </div>
+
+                          <Button
+                            type="button"
+                            variant={p.is_mvp ? "default" : "outline"}
+                            size="icon"
+                            className="h-9 w-9"
+                            title={p.user_id ? "Marcar MVP" : "MVP só para jogadores com conta"}
+                            disabled={!p.user_id}
+                            onClick={() => onToggleMvp(score.team_id, p.client_id)}
+                          >
+                            <Crown className="w-4 h-4" />
+                          </Button>
+
                           <Input
                             type="number"
                             min="0"
@@ -282,7 +326,7 @@ export function ScoreEntrySection({
                             onChange={(e) =>
                               onUpdatePlayerKills(
                                 score.team_id,
-                                p.team_member_id,
+                                p.client_id,
                                 parseInt(e.target.value) || 0
                               )
                             }

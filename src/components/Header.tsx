@@ -8,6 +8,9 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useState, useEffect } from "react";
 import TornefyLogo from "@/components/TornefyLogo";
 import { Badge } from "@/components/ui/badge";
+import { OrganizerBadge } from "@/components/OrganizerBadge";
+import { useVerifiedEntity } from "@/hooks/useVerifiedEntities";
+import { PlayerVerifiedBadge } from "@/components/PlayerVerifiedBadge";
 import {
   Tooltip,
   TooltipContent,
@@ -28,7 +31,8 @@ interface HeaderProps {
 
 const Header = ({ user }: HeaderProps) => {
   const navigate = useNavigate();
-  const { role } = useUserRole(user?.id);
+  const { role, isOrganizerVerified } = useUserRole(user?.id);
+  const { verified: isUserVerified } = useVerifiedEntity("user", user?.id);
   const [profile, setProfile] = useState<any>(null);
   const [pendingInvitesCount, setPendingInvitesCount] = useState(0);
 
@@ -67,9 +71,15 @@ const Header = ({ user }: HeaderProps) => {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    toast.success("Logout realizado!");
-    navigate("/auth");
+    try {
+      // Evita erro de "Session not found" quando o refresh token já expirou/foi limpo.
+      await (supabase.auth as any).signOut({ scope: "local" });
+    } catch {
+      // best-effort
+    } finally {
+      toast.success("Logout realizado!");
+      navigate("/auth");
+    }
   };
 
   return (
@@ -97,6 +107,16 @@ const Header = ({ user }: HeaderProps) => {
                   <SheetHeader>
                     <SheetTitle>Menu</SheetTitle>
                   </SheetHeader>
+
+                  <div className="mt-4 rounded-lg border border-border bg-card/40 px-3 py-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <User className="w-4 h-4 text-muted-foreground" />
+                      <span className="text-sm font-semibold truncate">{profile?.full_name || "Usuário"}</span>
+                      {isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
+                      {isOrganizerVerified ? <OrganizerBadge variant="icon" size="sm" /> : null}
+                    </div>
+                    <div className="text-xs text-muted-foreground capitalize mt-0.5">({role})</div>
+                  </div>
 
                   <div className="mt-6 space-y-2">
                     <Button
@@ -168,6 +188,8 @@ const Header = ({ user }: HeaderProps) => {
             <div className="hidden md:flex items-center gap-2 text-sm">
               <User className="w-4 h-4 text-muted-foreground" />
               <span className="text-foreground">{profile?.full_name}</span>
+              {isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
+              {isOrganizerVerified ? <OrganizerBadge variant="icon" size="sm" /> : null}
               <span className="text-xs text-muted-foreground capitalize">
                 ({role})
               </span>

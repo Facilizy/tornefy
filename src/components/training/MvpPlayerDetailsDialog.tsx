@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 import {
   Table,
   TableBody,
@@ -147,7 +148,9 @@ export function MvpPlayerDetailsDialog({
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10">
               {player?.avatar_url ? <AvatarImage src={player.avatar_url} alt={title} /> : null}
-              <AvatarFallback>{(title || "??").slice(0, 2).toUpperCase()}</AvatarFallback>
+              <AvatarFallback>
+                <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" title={`Avatar padrão de ${title}`} />
+              </AvatarFallback>
             </Avatar>
             <div className="text-sm text-muted-foreground">
               Total: <span className="text-foreground font-semibold">{totals.totalKills}</span> kills •

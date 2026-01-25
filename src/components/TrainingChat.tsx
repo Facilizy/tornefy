@@ -10,6 +10,7 @@ import { ptBR } from "date-fns/locale";
 import { buildNotificationRow } from "@/lib/notifications";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 interface Message {
   id: string;
@@ -306,8 +307,7 @@ export const TrainingChat = ({
     const name = organizerName || p?.username || p?.full_name || "Organizador";
     const username = p?.username || null;
     const avatar = organizerAvatarUrl || p?.avatar_url || null;
-    const initials = String(name || "O").trim().slice(0, 2).toUpperCase();
-    return { name, username, avatar, initials };
+    return { name, username, avatar };
   };
 
   return (
@@ -358,7 +358,9 @@ export const TrainingChat = ({
                    <div className="flex items-center gap-2 min-w-0">
                    <Avatar className="h-7 w-7">
                      <AvatarImage src={sender.avatar || undefined} alt={sender.name || "Organizador"} />
-                     <AvatarFallback>{sender.initials}</AvatarFallback>
+                      <AvatarFallback>
+                        <DefaultAvatarMark className="h-4 w-4 text-muted-foreground" title="Avatar padrão" />
+                      </AvatarFallback>
                    </Avatar>
                    <div className="min-w-0">
                      <p className="text-sm font-medium leading-none truncate">{sender.name}</p>

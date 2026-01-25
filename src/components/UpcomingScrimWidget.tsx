@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { X, ChevronUp, Calendar, Clock, Users, Gamepad2, Bug } from "lucide-react";
 import { getGameLabel } from "@/lib/games";
 import { BugReportDialog } from "@/components/bug-report/BugReportDialog";
+import { createPortal } from "react-dom";
 
 
 interface UpcomingScrim {
@@ -21,6 +22,12 @@ export const UpcomingScrimWidget = () => {
   const navigate = useNavigate();
   const [scrim, setScrim] = useState<UpcomingScrim | null>(null);
   const [bugOpen, setBugOpen] = useState(false);
+  // Ensure `position: fixed` anchors to viewport even when parents have transforms (Sheet/Dialogs).
+  // Hooks must be declared before any early returns.
+  const portalTarget = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    return document.body;
+  }, []);
   const [isMinimized, setIsMinimized] = useState(() => {
     try {
       return localStorage.getItem("upcoming_scrim_minimized") === "1";
@@ -111,13 +118,15 @@ export const UpcomingScrimWidget = () => {
     }
   };
 
-  if (isClosed || !scrim) return null;
+  if (isClosed) return null;
 
-  const scrimDate = new Date(scrim.datetime);
+  const scrimDate = scrim?.datetime ? new Date(scrim.datetime) : null;
 
-  return (
+  const content = (
     <div className="fixed bottom-4 inset-x-4 sm:inset-x-auto sm:right-4 z-40 flex flex-col gap-2 items-stretch">
-      <Card className="bg-card border-border shadow-xl overflow-hidden w-full max-w-80">
+      {/* No mobile: hide the scrim card, keep only debug */}
+      {scrim ? (
+        <Card className="hidden sm:block bg-card border-border shadow-xl overflow-hidden w-full max-w-80">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-2 bg-primary/10 border-b border-border">
           <div className="flex items-center gap-2">
@@ -155,7 +164,7 @@ export const UpcomingScrimWidget = () => {
         </div>
 
         {/* Content */}
-        {!isMinimized && (
+        {!isMinimized && scrimDate && (
           <div className="p-4 space-y-4">
             {/* Scrim Info */}
             <div>
@@ -175,7 +184,7 @@ export const UpcomingScrimWidget = () => {
                     day: "2-digit",
                     month: "2-digit",
                     year: "numeric",
-                  }).format(scrimDate)}
+                   }).format(scrimDate)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock className="w-3 h-3" />
@@ -183,7 +192,7 @@ export const UpcomingScrimWidget = () => {
                     timeZone: "America/Sao_Paulo",
                     hour: "2-digit",
                     minute: "2-digit",
-                  }).format(scrimDate)}
+                   }).format(scrimDate)}
                 </span>
                 <span className="flex items-center gap-1">
                   <Users className="w-3 h-3" />
@@ -224,7 +233,8 @@ export const UpcomingScrimWidget = () => {
             </Button>
           </div>
         )}
-      </Card>
+        </Card>
+      ) : null}
 
       {/* Botão de debug pequeno abaixo do card */}
       <div className="w-full max-w-80 flex justify-end">
@@ -244,6 +254,9 @@ export const UpcomingScrimWidget = () => {
       <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
     </div>
   );
+
+  if (!portalTarget) return content;
+  return createPortal(content, portalTarget);
 };
 
 export default UpcomingScrimWidget;

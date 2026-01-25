@@ -6,6 +6,7 @@ import Footer from "@/components/Footer";
 import { NotificationBell } from "@/components/NotificationBell";
 import { UpcomingScrimWidget } from "@/components/UpcomingScrimWidget";
 import { Button } from "@/components/ui/button";
+import { OrganizerBadge } from "@/components/OrganizerBadge";
 import {
   Sheet,
   SheetContent,
@@ -23,6 +24,8 @@ import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Awa
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useI18n } from "@/i18n";
+import { useVerifiedEntity } from "@/hooks/useVerifiedEntities";
+import { PlayerVerifiedBadge } from "@/components/PlayerVerifiedBadge";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -37,7 +40,8 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { role } = useUserRole(user?.id);
+  const { role, isOrganizerVerified } = useUserRole(user?.id);
+  const { verified: isUserVerified } = useVerifiedEntity("user", user?.id);
 
   useEffect(() => {
     checkUser();
@@ -80,11 +84,17 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
-    setProfile(null);
-    toast.success("Logout realizado!");
-    navigate("/");
+    try {
+      // Evita erro de "Session not found" quando a sessão já não existe no servidor.
+      await (supabase.auth as any).signOut({ scope: "local" });
+    } catch {
+      // best-effort
+    } finally {
+      setUser(null);
+      setProfile(null);
+      toast.success("Logout realizado!");
+      navigate("/");
+    }
   };
 
   const navItems = [
@@ -173,6 +183,7 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                     <Button variant="ghost" className="flex items-center gap-2">
                       <User className="w-4 h-4" />
                       <span className="text-sm">{profile?.full_name || 'Usuário'}</span>
+                      {isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
                       <ChevronDown className="w-4 h-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -186,10 +197,16 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                       <Users className="w-4 h-4 mr-2" />
                       Minha Equipe
                     </DropdownMenuItem>
-                    {role === 'organizer' && (
+                    {(role === 'organizer' || role === 'admin') && (
                       <DropdownMenuItem onClick={() => navigate('/organizer')}>
                         <Settings className="w-4 h-4 mr-2" />
                         Painel Organizador
+                      </DropdownMenuItem>
+                    )}
+                    {role === 'admin' && (
+                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                        <Settings className="w-4 h-4 mr-2" />
+                        Admin
                       </DropdownMenuItem>
                     )}
                     <DropdownMenuSeparator />
@@ -249,6 +266,23 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                       </Button>
                     </div>
 
+                    {/* Mobile: user summary */}
+                    {user ? (
+                      <div className="px-4 pt-4">
+                        <div className="rounded-xl border border-border bg-card/40 px-4 py-3">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm font-semibold truncate">
+                              {profile?.full_name || "Usuário"}
+                            </span>
+                            {isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
+                            {isOrganizerVerified ? <OrganizerBadge variant="icon" size="sm" /> : null}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground capitalize">({role})</div>
+                        </div>
+                      </div>
+                    ) : null}
+
                     {/* Mobile Nav */}
                     <nav className="flex-1 p-4">
                       {navItems.map((item) => (
@@ -297,7 +331,7 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                             <Users className="w-5 h-5" />
                             <span className="font-medium">Minha Equipe</span>
                           </Link>
-                          {role === 'organizer' && (
+                          {(role === 'organizer' || role === 'admin') && (
                             <Link
                               to="/organizer"
                               onClick={() => setMobileMenuOpen(false)}
@@ -305,6 +339,16 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                             >
                               <Settings className="w-5 h-5" />
                               <span className="font-medium">Painel Organizador</span>
+                            </Link>
+                          )}
+                          {role === 'admin' && (
+                            <Link
+                              to="/admin"
+                              onClick={() => setMobileMenuOpen(false)}
+                              className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
+                            >
+                              <Settings className="w-5 h-5" />
+                              <span className="font-medium">Admin</span>
                             </Link>
                           )}
                         </>

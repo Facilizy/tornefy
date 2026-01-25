@@ -2,7 +2,7 @@ import { useMemo, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
-import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { OrganizerBadge } from "@/components/OrganizerBadge";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -54,6 +54,11 @@ import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 import { TrainingDetailsSkeleton } from "@/components/skeletons/TrainingDetailsSkeleton";
 import { TrainingTeamsPreviewSkeleton } from "@/components/skeletons/TrainingTeamsPreviewSkeleton";
 import { TrainingScoreboardSkeleton } from "@/components/skeletons/TrainingScoreboardSkeleton";
+import { DynamicBanner } from "@/components/DynamicBanner";
+import { fetchVerifiedMap } from "@/hooks/useVerifiedEntities";
+import { TeamVerifiedBadge } from "@/components/TeamVerifiedBadge";
+import TornefyBannerMark from "@/components/TornefyBannerMark";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 // Banner sizes constants
 export const BANNER_SIZES = {
@@ -75,6 +80,7 @@ const TrainingDetails = () => {
   const [isVerifiedOrganizerRole, setIsVerifiedOrganizerRole] = useState(false);
   const [registeredTeams, setRegisteredTeams] = useState<any[]>([]);
   const [registeredTeamsCount, setRegisteredTeamsCount] = useState(0);
+  const [registeredTeamsVerifiedMap, setRegisteredTeamsVerifiedMap] = useState<Map<string, boolean>>(new Map());
   const [hasAnyScores, setHasAnyScores] = useState(false);
   const [registeredTeamsLoading, setRegisteredTeamsLoading] = useState(false);
   const [scoresLoading, setScoresLoading] = useState(false);
@@ -89,6 +95,7 @@ const TrainingDetails = () => {
   const [confirmMode, setConfirmMode] = useState<"register" | "claim">("register");
 
   const scoreboardRef = useRef<ScoreboardHandle | null>(null);
+  const [rankingRoundId, setRankingRoundId] = useState<string>("all");
 
   const [waitlistCount, setWaitlistCount] = useState(0);
   const [isInWaitlist, setIsInWaitlist] = useState(false);
@@ -141,6 +148,17 @@ const TrainingDetails = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  useEffect(() => {
+    const ids = registeredTeams
+      .map((r: any) => r?.teams?.id)
+      .filter(Boolean)
+      .map(String);
+    void (async () => {
+      const map = await fetchVerifiedMap("team", ids);
+      setRegisteredTeamsVerifiedMap(map);
+    })();
+  }, [registeredTeams]);
 
   // Realtime: keep registration state/count/teams in sync without reload
   useEffect(() => {
@@ -231,7 +249,7 @@ const TrainingDetails = () => {
         setScoresLoading(false);
       }
 
-      // Organizer info (perfil + selo verificado) + próximos treinos do organizador
+       // Organizer info (perfil + selo verificado) + próximos treinos do organizador
       if (trainingData?.organizer_id) {
         const organizerId = trainingData.organizer_id as string;
 
@@ -246,12 +264,6 @@ const TrainingDetails = () => {
               .from("trainings")
               .select("id", { count: "exact", head: true })
               .eq("organizer_id", organizerId),
-            (supabase as any)
-              .from("user_roles")
-              .select("role")
-              .eq("user_id", organizerId)
-              .eq("role", "organizer_verified")
-              .maybeSingle(),
           ]),
           supabase
             .from("trainings")
@@ -263,11 +275,30 @@ const TrainingDetails = () => {
             .limit(3),
         ]);
 
-        const [{ data: organizerP }, { count: totalTrainings }, { data: verifiedRow }] = organizerInfo;
+         const [{ data: organizerP }, { count: totalTrainings }] = organizerInfo;
+
+         // Verificação unificada (verified_entities) + fallback legado (RPC público)
+         let verifiedByEntities = false;
+         try {
+           const map = await fetchVerifiedMap("user", [String(organizerId)]);
+           verifiedByEntities = !!map.get(String(organizerId));
+         } catch {
+           verifiedByEntities = false;
+         }
+
+         let verifiedByLegacyRole = false;
+         if (!verifiedByEntities) {
+           try {
+             const { data } = await (supabase as any).rpc("is_organizer_verified", { _user_id: organizerId });
+             verifiedByLegacyRole = !!data;
+           } catch {
+             verifiedByLegacyRole = false;
+           }
+         }
 
         setOrganizerProfile(organizerP);
         setIsVerifiedOrganizer((totalTrainings || 0) >= 10);
-        setIsVerifiedOrganizerRole(!!verifiedRow);
+         setIsVerifiedOrganizerRole(verifiedByEntities || verifiedByLegacyRole);
         setOrganizerUpcomingTrainings(upcomingRes.data || []);
       } else {
         setOrganizerProfile(null);
@@ -820,7 +851,7 @@ const TrainingDetails = () => {
       blood_strike: "/game-logos/blood-strike.png",
       farlight_84: "/game-logos/farlight-84.png",
       prime_rush: "/game-logos/prime-rush.png",
-      battlefield_6: "/game-logos/battlefield-6.png",
+      battlefield_6: "/game-logos/battlefield-6.webp",
     };
     return logos[game] || "";
   };
@@ -837,31 +868,16 @@ const TrainingDetails = () => {
           Voltar
         </Button>
 
-        {/* Banner - tamanho mais comum (mais alto) */}
-        <div
-          className="relative h-[260px] sm:h-[340px] lg:h-[420px] rounded-2xl overflow-hidden mb-6"
-          style={{
-            background: !training.banner_url
-              ? `linear-gradient(135deg, ${training.primary_color || "#9146FF"} 0%, ${
-                  training.secondary_color || "#1F2937"
-                } 100%)`
-              : undefined,
-          }}
+        {/* Banner (imagem) com fallback por cores */}
+        <DynamicBanner
+          bannerUrl={training.banner_url}
+          title={training.name}
+          primaryColor={training.primary_color}
+          secondaryColor={training.secondary_color}
+          heightClassName="h-[260px] sm:h-[340px] lg:h-[420px]"
+          className="rounded-2xl mb-6"
+          fallback={<TornefyBannerMark className="w-56 text-foreground/10" />}
         >
-          {training.banner_url ? (
-            <img
-              src={training.banner_url}
-              alt={training.name}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Trophy className="w-20 h-20 text-white/20" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-
           {/* Status badges */}
           <div className="absolute top-4 left-4 right-4 flex justify-between items-start">
             <div className="flex gap-2">
@@ -905,12 +921,12 @@ const TrainingDetails = () => {
                   <span className="font-semibold text-white">
                     @{organizerProfile?.username || "organizador"}
                   </span>
-                  {organizerVerified && <VerifiedBadge label="Organizador verificado" />}
+                  {organizerVerified && <OrganizerBadge variant="icon" size="sm" />}
                 </button>
               </div>
             )}
           </div>
-        </div>
+        </DynamicBanner>
 
         {/* Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -1184,14 +1200,19 @@ const TrainingDetails = () => {
                               loading="lazy"
                             />
                           ) : (
-                            <div className="h-10 w-10 rounded-md border bg-muted/40 flex items-center justify-center text-xs font-bold">
-                              {(r.teams?.tag || "??").slice(0, 2)}
+                            <div className="h-10 w-10 rounded-md border border-border bg-background/40 flex items-center justify-center">
+                              <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" />
                             </div>
                           )}
 
                           <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-sm uppercase truncate">
-                              {r.teams?.name || "Equipe"}
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="font-semibold text-sm uppercase truncate">
+                                {r.teams?.name || "Equipe"}
+                              </div>
+                              {r?.teams?.id && registeredTeamsVerifiedMap.get(String(r.teams.id)) ? (
+                                <TeamVerifiedBadge variant="icon" size="sm" />
+                              ) : null}
                             </div>
                             <div className="text-xs text-muted-foreground uppercase">
                               [{r.teams?.tag}]
@@ -1222,17 +1243,14 @@ const TrainingDetails = () => {
                           loading="lazy"
                         />
                       ) : (
-                        <div 
-                          className="w-12 h-12 rounded-lg flex items-center justify-center text-white font-bold"
-                          style={{ backgroundColor: eventPrimaryColor }}
-                        >
-                          {(organizerProfile.full_name || "O").charAt(0).toUpperCase()}
+                        <div className="w-12 h-12 rounded-lg border border-border bg-background/40 flex items-center justify-center">
+                          <DefaultAvatarMark className="h-7 w-7 text-muted-foreground" />
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="font-semibold truncate">{organizerProfile.full_name || "Organizador"}</p>
-                          {isVerifiedOrganizer && <VerifiedBadge variant="icon" size="sm" />}
+                          {organizerVerified && <OrganizerBadge variant="icon" size="sm" />}
                         </div>
                         <p className="text-xs text-muted-foreground">
                           {followOrganizer.loading ? "—" : `${followOrganizer.followersCount} seguidores`}
@@ -1707,6 +1725,8 @@ const TrainingDetails = () => {
                      logo_url: r.teams.logo_url,
                    }))}
                    primaryColor={eventPrimaryColor}
+                    selectedRoundId={rankingRoundId}
+                    onSelectedRoundChange={setRankingRoundId}
                  />
 
                  <MvpListCard
@@ -1717,6 +1737,7 @@ const TrainingDetails = () => {
                      tag: r.teams.tag,
                      logo_url: r.teams.logo_url,
                    }))}
+                    selectedRoundId={rankingRoundId}
                  />
                </>
              ) : (
@@ -1781,15 +1802,16 @@ const TrainingDetails = () => {
                               loading="lazy"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                              <span className="text-sm font-bold">
-                                {(registration.teams.tag || registration.teams.name || "??").slice(0, 2).toUpperCase()}
-                              </span>
+                            <div className="w-12 h-12 rounded-lg border border-border bg-background/40 flex items-center justify-center flex-shrink-0">
+                              <DefaultAvatarMark className="h-7 w-7 text-muted-foreground" />
                             </div>
                           )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <h3 className="font-semibold text-sm uppercase">{registration.teams.name}</h3>
+                              {registeredTeamsVerifiedMap.get(String(registration.teams.id)) ? (
+                                <TeamVerifiedBadge variant="icon" size="sm" />
+                              ) : null}
                               {registration.slot_number && (
                                 <Badge variant="secondary" className="text-xs">
                                   #{registration.slot_number}

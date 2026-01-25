@@ -47,17 +47,16 @@ export default {
   			card: {
   				DEFAULT: 'hsl(var(--card))',
   				foreground: 'hsl(var(--card-foreground))'
-				},
-				status: {
-					open: 'hsl(var(--status-open))',
-					closed: 'hsl(var(--status-closed))',
-					live: 'hsl(var(--status-live))',
-					done: 'hsl(var(--status-done))'
-				}
+  			},
+  			status: {
+  				open: 'hsl(var(--status-open))',
+  				closed: 'hsl(var(--status-closed))',
+  				live: 'hsl(var(--status-live))',
+  				done: 'hsl(var(--status-done))'
+  			}
   		},
   		fontFamily: {
   			sans: [
-  				'Outfit',
   				'ui-sans-serif',
   				'system-ui',
   				'sans-serif',
@@ -67,7 +66,6 @@ export default {
   				'Noto Color Emoji'
   			],
   			serif: [
-  				'Lora',
   				'ui-serif',
   				'Georgia',
   				'Cambria',
@@ -76,7 +74,6 @@ export default {
   				'serif'
   			],
   			mono: [
-  				'Source Code Pro',
   				'ui-monospace',
   				'SFMono-Regular',
   				'Menlo',

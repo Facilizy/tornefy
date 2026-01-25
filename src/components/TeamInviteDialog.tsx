@@ -261,6 +261,23 @@ export const TeamInviteDialog = ({ teamId, onInviteSent }: TeamInviteDialogProps
 
     try {
       setSending(true);
+
+      // External players should be editable in the Team Members tab.
+      // So we create a team_members row (manual member) in addition to keeping the invite log.
+      const { error: memberErr } = await supabase.from("team_members").insert([
+        {
+          id: crypto.randomUUID(),
+          team_id: teamId,
+          user_id: null,
+          player_name: externalForm.player_name.trim(),
+          game_id: externalForm.game_id.trim() || null,
+          discord: externalForm.discord.trim() || null,
+          function: "RUSH",
+          line_id: null,
+        },
+      ]);
+      if (memberErr) throw memberErr;
+
       const { error } = await supabase.from("team_invites").insert([
         {
           id: crypto.randomUUID(),

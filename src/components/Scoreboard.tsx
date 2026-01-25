@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { Trophy, Target, Crown, Medal } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 interface Team {
   id: string;
@@ -46,6 +47,9 @@ interface ScoreboardProps {
   trainingId: string;
   teams: Team[];
   primaryColor?: string;
+  /** Controlled filter (round_id). Use "all" for all rounds. */
+  selectedRoundId?: string;
+  onSelectedRoundChange?: (roundId: string) => void;
 }
 
 export type ScoreboardHandle = {
@@ -53,15 +57,21 @@ export type ScoreboardHandle = {
 };
 
 export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function Scoreboard(
-  { trainingId, teams, primaryColor = "#9146FF" },
+  { trainingId, teams, primaryColor = "#9146FF", selectedRoundId, onSelectedRoundChange },
   ref
 ) {
   const [standings, setStandings] = useState<TeamStanding[]>([]);
   const [rounds, setRounds] = useState<Round[]>([]);
-  const [selectedRound, setSelectedRound] = useState<string>("all");
+  const [internalSelectedRound, setInternalSelectedRound] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const navigate = useNavigate();
+
+  const selectedRound = selectedRoundId ?? internalSelectedRound;
+  const setSelectedRound = (roundId: string) => {
+    if (selectedRoundId === undefined) setInternalSelectedRound(roundId);
+    onSelectedRoundChange?.(roundId);
+  };
 
   const matchIdsRef = useRef<Set<string>>(new Set());
   const refetchTimeoutRef = useRef<number | null>(null);
@@ -372,7 +382,7 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
                       />
                     ) : (
                       <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <span className="text-xs font-bold">{standing.team.tag.slice(0, 2)}</span>
+                        <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" />
                       </div>
                     )}
                     <div>

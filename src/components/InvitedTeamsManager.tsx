@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Loader2, X } from "lucide-react";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 type TeamCard = {
   tag: string;
@@ -154,8 +155,8 @@ export function InvitedTeamsManager({
                     loading="lazy"
                   />
                 ) : (
-                  <div className="h-10 w-10 rounded-md border bg-muted/40 flex items-center justify-center text-xs font-bold">
-                    {t.tag.slice(0, 2)}
+                  <div className="h-10 w-10 rounded-md border bg-muted/40 flex items-center justify-center">
+                    <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" title={`Logo padrão da equipe ${t.tag}`} />
                   </div>
                 )}
 

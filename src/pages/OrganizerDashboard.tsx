@@ -58,6 +58,8 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useUserRole } from "@/hooks/useUserRole";
 import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
+import { DynamicBanner } from "@/components/DynamicBanner";
+import TornefyBannerMark from "@/components/TornefyBannerMark";
 
 
 const OrganizerDashboard = () => {
@@ -146,7 +148,7 @@ const OrganizerDashboard = () => {
     
     if (user) {
       // Se o role foi carregado e não é organizer, bloquear acesso
-      if (role && role !== "organizer") {
+      if (role && role !== "organizer" && role !== "admin") {
         console.log('[OrganizerDashboard] Access denied - role:', role);
         toast.error("Acesso negado. Apenas organizadores podem acessar esta página.");
         navigate("/");
@@ -154,7 +156,7 @@ const OrganizerDashboard = () => {
       }
       
       // Se o role é organizer, permitir acesso
-      if (role === "organizer") {
+      if (role === "organizer" || role === "admin") {
         console.log('[OrganizerDashboard] Access granted, fetching trainings and stats');
         fetchTrainings();
         fetchOrganizerStats();
@@ -207,19 +209,14 @@ const OrganizerDashboard = () => {
 
     try {
       // Carregar treinos do organizador
-      const [{ data: trainingsData, error: trainingsError }, { data: verifiedRow }] =
-        await Promise.all([
-          supabase.from("trainings").select("id").eq("organizer_id", user.id),
-          (supabase as any)
-            .from("user_roles")
-            .select("role")
-            .eq("user_id", user.id)
-            .eq("role", "organizer_verified")
-            .maybeSingle(),
-        ]);
+      const [{ data: trainingsData, error: trainingsError }, verifiedRes] = await Promise.all([
+        supabase.from("trainings").select("id").eq("organizer_id", user.id),
+        // Público (funciona para player/deslogado também) e evita depender de SELECT em user_roles.
+        (supabase as any).rpc("is_organizer_verified", { _user_id: String(user.id) }),
+      ]);
 
       if (trainingsError) throw trainingsError;
-      setIsVerifiedByRole(!!verifiedRow);
+      setIsVerifiedByRole(!!verifiedRes?.data);
 
       const trainingIds = (trainingsData || []).map((t: any) => t.id);
 
@@ -541,7 +538,7 @@ const OrganizerDashboard = () => {
     <MainLayout showUpcomingScrimWidget={false}>
       <main className="container mx-auto px-4 py-8">
         {/* Header */}
-        <section className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-6">
+        <section className="mb-6">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black uppercase flex items-center gap-2">
               Painel do Organizador
@@ -551,16 +548,16 @@ const OrganizerDashboard = () => {
                 </span>
               )}
             </h1>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-sm mt-1">
               Seus treinos, inscrições e ações rápidas em um lugar só.
             </p>
-          </div>
 
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
+            {/* Ações rápidas: 2 colunas no mobile, flex no desktop */}
+            <div className="mt-4 grid grid-cols-2 gap-2 sm:flex sm:flex-row sm:flex-wrap sm:gap-3">
             <Dialog>
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                  <Tv className="w-4 h-4 mr-2" />
+                <Button variant="outline" size="xs" className="w-full sm:w-auto justify-center">
+                  <Tv className="w-4 h-4" />
                   Tornefy TV
                 </Button>
               </DialogTrigger>
@@ -606,11 +603,11 @@ const OrganizerDashboard = () => {
 
             <Button
               variant="outline"
-              size="sm"
-              className="w-full sm:w-auto"
+              size="xs"
+              className="w-full sm:w-auto justify-center"
               onClick={() => navigate("/external-teams")}
             >
-              <Users className="w-4 h-4 mr-2" />
+              <Users className="w-4 h-4" />
               Equipes Externas
             </Button>
 
@@ -626,8 +623,8 @@ const OrganizerDashboard = () => {
             >
               <TrainingWizard userId={user?.id} onCreated={fetchTrainings} />
               <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="w-full sm:w-auto">
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button variant="outline" size="xs" className="w-full sm:w-auto justify-center">
+                  <Plus className="w-4 h-4" />
                   Criar Treino
                 </Button>
               </DialogTrigger>
@@ -988,6 +985,7 @@ const OrganizerDashboard = () => {
           </Dialog>
           <BlacklistDialog />
         </div>
+        </div>
         </section>
 
         {trainings.length === 0 ? (
@@ -1134,18 +1132,16 @@ const OrganizerDashboard = () => {
                     key={training.id}
                     className="overflow-hidden backdrop-blur-sm bg-card/80 border-border hover:border-primary/50 transition-all"
                   >
-                    <div className="relative h-32 bg-gradient-primary">
-                      {training.banner_url ? (
-                        <img
-                          src={training.banner_url}
-                          alt={training.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <Trophy className="w-12 h-12 text-white/20" />
-                        </div>
-                      )}
+                    <DynamicBanner
+                      bannerUrl={training.banner_url}
+                      title={`Banner do treino ${training.name}`}
+                      primaryColor={training.primary_color}
+                      secondaryColor={training.secondary_color}
+                      heightClassName="h-28 sm:h-32 md:h-40"
+                      className="rounded-none"
+                      fallback={<TornefyBannerMark className="w-36 text-foreground/10" />}
+                    >
+                      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-primary/20 via-transparent to-transparent" />
                       {training.is_live && (
                         <Badge className="absolute top-2 right-2 bg-destructive animate-glow-pulse">
                           AO VIVO
@@ -1155,7 +1151,7 @@ const OrganizerDashboard = () => {
                         status={training.status}
                         className="absolute top-2 left-2"
                       />
-                    </div>
+                    </DynamicBanner>
 
                     <div className="p-4 space-y-3">
                       <h3 className="font-semibold text-lg line-clamp-1 uppercase">
@@ -1183,8 +1179,9 @@ const OrganizerDashboard = () => {
 
                       <Separator />
 
-                      <div className="flex flex-col gap-2 mb-2">
-                        <div className="grid grid-cols-3 gap-1 sm:gap-2">
+                      {/* Ações (2 linhas responsivas) */}
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                           <RegisteredTeamsDialog trainingId={training.id} trainingName={training.name} />
                           <EventLogsDialog trainingId={training.id} trainingName={training.name} />
                           <ScoringConfigDialog
@@ -1194,33 +1191,36 @@ const OrganizerDashboard = () => {
                             onConfigUpdated={fetchTrainings}
                           />
                         </div>
-                      </div>
 
-                      <div className="flex gap-1 sm:gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/training/${training.id}`)}
-                          className="flex-1 text-xs sm:text-sm"
-                        >
-                          <span className="hidden sm:inline">Ver Detalhes</span>
-                          <span className="sm:hidden">Ver</span>
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => openEditDialog(training)}
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteTraining(training.id)}
-                          className="hover:text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="grid grid-cols-[1fr_auto_auto] gap-2 items-stretch">
+                          <Button
+                            size="xs"
+                            variant="outline"
+                            onClick={() => navigate(`/training/${training.id}`)}
+                            className="w-full text-xs sm:text-sm"
+                          >
+                            <span className="hidden sm:inline">Ver Detalhes</span>
+                            <span className="sm:hidden">Ver Detalhes</span>
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => openEditDialog(training)}
+                            className="shrink-0"
+                            aria-label="Editar treino"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            onClick={() => handleDeleteTraining(training.id)}
+                            className="shrink-0 hover:text-destructive"
+                            aria-label="Excluir treino"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   </Card>

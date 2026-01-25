@@ -18,7 +18,7 @@ const GAMES = [
   { id: "blood_strike", name: "Blood Strike", logo: "/game-logos/blood-strike.png" },
   { id: "farlight_84", name: "Farlight 84", logo: "/game-logos/farlight-84.png" },
   { id: "prime_rush", name: "Prime Rush", logo: "/game-logos/prime-rush.png" },
-  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.png" },
+  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.webp" },
 ];
 
 const Auth = () => {
@@ -93,6 +93,7 @@ const Auth = () => {
 
   const [signupAwaitingEmail, setSignupAwaitingEmail] = useState(false);
   const signupEmail = useMemo(() => formData.email.trim(), [formData.email]);
+  const [emailCtaClicked, setEmailCtaClicked] = useState(false);
 
   // Valid organizer invite codes
   const VALID_ORGANIZER_CODES = ["TORNEFYPREMIUM"];
@@ -117,9 +118,41 @@ const Auth = () => {
     setAcceptedTerms(false);
     setCurrentStep(1);
     setSignupAwaitingEmail(false);
+    setEmailCtaClicked(false);
     setShowLoginPassword(false);
     setShowSignupPassword(false);
   }, [isLogin, forgotPassword]);
+
+  const getWebmailUrlForEmail = (email: string) => {
+    const at = email.lastIndexOf("@");
+    if (at <= 0) return null;
+    const domain = email.slice(at + 1).trim().toLowerCase();
+    if (!domain) return null;
+
+    const known: Record<string, string> = {
+      "gmail.com": "https://mail.google.com/",
+      "googlemail.com": "https://mail.google.com/",
+      "outlook.com": "https://outlook.live.com/mail/",
+      "hotmail.com": "https://outlook.live.com/mail/",
+      "live.com": "https://outlook.live.com/mail/",
+      "msn.com": "https://outlook.live.com/mail/",
+      "yahoo.com": "https://mail.yahoo.com/",
+      "ymail.com": "https://mail.yahoo.com/",
+    };
+    return known[domain] || null;
+  };
+
+  const handleOpenEmailProvider = () => {
+    const url = getWebmailUrlForEmail(signupEmail);
+    if (!url) {
+      // Se não reconhecer, manda para o login
+      setAuthMode("login");
+      return;
+    }
+
+    window.open(url, "_blank", "noopener,noreferrer");
+    setEmailCtaClicked(true);
+  };
 
   // OAuth completion: prefill name/avatar and force the wizard flow
   useEffect(() => {
@@ -573,10 +606,24 @@ const Auth = () => {
                               Enviamos um link de confirmação para <span className="font-medium text-foreground">{signupEmail || "seu e-mail"}</span>.
                             </p>
                           </div>
-                          <Button type="button" className="w-full" onClick={() => setAuthMode("login")}
-                          >
-                            Fazer login
-                          </Button>
+
+                           <div className="space-y-2">
+                             <Button
+                               type="button"
+                               className="w-full"
+                               onClick={handleOpenEmailProvider}
+                               disabled={!signupEmail}
+                             >
+                               Entrar no e-mail
+                             </Button>
+
+                             {(emailCtaClicked || !getWebmailUrlForEmail(signupEmail)) && (
+                               <Button type="button" variant="outline" className="w-full" onClick={() => setAuthMode("login")}
+                               >
+                                 Fazer login
+                               </Button>
+                             )}
+                           </div>
                         </div>
                       ) : (
                         <>

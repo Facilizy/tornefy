@@ -223,11 +223,24 @@ export function ScoreManagementDialog({
 
       const lineId = registration?.line_id ?? null;
 
-      const { data: members } = await (supabase as any)
+      // Importante:
+      // - mostrar somente jogadores com conta (user_id != null)
+      // - manter compatibilidade com membros legacy (line_id = null)
+      let membersQuery = (supabase as any)
         .from("team_members")
         .select("id, player_name, line_id, team_id, user_id")
         .eq("team_id", teamId)
-        .in("line_id", lineId ? [lineId] : [null, lineId]);
+        .not("user_id", "is", null);
+
+      // If the team is registered with a specific line, include that line AND unassigned members
+      // so the organizer can still score them.
+      if (lineId) {
+        membersQuery = membersQuery.or(`line_id.eq.${lineId},line_id.is.null`);
+      } else {
+        membersQuery = membersQuery.is("line_id", null);
+      }
+
+      const { data: members } = await membersQuery;
 
       const { data: existingStats } = await (supabase as any)
         .from("training_player_stats")
@@ -236,40 +249,50 @@ export function ScoreManagementDialog({
         .eq("team_id", teamId);
 
       const statsByMemberId: Record<string, { kills: number; is_mvp: boolean }> = {};
-      (existingStats || []).forEach((s) => {
-        if (s.team_member_id) {
-          statsByMemberId[s.team_member_id] = {
-            kills: s.kills,
-            is_mvp: s.is_mvp,
+
+      (existingStats || []).forEach((s: any) => {
+        if (s?.team_member_id) {
+          statsByMemberId[String(s.team_member_id)] = {
+            kills: Number(s.kills ?? 0),
+            is_mvp: !!s.is_mvp,
           };
         }
       });
 
-      const playerStats: PlayerStat[] = (members || [])
-        .filter((m: any) => !!m.user_id) // ignora jogadores externos sem conta
-        .map((m: any) => {
-          const existing = statsByMemberId[m.id] || { kills: 0, is_mvp: false };
-          return {
-            team_id: teamId,
-            line_id: m.line_id,
-            team_member_id: m.id,
-            player_name: m.player_name,
-            kills: existing.kills,
-            is_mvp: existing.is_mvp,
-          };
-        });
+      const memberStats: PlayerStat[] = (members || []).map((m: any) => {
+        const existing = statsByMemberId[m.id] || { kills: 0, is_mvp: false };
+        return {
+          client_id: String(m.id),
+          team_id: teamId,
+          line_id: m.line_id,
+          team_member_id: String(m.id),
+          user_id: m.user_id ?? null,
+          player_name: m.player_name || "Jogador",
+          kills: existing.kills,
+          is_mvp: existing.is_mvp,
+        };
+      });
+
+      const playerStats: PlayerStat[] = memberStats;
 
       setPlayerStatsByTeam((prev) => ({
         ...prev,
         [teamId]: playerStats,
       }));
 
-      const totalKills = playerStats.reduce((sum, p) => sum + p.kills, 0);
-      if (totalKills > 0) {
-        setScores((prev) =>
-          prev.map((s) => (s.team_id === teamId ? { ...s, kills: totalKills } : s))
-        );
-      }
+      const playersKills = playerStats.reduce((sum, p) => sum + (Number(p.kills) || 0), 0);
+      setScores((prev) =>
+        prev.map((s) => {
+          if (s.team_id !== teamId) return s;
+          const totalFromDb = Number(s.kills ?? 0) || 0;
+          const inferredExtra = Math.max(0, totalFromDb - playersKills);
+          return {
+            ...s,
+            extra_kills: inferredExtra,
+            kills: playersKills + inferredExtra,
+          };
+        })
+      );
     } catch (error) {
       console.error("Erro ao carregar jogadores da line:", error);
     }
@@ -292,7 +315,8 @@ export function ScoreManagementDialog({
       const loadedScores = data.map((s) => ({
         team_id: s.team_id,
         position: s.position,
-        kills: s.kills,
+        kills: Number(s.kills ?? 0) || 0,
+        extra_kills: 0,
         bonus_points: Number((s as any).bonus_points ?? 0),
       }));
       setScores(loadedScores);
@@ -499,7 +523,7 @@ export function ScoreManagementDialog({
       nextPosition++;
     }
 
-    setScores([...scores, { team_id: teamId, position: nextPosition, kills: 0, bonus_points: 0 }]);
+    setScores([...scores, { team_id: teamId, position: nextPosition, kills: 0, extra_kills: 0, bonus_points: 0 }]);
     // Load players for this team so team kills can be auto-summed from player kills
     void loadPlayersForTeam(teamId, selectedMatch);
   };
@@ -544,17 +568,19 @@ export function ScoreManagementDialog({
     return { posPoints, killPoints, bonusPoints, total: posPoints + killPoints + bonusPoints };
   };
 
-  const updatePlayerKills = (teamId: string, teamMemberId: string | null, kills: number) => {
+  const updatePlayerKills = (teamId: string, playerClientId: string, kills: number) => {
     setPlayerStatsByTeam((prev) => {
       const teamPlayers = prev[teamId] || [];
       const updated = teamPlayers.map((p) =>
-        p.team_member_id === teamMemberId ? { ...p, kills } : p
+        p.client_id === playerClientId ? { ...p, kills } : p
       );
 
-      const totalKills = updated.reduce((sum, p) => sum + p.kills, 0);
+      const playersKills = updated.reduce((sum, p) => sum + (Number(p.kills) || 0), 0);
       setScores((currentScores) =>
         currentScores.map((s) =>
-          s.team_id === teamId ? { ...s, kills: totalKills } : s
+          s.team_id === teamId
+            ? { ...s, kills: playersKills + (Number(s.extra_kills ?? 0) || 0) }
+            : s
         )
       );
 
@@ -565,12 +591,16 @@ export function ScoreManagementDialog({
     });
   };
 
-  const toggleMvp = (teamId: string, teamMemberId: string | null) => {
+  const toggleMvp = (teamId: string, playerClientId: string) => {
     setPlayerStatsByTeam((prev) => {
       const teamPlayers = prev[teamId] || [];
+      const target = teamPlayers.find((p) => p.client_id === playerClientId);
+      // MVP só para jogadores com conta (user_id)
+      if (!target?.user_id) return prev;
+
       const updated = teamPlayers.map((p) => ({
         ...p,
-        is_mvp: p.team_member_id === teamMemberId,
+        is_mvp: p.client_id === playerClientId,
       }));
 
       return {
@@ -659,7 +689,8 @@ export function ScoreManagementDialog({
               team_member_id: p.team_member_id,
               player_name: p.player_name,
               kills: p.kills,
-              is_mvp: p.is_mvp,
+              // MVP só vale para jogador com conta
+              is_mvp: p.user_id ? p.is_mvp : false,
             }))
       );
 
@@ -687,6 +718,44 @@ export function ScoreManagementDialog({
         });
       } catch (invokeError) {
         console.error("Erro ao chamar update-achievements:", invokeError);
+      }
+
+      // Auditoria: salva logs no training_event_logs (organizador)
+      try {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const savedBy = sessionData.session?.user?.id || null;
+
+        const teamMap = new Map(teams.map((t) => [t.id, t] as const));
+        const auditRows = scoresToPersist.map((s) => {
+          const team = teamMap.get(s.team_id);
+          const players = playerStatsByTeam[s.team_id] || [];
+          const playersKills = players.reduce((sum, p) => sum + (Number(p.kills) || 0), 0);
+          const extraKills = Number(s.extra_kills ?? 0) || 0;
+
+          return {
+            training_id: trainingId,
+            team_id: s.team_id,
+            team_name: team?.name ?? null,
+            team_tag: team?.tag ?? null,
+            action: JSON.stringify({
+              type: "score_saved",
+              match_id: selectedMatch,
+              saved_by: savedBy,
+              position: s.position,
+              kills_players: playersKills,
+              kills_extra: extraKills,
+              kills_total: playersKills + extraKills,
+              bonus_points: Number(s.bonus_points ?? 0),
+              mvp_member_id: (players.find((p) => p.is_mvp)?.team_member_id ?? null),
+            }),
+          };
+        });
+
+        if (auditRows.length) {
+          await (supabase as any).from("training_event_logs").insert(auditRows);
+        }
+      } catch (logErr) {
+        console.error("Falha ao gravar auditoria no event logs:", logErr);
       }
 
       toast.success("Pontuação salva com sucesso!");
@@ -784,6 +853,7 @@ export function ScoreManagementDialog({
                 void loadPlayersForTeam(teamId, selectedMatch);
               }}
               onUpdatePlayerKills={updatePlayerKills}
+              onToggleMvp={toggleMvp}
               saving={saving}
               onSave={saveScores}
             />

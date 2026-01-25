@@ -34,7 +34,6 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
 import TeamBadges from "@/components/TeamBadges";
-import { VerifiedBadge } from "@/components/VerifiedBadge";
 import TeamTagBadge from "@/components/TeamTagBadge";
 import LiveNowSection from "@/components/twitch/LiveNowSection";
 import { SocialLinksChips } from "@/components/SocialLinksChips";
@@ -42,6 +41,9 @@ import { IntegratedGamesChips } from "@/components/IntegratedGamesChips";
 import { hexToHslTriplet } from "@/lib/color";
 import { TeamProfileSkeleton } from "@/components/skeletons/TeamProfileSkeleton";
 import { PlayerTradingCardSkeleton } from "@/components/skeletons/PlayerTradingCardSkeleton";
+import { useVerifiedEntity } from "@/hooks/useVerifiedEntities";
+import { TeamVerifiedBadge } from "@/components/TeamVerifiedBadge";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 import {
   PlayerTradingCard,
   type PlayerTradingCardData,
@@ -77,6 +79,8 @@ const TeamProfile = () => {
   const [loading, setLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
 
+  const { verified: teamVerified } = useVerifiedEntity("team", teamId);
+
   const [rosterSearch, setRosterSearch] = useState("");
   const [rosterLine, setRosterLine] = useState<string>("all");
   const [rosterFunction, setRosterFunction] = useState<string>("all");
@@ -95,6 +99,10 @@ const TeamProfile = () => {
   const teamPrimaryTriplet =
     (team?.primary_color ? hexToHslTriplet(team.primary_color as string) : null) ||
     "var(--primary)";
+
+  const teamSecondaryTriplet =
+    (team?.secondary_color ? hexToHslTriplet(team.secondary_color as string) : null) ||
+    teamPrimaryTriplet;
 
   const memberUserIds = members
     .map((m) => m.user_id)
@@ -358,6 +366,8 @@ const TeamProfile = () => {
           // Tailwind-friendly triplet ("H S% L%") or var(--primary)
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           ["--team-primary" as any]: teamPrimaryTriplet,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ["--team-secondary" as any]: teamSecondaryTriplet,
         }}
       >
         {/* Banner */}
@@ -366,7 +376,7 @@ const TeamProfile = () => {
           style={{
             background: team.banner_url
               ? `url(${team.banner_url}) center/cover`
-              : `linear-gradient(135deg, hsl(var(--team-primary) / 0.55) 0%, hsl(var(--team-primary) / 0.16) 100%)`,
+              : `linear-gradient(135deg, hsl(var(--team-primary) / 0.60) 0%, hsl(var(--team-secondary) / 0.18) 100%)`,
           }}
         >
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-background/0 via-background/50 to-background" />
@@ -388,9 +398,7 @@ const TeamProfile = () => {
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <span className="text-3xl font-black text-[hsl(var(--team-primary))]">
-                    {team.tag?.substring(0, 2).toUpperCase()}
-                  </span>
+                  <DefaultAvatarMark className="h-10 w-10 text-muted-foreground" />
                 )}
               </div>
 
@@ -403,11 +411,11 @@ const TeamProfile = () => {
                 </div>
                 
                 <div className="flex flex-wrap items-center gap-3 mb-3">
-                  {team.is_verified && (
+                  {teamVerified || team.is_verified ? (
                     <span className="inline-flex items-center gap-2">
-                      <VerifiedBadge variant="pill" />
+                      <TeamVerifiedBadge variant="pill" size="md" />
                     </span>
-                  )}
+                  ) : null}
                   <span className="flex items-center gap-1 text-sm text-muted-foreground">
                     <Users className="w-4 h-4" />
                     {members.length} membros

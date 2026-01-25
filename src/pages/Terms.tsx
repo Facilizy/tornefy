@@ -2,14 +2,14 @@ import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
 import { Shield, FileText } from "lucide-react";
 import { useEffect } from "react";
-import { setSeo } from "@/lib/seo";
+import { getCanonicalOrigin, setSeo } from "@/lib/seo";
 
 const Terms = () => {
   useEffect(() => {
     setSeo({
       title: "Termos de Uso • Tornefy",
       description: "Regras e condições para uso da plataforma Tornefy.",
-      canonical: window.location.origin + "/terms",
+      canonical: getCanonicalOrigin() + "/terms",
     });
   }, []);
 

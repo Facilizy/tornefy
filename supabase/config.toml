@@ -2,3 +2,21 @@ project_id = "nulmcireyubejpxiozhj"
 
 [functions.twitch-oauth-callback]
 verify_jwt = false
+
+[functions.sitemap]
+verify_jwt = false
+
+[functions.sitemap-index]
+verify_jwt = false
+
+[functions.sitemap-static]
+verify_jwt = false
+
+[functions.sitemap-trainings]
+verify_jwt = false
+
+[functions.sitemap-profiles]
+verify_jwt = false
+
+[functions.admin-api]
+verify_jwt = false

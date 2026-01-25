@@ -6,6 +6,21 @@ export type SeoOptions = {
   ogDescription?: string;
 };
 
+// Prefer the published URL for canonical when the app is being viewed on preview/staging.
+// This avoids duplicate content between preview and published.
+const PUBLISHED_ORIGIN = "https://blank-canvas-magic-743.lovable.app";
+
+export const getCanonicalOrigin = () => {
+  try {
+    const origin = window.location.origin;
+    // Lovable preview hosts typically include "id-preview--".
+    if (origin.includes("id-preview--") && origin.endsWith(".lovable.app")) return PUBLISHED_ORIGIN;
+    return origin;
+  } catch {
+    return PUBLISHED_ORIGIN;
+  }
+};
+
 const upsertMeta = (nameOrProp: "name" | "property", key: string, content: string) => {
   if (!content) return;
   const selector = `meta[${nameOrProp}="${key}"]`;

@@ -12,3 +12,6 @@ Allow: /
 
 User-agent: *
 Allow: /
+
+Sitemap: https://blank-canvas-magic-743.lovable.app/sitemap.xml
+Sitemap: https://blank-canvas-magic-743.lovable.app/sitemap-index.xml

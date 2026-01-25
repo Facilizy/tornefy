@@ -7,9 +7,12 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Calendar, Users, Monitor, Gamepad2, Handshake, Layers } from "lucide-react";
+import { Calendar, Users, Monitor, Gamepad2, Handshake } from "lucide-react";
 import { getGameLabel, getGameLogo } from "@/lib/games";
 import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
+import { OrganizerBadge } from "@/components/OrganizerBadge";
+import { DynamicBanner } from "@/components/DynamicBanner";
+import TornefyBannerMark from "@/components/TornefyBannerMark";
 
 import { useNavigate } from "react-router-dom";
 
@@ -18,6 +21,8 @@ interface TrainingCardProps {
     id: string;
     name: string;
     banner_url?: string;
+    primary_color?: string | null;
+    secondary_color?: string | null;
     datetime: string;
     platform: string;
     mode: string;
@@ -31,6 +36,7 @@ interface TrainingCardProps {
     invited_tags?: string[];
     organizer_name?: string | null;
     organizer_avatar_url?: string | null;
+    organizer_verified?: boolean;
   };
 }
 
@@ -54,45 +60,43 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
   const gameLabel = training.game ? getGameLabel(training.game) : undefined;
   const gameLogo = training.game ? getGameLogo(training.game) : undefined;
   const organizerLabel = training.organizer_name ? `Criado por ${training.organizer_name}` : undefined;
+  const showOrganizerVerified = !!training.organizer_name && !!training.organizer_verified;
 
-  const isOpen = availableSlots > 0;
   const normalizedStatus = (training.status || "").trim().toUpperCase();
-  const showStatusBadge = !!training.status && normalizedStatus !== "INSCRIÇÕES ABERTAS";
+  const isRegistrationsOpen = !training.status || normalizedStatus === "INSCRIÇÕES ABERTAS";
+  const isOpen = availableSlots > 0;
 
   return (
     <Card className="group h-full overflow-hidden bg-card/60 border-border hover:border-primary/30 transition-all duration-300 hover:-translate-y-0.5">
       {/* Banner */}
-      <div className="relative h-56 bg-gradient-primary overflow-hidden">
-        {training.banner_url ? (
-          <img
-            src={training.banner_url}
-            alt={`Banner da scrim ${training.name}`}
-            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-300"
-            loading="lazy"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Users className="w-16 h-16 text-foreground/10" />
-          </div>
-        )}
-
-        <div className="absolute inset-0 bg-gradient-to-t from-background/95 via-background/45 to-transparent" />
+      <DynamicBanner
+        bannerUrl={training.banner_url}
+        title={`Banner da scrim ${training.name}`}
+        primaryColor={training.primary_color}
+        secondaryColor={training.secondary_color}
+        heightClassName="h-56"
+        className="rounded-none"
+        fallback={<TornefyBannerMark className="w-44 text-foreground/10" />}
+      >
         <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-primary/20 via-transparent to-transparent" />
 
         {/* Status and Live Badges */}
         <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2">
           <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className={
-                isOpen
-                  ? "pointer-events-none rounded-full border-status-open/50 bg-status-open/80 text-foreground"
-                  : "pointer-events-none rounded-full border-status-closed/50 bg-status-closed/80 text-foreground"
-              }
-            >
-              {isOpen ? "INSCRIÇÕES ABERTAS" : "LOTADO"}
-            </Badge>
-            {showStatusBadge && <TrainingStatusBadge status={training.status} showFallback={false} />}
+            {isRegistrationsOpen ? (
+              <Badge
+                variant="outline"
+                className={
+                  isOpen
+                    ? "pointer-events-none rounded-full border-status-open/50 bg-status-open/80 text-foreground"
+                    : "pointer-events-none rounded-full border-status-closed/50 bg-status-closed/80 text-foreground"
+                }
+              >
+                {isOpen ? "INSCRIÇÕES ABERTAS" : "LOTADO"}
+              </Badge>
+            ) : (
+              <TrainingStatusBadge status={training.status} showFallback={false} />
+            )}
             {training.is_private && (
               <TooltipProvider>
                 <Tooltip>
@@ -134,10 +138,15 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
             {training.name}
           </h3>
           {organizerLabel && (
-            <p className="mt-1 text-xs text-muted-foreground line-clamp-1">{organizerLabel}</p>
+            <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground line-clamp-1">
+              <span className="truncate">{organizerLabel}</span>
+              {showOrganizerVerified ? (
+                <OrganizerBadge verified variant="icon" size="sm" />
+              ) : null}
+            </p>
           )}
         </div>
-      </div>
+      </DynamicBanner>
 
       {/* Content */}
       <div className="p-4 space-y-4 flex flex-col">
@@ -181,8 +190,7 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
           </Badge>
 
           {typeof training.rounds === "number" && training.rounds > 0 && (
-            <Badge variant="outline" className="flex items-center gap-1">
-              <Layers className="w-3.5 h-3.5" />
+            <Badge variant="outline">
               {training.rounds} rodada{training.rounds !== 1 ? "s" : ""}
             </Badge>
           )}
@@ -208,3 +216,4 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
 };
 
 export default TrainingCard;
+

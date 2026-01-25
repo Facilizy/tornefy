@@ -4,6 +4,8 @@ import { hexToHslTriplet } from "@/lib/color";
 import { getRankTier, type GameId } from "@/lib/ranking";
 import { getGameLabel, getGameLogo } from "@/lib/games";
 import { useMemo, useState } from "react";
+import { PlayerVerifiedBadge } from "@/components/PlayerVerifiedBadge";
+import { DefaultAvatarMark } from "@/components/DefaultAvatarMark";
 
 type TeamMini = {
   id: string;
@@ -39,6 +41,7 @@ export type PlayerTradingCardData = {
     points: number;
     position: number | null;
   } | null;
+  verified?: boolean;
 };
 
 function initials(name: string) {
@@ -222,8 +225,8 @@ export function PlayerTradingCard({
               />
             ) : (
               <div className="h-full w-full grid place-items-center">
-                <div className="h-20 w-20 rounded-3xl bg-muted border border-border grid place-items-center text-xl font-black">
-                  {initials(labelName)}
+                <div className="h-20 w-20 rounded-3xl bg-muted border border-border grid place-items-center">
+                  <DefaultAvatarMark className="h-8 w-8 text-muted-foreground" />
                 </div>
               </div>
             )}
@@ -243,12 +246,19 @@ export function PlayerTradingCard({
                   loading="lazy"
                 />
               ) : (
-                <div className="h-full w-full grid place-items-center text-[10px] font-black text-foreground/80">
-                  {teamTag ? teamTag.replace(/[\[\]]/g, "") : "—"}
+                <div className="h-full w-full grid place-items-center">
+                  <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
             </div>
           </div>
+
+          {/* verified badge */}
+          {player.verified ? (
+            <div className="absolute right-4 top-4">
+              <PlayerVerifiedBadge variant="icon" size="sm" />
+            </div>
+          ) : null}
         </div>
 
         {/* bottom content */}

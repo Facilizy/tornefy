@@ -2,14 +2,14 @@ import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
 import { Lock } from "lucide-react";
 import { useEffect } from "react";
-import { setSeo } from "@/lib/seo";
+import { getCanonicalOrigin, setSeo } from "@/lib/seo";
 
 const Privacy = () => {
   useEffect(() => {
     setSeo({
       title: "Política de Privacidade • Tornefy",
       description: "Entenda como coletamos, usamos e protegemos seus dados na Tornefy.",
-      canonical: window.location.origin + "/privacy",
+      canonical: getCanonicalOrigin() + "/privacy",
     });
   }, []);
 

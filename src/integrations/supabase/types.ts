@@ -47,6 +47,51 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_audit_logs: {
+        Row: {
+          action: string
+          actor_id: string
+          after: Json | null
+          before: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string | null
+          id: string
+          method: string
+          path: string
+          request: Json | null
+          response_count: number | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          method: string
+          path: string
+          request?: Json | null
+          response_count?: number | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          after?: Json | null
+          before?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string | null
+          id?: string
+          method?: string
+          path?: string
+          request?: Json | null
+          response_count?: number | null
+        }
+        Relationships: []
+      }
       bug_reports: {
         Row: {
           created_at: string
@@ -543,49 +588,49 @@ export type Database = {
       }
       team_invites: {
         Row: {
-          created_at: string | null
+          created_at: string
           expires_at: string | null
           external_discord: string | null
           external_game_id: string | null
           external_player_name: string | null
-          id: string | null
+          id: string
           invited_user_id: string | null
           invited_username: string | null
           is_external: string | null
           permission: string | null
           status: string | null
           team_id: string | null
-          updated_at: string | null
+          updated_at: string
         }
         Insert: {
-          created_at?: string | null
+          created_at?: string
           expires_at?: string | null
           external_discord?: string | null
           external_game_id?: string | null
           external_player_name?: string | null
-          id?: string | null
+          id?: string
           invited_user_id?: string | null
           invited_username?: string | null
           is_external?: string | null
           permission?: string | null
           status?: string | null
           team_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Update: {
-          created_at?: string | null
+          created_at?: string
           expires_at?: string | null
           external_discord?: string | null
           external_game_id?: string | null
           external_player_name?: string | null
-          id?: string | null
+          id?: string
           invited_user_id?: string | null
           invited_username?: string | null
           is_external?: string | null
           permission?: string | null
           status?: string | null
           team_id?: string | null
-          updated_at?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -707,6 +752,8 @@ export type Database = {
           banner_url: string | null
           bio: string | null
           created_at: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           description: string | null
           discord_url: string | null
           id: string
@@ -732,6 +779,8 @@ export type Database = {
           banner_url?: string | null
           bio?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           discord_url?: string | null
           id?: string
@@ -757,6 +806,8 @@ export type Database = {
           banner_url?: string | null
           bio?: string | null
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           description?: string | null
           discord_url?: string | null
           id?: string
@@ -1194,6 +1245,8 @@ export type Database = {
           banner_url: string | null
           created_at: string | null
           datetime: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           discord_link: string | null
           game: string | null
           id: string
@@ -1224,6 +1277,8 @@ export type Database = {
           banner_url?: string | null
           created_at?: string | null
           datetime?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discord_link?: string | null
           game?: string | null
           id: string
@@ -1254,6 +1309,8 @@ export type Database = {
           banner_url?: string | null
           created_at?: string | null
           datetime?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           discord_link?: string | null
           game?: string | null
           id?: string
@@ -1443,8 +1500,68 @@ export type Database = {
         }
         Relationships: []
       }
+      verified_entities: {
+        Row: {
+          created_at: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["verified_entity_type"]
+          id: string
+          notes: string | null
+          updated_at: string
+          verified: boolean
+          verified_at: string
+          verified_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          entity_id: string
+          entity_type: Database["public"]["Enums"]["verified_entity_type"]
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string
+          verified_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          entity_id?: string
+          entity_type?: Database["public"]["Enums"]["verified_entity_type"]
+          id?: string
+          notes?: string | null
+          updated_at?: string
+          verified?: boolean
+          verified_at?: string
+          verified_by?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
+      verified_entities_public: {
+        Row: {
+          entity_id: string | null
+          entity_type:
+            | Database["public"]["Enums"]["verified_entity_type"]
+            | null
+          verified: boolean | null
+        }
+        Insert: {
+          entity_id?: string | null
+          entity_type?:
+            | Database["public"]["Enums"]["verified_entity_type"]
+            | null
+          verified?: boolean | null
+        }
+        Update: {
+          entity_id?: string | null
+          entity_type?:
+            | Database["public"]["Enums"]["verified_entity_type"]
+            | null
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
       vw_organizer_follow_counts: {
         Row: {
           followers_count: number | null
@@ -1471,7 +1588,25 @@ export type Database = {
         Args: { _organizer_id: string }
         Returns: number
       }
+      get_public_player_stats: { Args: { _user_id: string }; Returns: Json }
       get_ranking_season_id: { Args: { at_time: string }; Returns: string }
+      get_verified_entities: {
+        Args: {
+          _entity_ids: string[]
+          _entity_type: Database["public"]["Enums"]["verified_entity_type"]
+        }
+        Returns: {
+          entity_id: string
+          verified: boolean
+        }[]
+      }
+      is_entity_verified: {
+        Args: {
+          _entity_id: string
+          _entity_type: Database["public"]["Enums"]["verified_entity_type"]
+        }
+        Returns: boolean
+      }
       is_organizer_verified: { Args: { _user_id: string }; Returns: boolean }
       is_team_admin: {
         Args: { _team_id: string; _user_id: string }
@@ -1479,7 +1614,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      verified_entity_type: "user" | "team"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1606,6 +1741,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      verified_entity_type: ["user", "team"],
+    },
   },
 } as const

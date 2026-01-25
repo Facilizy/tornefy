@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Play } from "lucide-react";
 import { GAMES } from "@/lib/games";
-import battlefield6Logo from "@/assets/game-logos/battlefield-6-logo.png";
 import {
   Carousel,
   CarouselContent,
@@ -101,14 +100,6 @@ export function GamesShowcase({ onSelectGame }: GamesShowcaseProps) {
                         <div>
                           <div className="text-[11px] text-muted-foreground">Tornefy • Scrims</div>
                           <div className="mt-0.5 flex items-center gap-2">
-                            {g.id === "battlefield_6" && (
-                              <img
-                                src={battlefield6Logo}
-                                alt="Logo do Battlefield 6"
-                                className="h-5 w-5 object-contain"
-                                loading="lazy"
-                              />
-                            )}
                             <div className="text-sm font-extrabold tracking-tight text-foreground">
                               {g.label}
                             </div>
@@ -175,14 +166,6 @@ export function GamesShowcase({ onSelectGame }: GamesShowcaseProps) {
                   <div>
                     <div className="text-[11px] text-muted-foreground">Tornefy • Scrims</div>
                     <div className="mt-0.5 flex items-center gap-2">
-                      {g.id === "battlefield_6" && (
-                        <img
-                          src={battlefield6Logo}
-                          alt="Logo do Battlefield 6"
-                          className="h-5 w-5 object-contain"
-                          loading="lazy"
-                        />
-                      )}
                       <div className="text-sm font-extrabold tracking-tight text-foreground">
                         {g.label}
                       </div>

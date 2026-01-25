@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import TeamInviteDialog from "@/components/TeamInviteDialog";
+import { getGameLogo } from "@/lib/games";
 
 const MyTeam = () => {
   const navigate = useNavigate();
@@ -242,7 +243,54 @@ const MyTeam = () => {
       .eq("team_id", team.id)
       .order("created_at", { ascending: true });
 
-    setMembers(data || []);
+    const rows = (data || []) as any[];
+
+    // Legacy fix: some rows were created without an id (table allows NULL id).
+    // Without an id, UPDATE/DELETE using eq("id", ...) will never match.
+    // IMPORTANT: never send created_at = null to PostgREST (it will try to cast the string "null").
+    const withoutId = rows.filter((m) => !m.id);
+    if (withoutId.length > 0) {
+      await Promise.all(
+        withoutId.map(async (m) => {
+          const newId = crypto.randomUUID();
+          let q = supabase
+            .from("team_members")
+            .update({ id: newId })
+            .eq("team_id", team.id)
+            .is("id", null);
+
+          if (m.created_at) q = q.eq("created_at", m.created_at);
+
+          // Match user_id (invited players) or NULL (manual/external)
+          if (m.user_id) q = q.eq("user_id", m.user_id);
+          else q = q.is("user_id", null);
+
+          // Match player_name (NULL-safe)
+          if (m.player_name == null) q = q.is("player_name", null);
+          else q = q.eq("player_name", m.player_name);
+
+          const { error } = await q;
+          if (!error) m.id = newId;
+        })
+      );
+    }
+
+    setMembers(rows);
+  };
+
+  const normalizeMemberForm = (form: typeof memberForm) => {
+    const playerName = (form.player_name || "").trim();
+    const gameId = (form.game_id || "").trim();
+    const discord = (form.discord || "").trim();
+    const lineId = form.line_id && form.line_id !== "none" ? form.line_id : "";
+
+    return {
+      player_name: playerName,
+      game_id: gameId || null,
+      discord: discord || null,
+      function: form.function,
+      line_id: lineId ? lineId : null,
+    };
   };
 
   const fetchUpcomingTrainings = async () => {
@@ -434,17 +482,40 @@ const MyTeam = () => {
 
     try {
       if (editingMember) {
+        let memberId: string | null = editingMember.id ?? null;
+
+        // If legacy row has NULL id, assign one first so updates work reliably.
+        if (!memberId) {
+          memberId = crypto.randomUUID();
+          let q = supabase
+            .from("team_members")
+            .update({ id: memberId })
+            .eq("team_id", team.id)
+            .is("id", null);
+
+          if (editingMember.created_at) q = q.eq("created_at", editingMember.created_at);
+          if (editingMember.user_id) q = q.eq("user_id", editingMember.user_id);
+          else q = q.is("user_id", null);
+          if (editingMember.player_name == null) q = q.is("player_name", null);
+          else q = q.eq("player_name", editingMember.player_name);
+
+          const { error: idErr } = await q;
+
+          if (idErr) throw idErr;
+        }
+
         const { error } = await supabase
           .from("team_members")
-          .update(memberForm)
-          .eq("id", editingMember.id);
+          .update(normalizeMemberForm(memberForm))
+          .eq("team_id", team.id)
+          .eq("id", memberId);
 
         if (error) throw error;
         toast.success("Membro atualizado!");
       } else {
         const { error } = await supabase.from("team_members").insert({
-          ...memberForm,
-          line_id: memberForm.line_id || null,
+          id: crypto.randomUUID(),
+          ...normalizeMemberForm(memberForm),
           team_id: team.id,
         });
 
@@ -487,11 +558,11 @@ const MyTeam = () => {
   const openEditMember = (member: any) => {
     setEditingMember(member);
     setMemberForm({
-      player_name: member.player_name,
-      game_id: member.game_id,
-      discord: member.discord,
-      function: member.function,
-      line_id: member.line_id || "",
+      player_name: member?.player_name ?? "",
+      game_id: member?.game_id ?? "",
+      discord: member?.discord ?? "",
+      function: (member?.function ?? "RUSH") as any,
+      line_id: member?.line_id ?? "",
     });
     setMemberDialogOpen(true);
   };
@@ -717,6 +788,14 @@ const MyTeam = () => {
                             setTeamForm({ ...teamForm, integrated_games: Array.from(next) });
                           }}
                         />
+                        {getGameLogo(g.id) ? (
+                          <img
+                            src={getGameLogo(g.id)}
+                            alt={g.label}
+                            className="h-6 w-6 rounded border border-border object-cover"
+                            loading="lazy"
+                          />
+                        ) : null}
                         <span className="text-sm font-medium">{g.label}</span>
                       </label>
                     ))}
@@ -1187,12 +1266,12 @@ const MyTeam = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                          {member.player_name.substring(0, 2).toUpperCase()}
+                          {(member.player_name || "??").substring(0, 2).toUpperCase()}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">{member.player_name}</span>
-                            {index === 0 && <Crown className="w-4 h-4 text-yellow-500" />}
+                            {index === 0 && <Crown className="w-4 h-4 text-primary" />}
                           </div>
                           <p className="text-xs text-muted-foreground">{member.function}</p>
                           {member.team_lines?.name && (
