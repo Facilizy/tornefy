@@ -237,7 +237,7 @@ export const UpcomingScrimWidget = () => {
       ) : null}
 
       {/* Botão de debug pequeno abaixo do card */}
-      <div className="w-full max-w-80 flex justify-end">
+      <div className="sm:w-full sm:max-w-80 flex justify-end">
         <Button
           type="button"
           size="icon"

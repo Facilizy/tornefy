@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  // Required for PATCH/DELETE preflight in browsers
+  "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
 };
 
 type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
@@ -80,7 +82,8 @@ async function logAudit(
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    // Preflight response must include allowed methods/headers
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
@@ -123,6 +126,192 @@ serve(async (req) => {
     const limit = Math.min(Math.max(numParam(url, "limit", 20), 1), 100);
     const offset = Math.max(numParam(url, "offset", 0), 0);
     const includeDeleted = url.searchParams.get("include_deleted") === "1";
+
+    // ----------------
+    // Popups (educational_popups)
+    // GET /popups
+    // POST /popups
+    // PATCH /popups/:id
+    // DELETE /popups/:id
+    // POST /popups/:id/send  (reset dismissals so everyone sees again)
+    // ----------------
+    if (req.method === "GET" && subPath === "/popups") {
+      const search = url.searchParams.get("search") ?? "";
+
+      let q = adminDb
+        .from("educational_popups")
+        .select("id,kind,active,title,description,cta_label,svg_markup,starts_at,ends_at,audience,created_at,updated_at")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (search.trim()) q = q.ilike("title", `%${search.trim()}%`);
+
+      let countQ = adminDb.from("educational_popups").select("id", { count: "exact", head: true });
+      if (search.trim()) countQ = countQ.ilike("title", `%${search.trim()}%`);
+
+      const [{ data, error }, { count }] = await Promise.all([q, countQ]);
+      if (error) return serverError(error.message);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: `${subPath}${url.search}`,
+        action: "popups.list",
+        response_count: (data ?? []).length,
+        request: { search, limit, offset },
+      });
+
+      return json({ items: data ?? [], total: count ?? 0 });
+    }
+
+    if (req.method === "POST" && subPath === "/popups") {
+      const body = (await req.json()) as Record<string, unknown>;
+      const allowed = [
+        "active",
+        "kind",
+        "title",
+        "description",
+        "cta_label",
+        "svg_markup",
+        "starts_at",
+        "ends_at",
+        "audience",
+      ];
+      const payload = pick(body, allowed);
+      if (!payload.title || String(payload.title).trim() === "") return badRequest("title é obrigatório");
+
+      const { data, error } = await adminDb
+        .from("educational_popups")
+        .insert({
+          ...payload,
+          title: String(payload.title).trim(),
+        } as any)
+        .select("id")
+        .maybeSingle();
+      if (error) return serverError(error.message);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: "popups.create",
+        entity_type: "educational_popup",
+        entity_id: data?.id ?? null,
+        request: payload,
+        response_count: 1,
+      });
+
+      return json({ id: data?.id });
+    }
+
+    if (req.method === "PATCH" && subPath.startsWith("/popups/")) {
+      const id = subPath.split("/")[2];
+      if (!id) return badRequest("missing id");
+      const body = (await req.json()) as Record<string, unknown>;
+      const allowed = [
+        "active",
+        "kind",
+        "title",
+        "description",
+        "cta_label",
+        "svg_markup",
+        "starts_at",
+        "ends_at",
+        "audience",
+      ];
+      const patch = pick(body, allowed);
+
+      const { data: before, error: beforeErr } = await adminDb
+        .from("educational_popups")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (beforeErr) return serverError(beforeErr.message);
+
+      if ("title" in patch && String((patch as any).title ?? "").trim() === "") {
+        return badRequest("title não pode ser vazio");
+      }
+      if ("title" in patch) (patch as any).title = String((patch as any).title).trim();
+
+      const { error } = await adminDb.from("educational_popups").update(patch as any).eq("id", id);
+      if (error) return serverError(error.message);
+
+      const { data: after } = await adminDb.from("educational_popups").select("*").eq("id", id).maybeSingle();
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: "popups.update",
+        entity_type: "educational_popup",
+        entity_id: id,
+        request: patch,
+        before,
+        after,
+      });
+
+      return json({ ok: true });
+    }
+
+    if (req.method === "POST" && subPath.startsWith("/popups/") && subPath.endsWith("/send")) {
+      const id = subPath.split("/")[2];
+      if (!id) return badRequest("missing id");
+
+      const { data: before, error: beforeErr } = await adminDb
+        .from("educational_popups")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (beforeErr) return serverError(beforeErr.message);
+      if (!before) return badRequest("popup_not_found");
+
+      const { count, error } = await adminDb
+        .from("user_popup_dismissals")
+        .delete({ count: "exact" })
+        .eq("popup_id", id);
+      if (error) return serverError(error.message);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: "popups.send",
+        entity_type: "educational_popup",
+        entity_id: id,
+        before,
+        request: { popup_id: id },
+        response_count: count ?? null,
+      });
+
+      return json({ ok: true, reset_dismissals: count ?? 0 });
+    }
+
+    if (req.method === "DELETE" && subPath.startsWith("/popups/")) {
+      const id = subPath.split("/")[2];
+      if (!id) return badRequest("missing id");
+
+      const { data: before, error: beforeErr } = await adminDb
+        .from("educational_popups")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (beforeErr) return serverError(beforeErr.message);
+
+      const { error } = await adminDb.from("educational_popups").delete().eq("id", id);
+      if (error) return serverError(error.message);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: "popups.delete",
+        entity_type: "educational_popup",
+        entity_id: id,
+        before,
+      });
+
+      return json({ ok: true });
+    }
 
     // ----------------
     // GET /stats

@@ -293,32 +293,52 @@ const UserProfile = () => {
       const rolesError = rolesRes?.error;
       const roles = (rolesRes?.data || []).map((r: any) => String(r.role));
 
-      // Fallback-first strategy: when RLS blocks user_roles (logged out), check trainings directly.
+      // Detecção resiliente (funciona para deslogado e para players vendo organizadores):
+      // - `user_roles` costuma estar bloqueado por RLS para terceiros
+      // - então usamos também sinais públicos: RPC is_organizer_verified + existência de treinos
+      // - e, como último fallback, profiles.role (compat com projetos antigos)
       let organizer = false;
       let verifiedByRpc = false;
 
-      if (rolesError) {
-        // RLS blocked => deslogado. Use trainings como fonte de verdade.
-        const { data: anyTraining } = await supabase
-          .from("trainings")
-          .select("id")
-          .eq("organizer_id", targetUserId)
-          .limit(1)
-          .maybeSingle();
-        organizer = !!anyTraining;
-        
-        // Verificado via RPC público (fallback)
-        try {
-          const { data: vData } = await (supabase as any).rpc("is_organizer_verified", { _user_id: targetUserId });
-          verifiedByRpc = !!vData;
-        } catch {
-          verifiedByRpc = false;
-        }
-      } else {
-        // Logado => usa role table
-        organizer = roles.includes("organizer") || roles.includes("organizer_verified");
-        verifiedByRpc = roles.includes("organizer_verified");
+      // Público (funciona mesmo quando RLS bloqueia user_roles para terceiros)
+      let organizerByRpc = false;
+      try {
+        const { data: oData } = await (supabase as any).rpc("is_organizer", { _user_id: targetUserId });
+        organizerByRpc = !!oData;
+      } catch {
+        organizerByRpc = false;
       }
+
+      try {
+        const { data: vData } = await (supabase as any).rpc("is_organizer_verified", { _user_id: targetUserId });
+        verifiedByRpc = !!vData;
+      } catch {
+        verifiedByRpc = false;
+      }
+
+      // Se conseguimos ler roles (ex.: vendo o próprio perfil), usamos também
+      const organizerByRoles = !rolesError && (roles.includes("organizer") || roles.includes("organizer_verified"));
+      const verifiedByRoles = !rolesError && roles.includes("organizer_verified");
+
+      // Best-effort: tenta detectar se o usuário criou treinos.
+      // Mesmo que select esteja restrito, `head: true` costuma ser mais permissivo em algumas configs.
+      let organizerByTrainings = false;
+      try {
+        const { count, error: cErr } = await supabase
+          .from("trainings")
+          .select("id", { count: "exact", head: true })
+          .eq("organizer_id", targetUserId);
+        if (!cErr) organizerByTrainings = (count ?? 0) > 0;
+      } catch {
+        organizerByTrainings = false;
+      }
+
+      // Compat: profiles.role pode existir e ser público; não é fonte de autoridade,
+      // mas ajuda a evitar cair no layout de jogador quando as outras leituras são bloqueadas.
+      const organizerByProfileRole = String((profileData as any)?.role || "").toLowerCase() === "organizer";
+
+      organizer = organizerByRoles || organizerByRpc || organizerByTrainings || verifiedByRpc || organizerByProfileRole;
+      verifiedByRpc = verifiedByRoles || verifiedByRpc;
 
       setIsOrganizer(organizer);
 

@@ -125,6 +125,51 @@ export type Database = {
         }
         Relationships: []
       }
+      educational_popups: {
+        Row: {
+          active: boolean
+          audience: string
+          created_at: string
+          cta_label: string
+          description: string | null
+          ends_at: string | null
+          id: string
+          kind: string
+          starts_at: string | null
+          svg_markup: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          audience?: string
+          created_at?: string
+          cta_label?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          kind?: string
+          starts_at?: string | null
+          svg_markup?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          audience?: string
+          created_at?: string
+          cta_label?: string
+          description?: string | null
+          ends_at?: string | null
+          id?: string
+          kind?: string
+          starts_at?: string | null
+          svg_markup?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string | null
@@ -1479,6 +1524,38 @@ export type Database = {
           },
         ]
       }
+      user_popup_dismissals: {
+        Row: {
+          created_at: string
+          dismissed_at: string
+          id: string
+          popup_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string
+          id?: string
+          popup_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string
+          id?: string
+          popup_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_popup_dismissals_popup_id_fkey"
+            columns: ["popup_id"]
+            isOneToOne: false
+            referencedRelation: "educational_popups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           assigned_at: string | null
@@ -1607,6 +1684,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_organizer: { Args: { _user_id: string }; Returns: boolean }
       is_organizer_verified: { Args: { _user_id: string }; Returns: boolean }
       is_team_admin: {
         Args: { _team_id: string; _user_id: string }

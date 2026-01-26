@@ -28,6 +28,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { PopupsAdminTab } from "@/components/admin/PopupsAdminTab";
 
 type AdminStats = {
   users: number;
@@ -356,6 +357,7 @@ const AdminDashboard = () => {
             <TabsTrigger value="teams">Equipes</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
             <TabsTrigger value="verifications">Verificações</TabsTrigger>
+              <TabsTrigger value="popups">Popups</TabsTrigger>
             <TabsTrigger value="admins">Admins</TabsTrigger>
             <TabsTrigger value="audit">Auditoria</TabsTrigger>
           </TabsList>
@@ -698,6 +700,10 @@ const AdminDashboard = () => {
                 </Table>
               </div>
             </section>
+          </TabsContent>
+
+          <TabsContent value="popups">
+            <PopupsAdminTab />
           </TabsContent>
 
           <TabsContent value="admins">

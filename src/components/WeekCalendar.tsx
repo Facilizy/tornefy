@@ -69,7 +69,8 @@ const WeekCalendar = ({ trainings, onSelectDate }: WeekCalendarProps) => {
           </div>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 md:gap-4">
+        <div className="-mx-4 px-4 md:mx-0 md:px-0">
+          <div className="flex gap-2 overflow-x-auto pb-2 md:grid md:grid-cols-7 md:gap-4 md:overflow-visible">
           {weekDays.map((day, index) => {
             const isSelected = isSameDay(day, selectedDate);
             const hasTraining = hasTrainingOnDay(day);
@@ -81,6 +82,7 @@ const WeekCalendar = ({ trainings, onSelectDate }: WeekCalendarProps) => {
                 onClick={() => handleSelectDate(day)}
                 className={`
                   relative flex flex-col items-center justify-center p-3 md:p-4 rounded-lg transition-all
+                  min-w-[64px] md:min-w-0 shrink-0
                   ${isSelected 
                     ? "bg-primary/20 border-2 border-primary text-primary" 
                     : "bg-card/50 border border-border hover:border-primary/50"
@@ -102,6 +104,7 @@ const WeekCalendar = ({ trainings, onSelectDate }: WeekCalendarProps) => {
               </button>
             );
           })}
+          </div>
         </div>
       </div>
     </div>

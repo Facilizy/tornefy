@@ -112,13 +112,24 @@ const Header = ({ user }: HeaderProps) => {
                     <div className="flex items-center gap-2 min-w-0">
                       <User className="w-4 h-4 text-muted-foreground" />
                       <span className="text-sm font-semibold truncate">{profile?.full_name || "Usuário"}</span>
-                      {isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
-                      {isOrganizerVerified ? <OrganizerBadge variant="icon" size="sm" /> : null}
+                      {isOrganizerVerified ? (
+                        <OrganizerBadge variant="icon" size="sm" />
+                      ) : isUserVerified ? (
+                        <PlayerVerifiedBadge variant="icon" size="sm" />
+                      ) : null}
                     </div>
                     <div className="text-xs text-muted-foreground capitalize mt-0.5">({role})</div>
                   </div>
 
                   <div className="mt-6 space-y-2">
+                    <Button
+                      variant="ghost"
+                      className="w-full justify-start"
+                      onClick={() => navigate("/notificacoes")}
+                    >
+                      Notificações
+                    </Button>
+
                     <Button
                       variant="ghost"
                       className="w-full justify-start"

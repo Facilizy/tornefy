@@ -158,7 +158,7 @@ const Home = () => {
   };
 
   return (
-    <MainLayout>
+    <MainLayout showFooter showUpcomingScrimWidget>
       <HeroSection backgroundImageUrl={heroBg} onPrimaryCta={() => { scrollToScrims(); }} />
 
       <GamesShowcase
@@ -251,7 +251,7 @@ const Home = () => {
       <FeedbackSection />
 
       {/* Final (mais forte e com respiro) */}
-      <section className="relative">
+      <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/2 top-0 h-40 w-[60rem] -translate-x-1/2 bg-primary/10 blur-3xl" />
         </div>

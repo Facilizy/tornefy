@@ -7,45 +7,47 @@ import { NotificationBell } from "@/components/NotificationBell";
 import { UpcomingScrimWidget } from "@/components/UpcomingScrimWidget";
 import { Button } from "@/components/ui/button";
 import { OrganizerBadge } from "@/components/OrganizerBadge";
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Mail, HelpCircle } from "lucide-react";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Mail, HelpCircle, Bell } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useI18n } from "@/i18n";
 import { useVerifiedEntity } from "@/hooks/useVerifiedEntities";
 import { PlayerVerifiedBadge } from "@/components/PlayerVerifiedBadge";
-
+import { EducationalPopupManager } from "@/components/EducationalPopupManager";
 interface MainLayoutProps {
   children: React.ReactNode;
   showFooter?: boolean;
   showUpcomingScrimWidget?: boolean;
 }
-
-const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = true }: MainLayoutProps) => {
+const MainLayout = ({
+  children,
+  showFooter = true,
+  showUpcomingScrimWidget = true
+}: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { t } = useI18n();
+  const {
+    t
+  } = useI18n();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { role, isOrganizerVerified } = useUserRole(user?.id);
-  const { verified: isUserVerified } = useVerifiedEntity("user", user?.id);
-
+  const {
+    role,
+    isOrganizerVerified
+  } = useUserRole(user?.id);
+  const {
+    verified: isUserVerified
+  } = useVerifiedEntity("user", user?.id);
   useEffect(() => {
     checkUser();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: {
+        subscription
+      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
         fetchProfile(session.user.id);
@@ -56,37 +58,34 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
     });
     return () => subscription.unsubscribe();
   }, []);
-
   const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: {
+        session
+      }
+    } = await supabase.auth.getSession();
     if (session?.user) {
       setUser(session.user);
       fetchProfile(session.user.id);
     }
   };
-
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+    const {
+      data
+    } = await supabase.from("profiles").select("*").eq("id", userId).single();
     setProfile(data);
 
     // Force onboarding for OAuth users without username
-    if (
-      data &&
-      (!data.username || String(data.username).trim().length < 3) &&
-      !location.pathname.startsWith("/auth")
-    ) {
+    if (data && (!data.username || String(data.username).trim().length < 3) && !location.pathname.startsWith("/auth")) {
       navigate("/auth?complete=1");
     }
   };
-
   const handleLogout = async () => {
     try {
       // Evita erro de "Session not found" quando a sessão já não existe no servidor.
-      await (supabase.auth as any).signOut({ scope: "local" });
+      await (supabase.auth as any).signOut({
+        scope: "local"
+      });
     } catch {
       // best-effort
     } finally {
@@ -96,20 +95,32 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
       navigate("/");
     }
   };
-
-  const navItems = [
-    { name: t("nav.home"), href: "/", icon: HomeIcon },
-    { name: t("nav.scrims"), href: "/scrims", icon: Gamepad2 },
-    { name: t("nav.players"), href: "/ranking", icon: Award },
-    { name: t("nav.teams"), href: "/equipes", icon: Users },
-    { name: "FAQ", href: "/faq", icon: HelpCircle },
-  ];
+  const navItems = [{
+    name: t("nav.home"),
+    href: "/",
+    icon: HomeIcon
+  }, {
+    name: t("nav.scrims"),
+    href: "/scrims",
+    icon: Gamepad2
+  }, {
+    name: t("nav.players"),
+    href: "/ranking",
+    icon: Award
+  }, {
+    name: t("nav.teams"),
+    href: "/equipes",
+    icon: Users
+  }, {
+    name: "FAQ",
+    href: "/faq",
+    icon: HelpCircle
+  }];
 
   // Light prefetch to speed up route transitions (no behavior changes)
   const prefetchRoute = (href: string) => {
     // Avoid prefetching the current route
     if (isActiveRoute(href)) return;
-
     switch (href) {
       case "/":
         void import("@/pages/Home").catch(() => {});
@@ -133,14 +144,11 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
         break;
     }
   };
-
   const isActiveRoute = (href: string) => {
     if (href === "/") return location.pathname === "/";
     return location.pathname.startsWith(href);
   };
-
-  return (
-    <div className="min-h-screen bg-background flex flex-col">
+  return <div className="min-h-screen bg-background flex flex-col">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background/95 border-b border-border backdrop-blur-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -151,27 +159,14 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
 
           {/* Desktop Nav */}
           <nav className="hidden md:flex items-center gap-8">
-            {navItems.map((item) => (
-              <Link
-                key={item.name}
-                to={item.href}
-                onMouseEnter={() => prefetchRoute(item.href)}
-                onFocus={() => prefetchRoute(item.href)}
-                className={`text-sm font-medium transition-colors uppercase tracking-wide ${
-                  isActiveRoute(item.href)
-                    ? "text-primary"
-                    : "text-muted-foreground hover:text-primary"
-                }`}
-              >
+            {navItems.map(item => <Link key={item.name} to={item.href} onMouseEnter={() => prefetchRoute(item.href)} onFocus={() => prefetchRoute(item.href)} className={`text-sm font-medium transition-colors uppercase tracking-wide ${isActiveRoute(item.href) ? "text-primary" : "text-muted-foreground hover:text-primary"}`}>
                 {item.name}
-              </Link>
-            ))}
+              </Link>)}
           </nav>
 
           {/* Right side */}
           <div className="flex items-center gap-3">
-            {user ? (
-              <>
+            {user ? <>
                 {/* Desktop: Notifications */}
                 <div className="hidden xl:block">
                   <NotificationBell userId={user.id} />
@@ -197,18 +192,14 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                       <Users className="w-4 h-4 mr-2" />
                       Minha Equipe
                     </DropdownMenuItem>
-                    {(role === 'organizer' || role === 'admin') && (
-                      <DropdownMenuItem onClick={() => navigate('/organizer')}>
+                    {(role === 'organizer' || role === 'admin') && <DropdownMenuItem onClick={() => navigate('/organizer')}>
                         <Settings className="w-4 h-4 mr-2" />
                         Painel Organizador
-                      </DropdownMenuItem>
-                    )}
-                    {role === 'admin' && (
-                      <DropdownMenuItem onClick={() => navigate('/admin')}>
+                      </DropdownMenuItem>}
+                    {role === 'admin' && <DropdownMenuItem onClick={() => navigate('/admin')}>
                         <Settings className="w-4 h-4 mr-2" />
                         Admin
-                      </DropdownMenuItem>
-                    )}
+                      </DropdownMenuItem>}
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />
@@ -218,35 +209,20 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                 </DropdownMenu>
 
                 {/* Discord link */}
-                <a
-                  href="https://discord.gg/bHgPsBfN7r"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hidden xl:flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                  title="Entre no Nosso Discord"
-                >
+                <a href="https://discord.gg/bHgPsBfN7r" target="_blank" rel="noopener noreferrer" className="hidden xl:flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors" title="Entre no Nosso Discord">
                   <DiscordIcon className="w-5 h-5" />
                 </a>
-              </>
-            ) : (
-              <div className="hidden md:flex items-center gap-3">
+              </> : <div className="hidden md:flex items-center gap-3">
                 <Button variant="ghost" onClick={() => navigate('/auth?mode=login')}>
                   {t("auth.login")}
                 </Button>
                 <Button onClick={() => navigate('/auth?mode=signup')} className="bg-primary hover:bg-primary/90">
                   {t("auth.signup")}
                 </Button>
-                <a
-                  href="https://discord.gg/bHgPsBfN7r"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
-                  title="Entre no Nosso Discord"
-                >
+                <a href="https://discord.gg/bHgPsBfN7r" target="_blank" rel="noopener noreferrer" className="flex w-9 h-9 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors" title="Entre no Nosso Discord">
                   <DiscordIcon className="w-5 h-5" />
                 </a>
-              </div>
-            )}
+              </div>}
 
             {/* Mobile: Only hamburger menu */}
             <div className="flex items-center md:hidden">
@@ -267,137 +243,83 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
                     </div>
 
                     {/* Mobile: user summary */}
-                    {user ? (
-                      <div className="px-4 pt-4">
+                    {user ? <div className="px-4 pt-4">
                         <div className="rounded-xl border border-border bg-card/40 px-4 py-3">
                           <div className="flex items-center gap-2 min-w-0">
                             <User className="w-4 h-4 text-muted-foreground" />
                             <span className="text-sm font-semibold truncate">
                               {profile?.full_name || "Usuário"}
                             </span>
-                            {isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
-                            {isOrganizerVerified ? <OrganizerBadge variant="icon" size="sm" /> : null}
+                            {isOrganizerVerified ? <OrganizerBadge variant="icon" size="sm" /> : isUserVerified ? <PlayerVerifiedBadge variant="icon" size="sm" /> : null}
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground capitalize">({role})</div>
                         </div>
-                      </div>
-                    ) : null}
+                      </div> : null}
 
                     {/* Mobile Nav */}
                     <nav className="flex-1 p-4">
-                      {navItems.map((item) => (
-                        <Link
-                          key={item.name}
-                          to={item.href}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                            isActiveRoute(item.href)
-                              ? "bg-primary/10 text-primary"
-                              : "text-foreground hover:bg-primary/10 hover:text-primary"
-                          }`}
-                        >
+                      {navItems.map(item => <Link key={item.name} to={item.href} onClick={() => setMobileMenuOpen(false)} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActiveRoute(item.href) ? "bg-primary/10 text-primary" : "text-foreground hover:bg-primary/10 hover:text-primary"}`}>
                           <item.icon className="w-5 h-5" />
                           <span className="font-medium">{item.name}</span>
-                        </Link>
-                      ))}
+                        </Link>)}
                       
-                      {user && (
-                        <>
+                      {user && <>
                           <div className="h-px bg-border my-4" />
                           
+                          {/* Notificações dentro do menu mobile */}
+                          <Link to="/notificacoes" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
+                            <Bell className="w-5 h-5" />
+                            <span className="font-medium">Notificações</span>
+                          </Link>
+                          
                           {/* Convites dentro do menu mobile */}
-                          <Link
-                            to="/invites"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                          >
+                          <Link to="/invites" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                             <Mail className="w-5 h-5" />
                             <span className="font-medium">Convites de Equipe</span>
                           </Link>
                           
-                          <Link
-                            to="/profile"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                          >
+                          <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                             <User className="w-5 h-5" />
                             <span className="font-medium">Meu Perfil</span>
                           </Link>
-                          <Link
-                            to="/my-team"
-                            onClick={() => setMobileMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                          >
+                          <Link to="/my-team" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                             <Users className="w-5 h-5" />
                             <span className="font-medium">Minha Equipe</span>
                           </Link>
-                          {(role === 'organizer' || role === 'admin') && (
-                            <Link
-                              to="/organizer"
-                              onClick={() => setMobileMenuOpen(false)}
-                              className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                            >
+                          {(role === 'organizer' || role === 'admin') && <Link to="/organizer" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                               <Settings className="w-5 h-5" />
                               <span className="font-medium">Painel Organizador</span>
-                            </Link>
-                          )}
-                          {role === 'admin' && (
-                            <Link
-                              to="/admin"
-                              onClick={() => setMobileMenuOpen(false)}
-                              className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors"
-                            >
+                            </Link>}
+                          {role === 'admin' && <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-lg text-foreground hover:bg-primary/10 hover:text-primary transition-colors">
                               <Settings className="w-5 h-5" />
                               <span className="font-medium">Admin</span>
-                            </Link>
-                          )}
-                        </>
-                      )}
+                            </Link>}
+                        </>}
                     </nav>
 
                     {/* Mobile Footer */}
                     <div className="p-4 border-t border-border space-y-3">
-                      {user ? (
-                        <Button 
-                          variant="ghost" 
-                          className="w-full justify-start text-destructive"
-                          onClick={() => {
-                            handleLogout();
-                            setMobileMenuOpen(false);
-                          }}
-                        >
+                      {user ? <Button variant="ghost" className="w-full justify-start text-destructive" onClick={() => {
+                      handleLogout();
+                      setMobileMenuOpen(false);
+                    }}>
                           <LogOut className="w-4 h-4 mr-2" />
                           Sair
-                        </Button>
-                      ) : (
-                        <>
-                          <Button 
-                            className="w-full bg-primary hover:bg-primary/90"
-                            onClick={() => {
-                              navigate('/auth?mode=signup');
-                              setMobileMenuOpen(false);
-                            }}
-                          >
+                        </Button> : <>
+                          <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => {
+                        navigate('/auth?mode=signup');
+                        setMobileMenuOpen(false);
+                      }}>
                             Criar Conta
                           </Button>
-                          <Button 
-                            variant="outline"
-                            className="w-full"
-                            onClick={() => {
-                              navigate('/auth?mode=login');
-                              setMobileMenuOpen(false);
-                            }}
-                          >
+                          <Button variant="outline" className="w-full" onClick={() => {
+                        navigate('/auth?mode=login');
+                        setMobileMenuOpen(false);
+                      }}>
                             Entrar
                           </Button>
-                        </>
-                      )}
-                      <a
-                        href="https://discord.gg/bHgPsBfN7r"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-[#5865F2] text-white hover:bg-[#4752C4] transition-colors"
-                      >
+                        </>}
+                      <a href="https://discord.gg/bHgPsBfN7r" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-lg bg-[#5865F2] text-white hover:bg-[#4752C4] transition-colors">
                         <DiscordIcon className="w-5 h-5" />
                         <span>Entrar no Discord</span>
                       </a>
@@ -414,21 +336,24 @@ const MainLayout = ({ children, showFooter = true, showUpcomingScrimWidget = tru
         {children}
       </main>
 
+      {/* Popups educacionais (somente logados) */}
+      <EducationalPopupManager userId={user?.id} />
+
       {showFooter && <Footer />}
       
       {/* Upcoming Scrim Widget */}
       {showUpcomingScrimWidget && <UpcomingScrimWidget />}
 
       {/* Report bug fica dentro do widget de Próxima Scrim */}
-    </div>
-  );
+    </div>;
 };
 
 // Discord Icon
-const DiscordIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
-  </svg>
-);
-
+const DiscordIcon = ({
+  className
+}: {
+  className?: string;
+}) => <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+  </svg>;
 export default MainLayout;
