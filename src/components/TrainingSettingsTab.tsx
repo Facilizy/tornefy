@@ -19,6 +19,7 @@ import { SlotReorderDialog } from "@/components/SlotReorderDialog";
 import { InvitedTeamsManager } from "@/components/InvitedTeamsManager";
 import { TrainingColorEditor } from "@/components/TrainingColorEditor";
 import { BroadcastLinksDialog } from "@/components/BroadcastLinksDialog";
+import { ViewTeamsDialog } from "@/components/ViewTeamsDialog";
 
 
 type TeamLite = { id: string; name: string; tag: string; logo_url: string | null };
@@ -206,7 +207,7 @@ export function TrainingSettingsTab({
                 )}
               </Button>
               <Badge variant="outline" className="text-xs">
-                ID: {trainingId.slice(0, 8)}
+                 ID: {trainingId}
               </Badge>
             </div>
           </div>
@@ -349,6 +350,7 @@ export function TrainingSettingsTab({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
           <BroadcastLinksDialog trainingId={trainingId} />
+          <ViewTeamsDialog trainingId={trainingId} />
           <SlotReorderDialog trainingId={trainingId} onSlotsUpdated={onUpdated} />
           <ExternalTeamDialog trainingId={trainingId} organizerId={userId} onTeamCreated={onUpdated} />
           <AddExistingExternalTeamDialog trainingId={trainingId} organizerId={userId} onTeamAdded={onUpdated} />

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { setGoogTransCookie } from "@/lib/google-translate";
 
 export type SupportedLanguage = "pt-BR" | "en" | "es";
 
@@ -107,16 +108,28 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
     setLanguageState(lang);
     localStorage.setItem(STORAGE_KEY, lang);
     document.documentElement.lang = lang;
+    // Keep Google Website Translate in sync.
+    try {
+      setGoogTransCookie(lang);
+    } catch {
+      // ignore
+    }
   };
 
   useEffect(() => {
     document.documentElement.lang = language;
+    try {
+      setGoogTransCookie(language);
+    } catch {
+      // ignore
+    }
   }, [language]);
 
   // When logged in, profile language has priority.
   useEffect(() => {
     const applyProfileLanguage = async (uid: string) => {
       try {
+        const before = normalizeLang(localStorage.getItem(STORAGE_KEY));
         const { data, error } = await supabase
           .from("profiles")
           .select("preferred_language")
@@ -129,6 +142,21 @@ export const I18nProvider = ({ children }: { children: React.ReactNode }) => {
         if (preferred) {
           isHydratingRef.current = true;
           setLanguage(preferred);
+
+          // If profile language differs from what we initially had, reload once so Google Translate
+          // applies immediately on first login.
+          try {
+            if (preferred !== before) {
+              const key = "gt_profile_reload";
+              if (!sessionStorage.getItem(key)) {
+                sessionStorage.setItem(key, "1");
+                queueMicrotask(() => window.location.reload());
+              }
+            }
+          } catch {
+            // ignore
+          }
+
           // allow next tick so persistence effect doesn't immediately re-trigger during hydration
           queueMicrotask(() => {
             isHydratingRef.current = false;

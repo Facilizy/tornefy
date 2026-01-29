@@ -108,6 +108,11 @@ serve(async (req) => {
     if (userError || !userData?.user) return forbidden();
     const uid = String(userData.user.id);
 
+    const url = new URL(req.url);
+    const segments = url.pathname.split("/").filter(Boolean);
+    const fnIndex = segments.indexOf("admin-api");
+    const subPath = fnIndex >= 0 ? `/${segments.slice(fnIndex + 1).join("/")}` : "/";
+
     // Service role client (only after auth)
     const adminDb = createClient(supabaseUrl, serviceKey);
     const { data: adminRoleRow, error: adminRoleError } = await adminDb
@@ -116,12 +121,7 @@ serve(async (req) => {
       .eq("user_id", uid)
       .eq("role", "admin")
       .maybeSingle();
-    if (adminRoleError || !adminRoleRow) return forbidden();
-
-    const url = new URL(req.url);
-    const segments = url.pathname.split("/").filter(Boolean);
-    const fnIndex = segments.indexOf("admin-api");
-    const subPath = fnIndex >= 0 ? `/${segments.slice(fnIndex + 1).join("/")}` : "/";
+    const isAdmin = !adminRoleError && !!adminRoleRow;
 
     const limit = Math.min(Math.max(numParam(url, "limit", 20), 1), 100);
     const offset = Math.max(numParam(url, "offset", 0), 0);
@@ -314,7 +314,7 @@ serve(async (req) => {
     }
 
     // ----------------
-    // GET /stats
+    // GET /me (auth ok; admin opcional)
     // ----------------
     if (req.method === "GET" && subPath === "/me") {
       await logAudit(adminDb, {
@@ -325,8 +325,11 @@ serve(async (req) => {
         response_count: 1,
       });
 
-      return json({ user_id: uid, is_admin: true });
+      return json({ user_id: uid, is_admin: isAdmin });
     }
+
+    // A partir daqui, tudo exige admin
+    if (!isAdmin) return forbidden();
 
     if (req.method === "GET" && subPath === "/stats") {
       const [{ count: users }, { count: teams }, { count: trainings }, { count: verifiedEntities }] = await Promise.all([

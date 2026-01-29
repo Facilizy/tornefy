@@ -19,6 +19,7 @@ const Footer = () => {
     { name: t("nav.scrims"), href: "/scrims" },
     { name: t("nav.players"), href: "/ranking" },
     { name: t("nav.teams"), href: "/equipes" },
+    { name: "Anti‑Hack", href: "/anti-hack" },
     { name: t("nav.terms"), href: "/terms" },
     { name: t("nav.privacy"), href: "/privacy" },
   ];

@@ -126,7 +126,9 @@ const AdminDashboard = () => {
     enabled: !!user,
     queryFn: async () => {
       const res = await adminApi<{ user_id: string; is_admin: boolean }>("/me");
-      if (res.ok === false) throw new Error(res.error);
+      // Se não for admin, a edge function agora retorna 200 com is_admin=false.
+      // Ainda assim, mantemos fallback seguro para erros (sem estourar a tela).
+      if (res.ok === false) return { user_id: String(user?.id ?? ""), is_admin: false };
       return res.data;
     },
     retry: 0,

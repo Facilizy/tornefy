@@ -92,6 +92,41 @@ export type Database = {
         }
         Relationships: []
       }
+      anti_hack_events: {
+        Row: {
+          created_at: string | null
+          hwid: string
+          id: string
+          status: string | null
+          training_id: string
+          user_email: string
+        }
+        Insert: {
+          created_at?: string | null
+          hwid: string
+          id?: string
+          status?: string | null
+          training_id: string
+          user_email: string
+        }
+        Update: {
+          created_at?: string | null
+          hwid?: string
+          id?: string
+          status?: string | null
+          training_id?: string
+          user_email?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "anti_hack_events_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bug_reports: {
         Row: {
           created_at: string
@@ -1492,6 +1527,7 @@ export type Database = {
       user_achievements: {
         Row: {
           achievement_id: string
+          claimed_at: string | null
           created_at: string
           id: string
           progress: number
@@ -1500,6 +1536,7 @@ export type Database = {
         }
         Insert: {
           achievement_id: string
+          claimed_at?: string | null
           created_at?: string
           id?: string
           progress?: number
@@ -1508,6 +1545,7 @@ export type Database = {
         }
         Update: {
           achievement_id?: string
+          claimed_at?: string | null
           created_at?: string
           id?: string
           progress?: number
@@ -1643,6 +1681,52 @@ export type Database = {
         Row: {
           followers_count: number | null
           organizer_id: string | null
+        }
+        Relationships: []
+      }
+      vw_tornefy_mvp_players: {
+        Row: {
+          avatar_url: string | null
+          kills: number | null
+          mvps: number | null
+          player_key: string | null
+          player_name: string | null
+          rank: number | null
+          team_id: string | null
+          team_logo: string | null
+          team_name: string | null
+          team_tag: string | null
+          treino_id: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_player_stats_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vw_tornefy_ranking: {
+        Row: {
+          is_mvp: boolean | null
+          kills: number | null
+          matches_played: number | null
+          mvp_player_avatar_url: string | null
+          mvp_player_kills: number | null
+          mvp_player_name: string | null
+          mvp_user_id: string | null
+          points: number | null
+          queda_id: string | null
+          rank: number | null
+          rodada_id: string | null
+          team_logo: string | null
+          team_name: string | null
+          team_tag: string | null
+          treino_id: string | null
+          wins: number | null
         }
         Relationships: []
       }

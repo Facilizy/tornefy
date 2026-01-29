@@ -33,6 +33,9 @@ import { ProfileSeasonSummaryCard } from "@/components/profile/ProfileSeasonSumm
 import { ProfileTeamCard } from "@/components/profile/ProfileTeamCard";
 import { ProfileSocialButtons } from "@/components/profile/ProfileSocialButtons";
 import { getGameLabel, getGameLogo } from "@/lib/games";
+import { MissionsTab, type MissionRow } from "@/components/profile/MissionsTab";
+import { ProfileEmblemsCard } from "@/components/profile/ProfileEmblemsCard";
+import { ProfilePreferredGamesCard } from "@/components/profile/ProfilePreferredGamesCard";
 import {
   ChartContainer,
   ChartLegend,
@@ -146,12 +149,15 @@ const UserProfile = () => {
     firstPlaces: 0,
     killsByMatch: [] as Array<{ label: string; kills: number; mvps: number }>,
     achievements: [] as {
-      id: string;
+      id: string; // user_achievements.id
+      achievementId: string; // achievements.id
       name: string;
       description: string | null;
       progress: number;
       targetValue: number;
       unlocked: boolean;
+      unlockedAt: string | null;
+      claimedAt: string | null;
     }[],
     byGame: {} as Record<string, { scrims: number; kills: number; mvps: number; kd: number }>,
   });
@@ -159,6 +165,21 @@ const UserProfile = () => {
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
+
+  const [scrimHistory, setScrimHistory] = useState<
+    Array<{
+      id: string;
+      registered_at: string;
+      slot_number: number | null;
+      training: {
+        id: string;
+        name: string | null;
+        datetime: string | null;
+        game: string | null;
+        status: string | null;
+      } | null;
+    }>
+  >([]);
 
   const [mainTeam, setMainTeam] = useState<
     | {
@@ -447,13 +468,17 @@ const UserProfile = () => {
     // Buscar times em que o jogador está cadastrado
     const { data: teamMembers, error: tmError } = await supabase
       .from("team_members")
-      .select("id, team_id, game_id, created_at")
+      .select("id, team_id, game_id, line_id, created_at")
       .eq("user_id", uid)
       .order("created_at", { ascending: true });
 
     if (tmError) throw tmError;
 
     const memberIds = (teamMembers || []).map((m: any) => m.id).filter(Boolean);
+    const lineIds = (teamMembers || [])
+      .map((m: any) => m?.line_id)
+      .filter(Boolean)
+      .map(String);
     const memberGameById = new Map<string, string>();
     (teamMembers || []).forEach((m: any) => {
       if (m?.id && m?.game_id) memberGameById.set(String(m.id), String(m.game_id));
@@ -639,58 +664,88 @@ const UserProfile = () => {
     });
 
     // Carregar conquistas do jogador
-    const { data: userAchievements, error: uaError } = await supabase
+    const { data: userAchievements, error: uaError } = await (supabase as any)
       .from("user_achievements")
-      .select("id, achievement_id, progress, unlocked_at")
+      .select("id, achievement_id, progress, unlocked_at, claimed_at")
       .eq("user_id", uid);
 
     if (uaError) throw uaError;
 
-    let achievements: {
-      id: string;
-      name: string;
-      description: string | null;
-      progress: number;
-      targetValue: number;
-      unlocked: boolean;
-    }[] = [];
-    let totalBadges = 0;
-    let unlockedBadges = 0;
+    const { data: achievementsDefs, error: achError } = await (supabase as any)
+      .from("achievements")
+      .select("id, name, description, target_value, audience")
+      .eq("audience", "player");
+    if (achError) throw achError;
 
-    if (userAchievements && userAchievements.length > 0) {
-      const achievementIds = userAchievements.map((ua: any) => ua.achievement_id);
+    const uaByAchievementId = new Map<string, any>((userAchievements || []).map((ua: any) => [ua.achievement_id, ua]));
 
-      const { data: achievementsData, error: achError } = await supabase
-        .from("achievements")
-        .select("id, name, description, target_value")
-        .in("id", achievementIds);
+    const achievements = (achievementsDefs || []).map((def: any) => {
+      const ua = uaByAchievementId.get(def.id);
+      const target = def?.target_value ?? 1;
+      const progress = ua?.progress ?? 0;
+      const unlockedAt = (ua?.unlocked_at as string | null) ?? null;
+      const claimedAt = (ua?.claimed_at as string | null) ?? null;
+      const unlocked = !!unlockedAt || progress >= target;
+      return {
+        id: (ua?.id as string) ?? crypto.randomUUID(),
+        achievementId: String(def.id),
+        name: String(def?.name || "Missão"),
+        description: (def?.description as string | null) ?? null,
+        progress: Number(progress) || 0,
+        targetValue: Number(target) || 1,
+        unlocked,
+        unlockedAt,
+        claimedAt,
+      };
+    });
 
-      if (achError) throw achError;
+    const totalBadges = achievements.length;
+    const unlockedBadges = achievements.filter((a) => a.unlocked).length;
 
-      const achById = new Map(
-        (achievementsData || []).map((a: any) => [a.id, a])
-      );
+    // Histórico real de scrims (baseado em inscrições do jogador via line_id)
+    // Obs: isso independe de training_player_stats ter team_member_id preenchido.
+    try {
+      if (lineIds.length > 0) {
+        const { data: regRows, error: regErr } = await (supabase as any)
+          .from("training_registrations")
+          .select("id, registered_at, slot_number, trainings ( id, name, datetime, game, status )")
+          .in("line_id", lineIds)
+          .order("registered_at", { ascending: false })
+          .limit(30);
+        if (regErr) throw regErr;
 
-      achievements = userAchievements.map((ua: any) => {
-        const ach = achById.get(ua.achievement_id);
-        const target = ach?.target_value ?? 1;
-        const progress = ua.progress ?? 0;
-        const unlocked = !!ua.unlocked_at;
+        const mapped = (regRows || []).map((r: any) => ({
+          id: String(r.id),
+          registered_at: String(r.registered_at),
+          slot_number: r.slot_number != null ? Number(r.slot_number) : null,
+          training: r.trainings
+            ? {
+                id: String(r.trainings.id),
+                name: (r.trainings.name as string | null) ?? null,
+                datetime: (r.trainings.datetime as string | null) ?? null,
+                game: (r.trainings.game as string | null) ?? null,
+                status: (r.trainings.status as string | null) ?? null,
+              }
+            : null,
+        }));
 
-        if (ach) {
-          totalBadges += 1;
-          if (unlocked) unlockedBadges += 1;
-        }
+        // Filtro por season (opcional) usando datetime do treino
+        const filtered = !seasonStart
+          ? mapped
+          : mapped.filter((row) => {
+              const dt = row.training?.datetime ? new Date(row.training.datetime).getTime() : null;
+              if (!dt) return true;
+              const end = seasonEnd ?? Number.POSITIVE_INFINITY;
+              return dt >= seasonStart && dt < end;
+            });
 
-        return {
-          id: ua.id,
-          name: ach?.name || "Conquista",
-          description: ach?.description || null,
-          progress,
-          targetValue: target,
-          unlocked,
-        };
-      });
+        setScrimHistory(filtered);
+      } else {
+        setScrimHistory([]);
+      }
+    } catch {
+      // não bloqueia o perfil; apenas não mostra histórico
+      setScrimHistory([]);
     }
 
       setStats({
@@ -748,6 +803,30 @@ const UserProfile = () => {
       .slice()
       .sort((a, b) => (b.targetValue || 0) - (a.targetValue || 0))
       .slice(0, 4);
+  }, [stats.achievements]);
+
+  const missions = useMemo(() => {
+    return (stats.achievements || []).map((a) =>
+      ({
+        achievementId: a.achievementId,
+        userAchievementId: a.id,
+        name: a.name,
+        description: a.description,
+        progress: a.progress,
+        targetValue: a.targetValue,
+        unlocked: a.unlocked,
+        unlockedAt: a.unlockedAt,
+        claimedAt: a.claimedAt,
+      }) satisfies MissionRow
+    );
+  }, [stats.achievements]);
+
+  const claimedEmblems = useMemo(() => {
+    return (stats.achievements || [])
+      .filter((a) => !!a.claimedAt)
+      .slice()
+      .sort((a, b) => String(b.claimedAt || "").localeCompare(String(a.claimedAt || "")))
+      .slice(0, 6);
   }, [stats.achievements]);
 
   const fetchFollowedOrganizers = async () => {
@@ -1099,8 +1178,13 @@ const UserProfile = () => {
                 <AlertDescription>{statsError}</AlertDescription>
               </Alert>
             ) : null}
-            <Tabs defaultValue="overview" className="mb-12">
-              <TabsList className="grid w-full max-w-xl grid-cols-4 mb-8">
+              <Tabs defaultValue="overview" className="mb-12">
+              <TabsList
+                className={
+                  "grid w-full max-w-2xl mb-8 " +
+                  (isOwnProfile ? "grid-cols-5" : "grid-cols-4")
+                }
+              >
                 <TabsTrigger value="overview" className="flex items-center gap-2">
                   <Gamepad2 className="w-4 h-4" />
                   Visão Geral
@@ -1109,6 +1193,12 @@ const UserProfile = () => {
                   <Trophy className="w-4 h-4" />
                   Scrims
                 </TabsTrigger>
+                {isOwnProfile ? (
+                  <TabsTrigger value="missions" className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Missões
+                  </TabsTrigger>
+                ) : null}
                 <TabsTrigger value="achievements" className="flex items-center gap-2">
                   <Award className="w-4 h-4" />
                   Conquistas
@@ -1133,99 +1223,15 @@ const UserProfile = () => {
                       />
                     ) : null}
 
-                    {preferredGames.length > 0 ? (
-                      <Card className="p-4 bg-card/50 border-border">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs uppercase tracking-widest text-muted-foreground">
-                              Jogos favoritos
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Seus jogos preferidos na plataforma
-                            </p>
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          {preferredGames.slice(0, 10).map((g) => {
-                            const logo = getGameLogo(g);
-                            const label = getGameLabel(g);
-                            return (
-                              <div
-                                key={g}
-                                className="h-10 w-10 rounded-xl border border-border bg-background/40 overflow-hidden"
-                                title={label}
-                              >
-                                {logo ? (
-                                  <img
-                                    src={logo}
-                                    alt={`Logo do jogo ${label}`}
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
-                                  />
-                                ) : (
-                                  <div className="h-full w-full grid place-items-center text-[10px] font-semibold text-muted-foreground">
-                                    {label}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </Card>
-                    ) : null}
+                    {mainTeam?.id ? <ProfileTeamCard team={mainTeam} /> : null}
                   </div>
                   <aside className="space-y-4">
-                    {mainTeam?.id ? (
-                      <ProfileTeamCard team={mainTeam} />
-                    ) : (
-                      <Card className="p-6 bg-card/50 border-border">
-                        <div className="flex items-center gap-4 mb-4">
-                          <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                            <Award className="w-6 h-6 text-primary" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold uppercase">Conquistas</h3>
-                            <p className="text-sm text-muted-foreground">
-                              {stats.unlockedBadges} de {stats.totalBadges}
-                            </p>
-                          </div>
-                        </div>
-                        <Progress
-                          value={
-                            stats.totalBadges
-                              ? (stats.unlockedBadges / stats.totalBadges) * 100
-                              : 0
-                          }
-                          className="h-1 mb-4"
-                        />
-                        <div className="grid grid-cols-1 gap-2">
-                          {rarestAchievements.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4">
-                              Nenhuma conquista desbloqueada ainda.
-                            </p>
-                          ) : (
-                            rarestAchievements.slice(0, 3).map((ach) => (
-                              <div
-                                key={ach.id}
-                                className="rounded-lg border border-border bg-background/40 px-3 py-2"
-                              >
-                                <p className="text-sm font-semibold line-clamp-1">{ach.name}</p>
-                                <p className="text-xs text-muted-foreground line-clamp-1">
-                                  {ach.description || `Meta: ${ach.targetValue}`}
-                                </p>
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      </Card>
-                    )}
                     {profile?.id ? (
-                      <ProfileSeasonSummaryCard
-                        userId={profile.id}
-                        gameId={selectedGame}
-                        seasonId={selectedSeasonId}
-                      />
+                      <ProfileSeasonSummaryCard userId={profile.id} gameId={selectedGame} seasonId={selectedSeasonId} />
                     ) : null}
+
+                    <ProfileEmblemsCard claimedEmblems={claimedEmblems.map((e) => ({ achievementId: e.achievementId, name: e.name }))} />
+                    <ProfilePreferredGamesCard games={preferredGames} />
                   </aside>
                 </div>
 
@@ -1301,16 +1307,87 @@ const UserProfile = () => {
               </TabsContent>
 
               <TabsContent value="scrims">
-                <Card className="p-8 bg-card/50 border-border text-center">
-                  <Trophy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">Histórico de Scrims</h3>
-                  <p className="text-muted-foreground">
-                    {stats.totalScrims > 0
-                      ? `${stats.totalScrims} scrims participadas`
-                      : "Nenhuma scrim jogada ainda"}
-                  </p>
-                </Card>
+                <div className="space-y-4">
+                  <Card className="p-6 bg-card/50 border-border">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Trophy className="w-5 h-5 text-primary" />
+                      </div>
+                      <div>
+                        <h2 className="text-lg font-semibold">Histórico de Scrims</h2>
+                        <p className="text-sm text-muted-foreground">
+                          {scrimHistory.length > 0
+                            ? `${scrimHistory.length} inscrições encontradas`
+                            : "Nenhuma scrim encontrada para este jogador"}
+                        </p>
+                      </div>
+                    </div>
+                  </Card>
+
+                  {scrimHistory.length === 0 ? (
+                    <Card className="p-8 bg-card/50 border-border text-center">
+                      <Trophy className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+                      <h3 className="text-lg font-semibold mb-2">Sem histórico</h3>
+                      <p className="text-muted-foreground">
+                        Quando o jogador se inscrever em treinos, eles aparecerão aqui.
+                      </p>
+                    </Card>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {scrimHistory.map((row) => {
+                        const t = row.training;
+                        return (
+                          <button
+                            key={row.id}
+                            className="text-left"
+                            onClick={() => (t?.id ? navigate(`/training/${t.id}`) : null)}
+                            disabled={!t?.id}
+                          >
+                            <Card className="p-5 bg-background/45 border-border hover:bg-background/55 transition-colors">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="font-semibold truncate">
+                                    {t?.name || "Treino"}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {t?.datetime ? new Date(t.datetime).toLocaleString("pt-BR") : "Data não informada"}
+                                  </p>
+                                  <p className="mt-1 text-xs text-muted-foreground">
+                                    {t?.game ? (GAME_LABELS[t.game] || t.game) : "Jogo não informado"}
+                                    {row.slot_number != null ? ` • Slot ${row.slot_number}` : ""}
+                                  </p>
+                                </div>
+                                {t?.status ? (
+                                  <span className="text-[11px] uppercase tracking-widest px-2 py-1 rounded-full bg-card/40 text-muted-foreground border border-border shrink-0">
+                                    {t.status}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </Card>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </TabsContent>
+
+              {isOwnProfile ? (
+                <TabsContent value="missions" className="space-y-4">
+                  <MissionsTab
+                    missions={missions}
+                    canClaim={isOwnProfile}
+                    onClaimed={(achievementId, claimedAt) => {
+                      setStats((prev) => ({
+                        ...prev,
+                        achievements: prev.achievements.map((a) =>
+                          a.achievementId === achievementId ? { ...a, claimedAt } : a
+                        ),
+                      }));
+                    }}
+                  />
+                </TabsContent>
+              ) : null}
 
               <TabsContent value="achievements" className="space-y-4">
                 <Card className="p-6 bg-card/50 border-border">
@@ -1345,7 +1422,7 @@ const UserProfile = () => {
                   />
 
                   <div className="mt-6">
-                    {stats.achievements.length === 0 ? (
+                    {stats.achievements.filter((a) => a.unlocked).length === 0 ? (
                       <p className="text-muted-foreground text-sm">
                         Nenhuma conquista registrada ainda. Jogue scrims e acumule kills/MVPs
                         para começar a desbloquear conquistas.
@@ -1353,6 +1430,7 @@ const UserProfile = () => {
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {stats.achievements
+                          .filter((a) => a.unlocked)
                           .slice()
                           .sort((a, b) => Number(b.unlocked) - Number(a.unlocked))
                           .map((ach) => {

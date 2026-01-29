@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useI18n, type SupportedLanguage } from "@/i18n";
+import { setGoogTransCookie } from "@/lib/google-translate";
 
 const LANGS: Array<{ lang: SupportedLanguage; label: string; flag: string }> = [
   { lang: "pt-BR", label: "PT-BR", flag: "🇧🇷" },
@@ -34,6 +35,20 @@ export const LanguageSelector = ({
   const setLanguage = (lang: SupportedLanguage) => {
     onChange?.(lang);
     if (!onChange) setCtxLanguage(lang);
+
+    // Force full-page translation (Google Website Translate reads the cookie).
+    try {
+      setGoogTransCookie(lang);
+      // Prevent infinite reload loops (only for this navigation).
+      const key = "gt_reload_lang";
+      const previous = sessionStorage.getItem(key);
+      if (previous !== lang) {
+        sessionStorage.setItem(key, lang);
+        window.location.reload();
+      }
+    } catch {
+      // ignore
+    }
   };
 
   const current = LANGS.find((l) => l.lang === language) ?? LANGS[0];

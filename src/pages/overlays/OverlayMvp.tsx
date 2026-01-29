@@ -9,6 +9,9 @@ type MvpRow = {
   rank: number;
   points: number;
   kills: number;
+  mvp_player_name?: string | null;
+  mvp_player_kills?: number | null;
+  mvp_player_avatar_url?: string | null;
 };
 
 const VIEW_NAME = "vw_tornefy_ranking";
@@ -23,7 +26,11 @@ function isHexColor(s: string) {
 }
 
 function hashRow(r: MvpRow | null) {
-  return JSON.stringify(r ? [r.team_tag, r.rank, r.points, r.kills, r.team_logo] : [null]);
+  return JSON.stringify(
+    r
+      ? [r.team_tag, r.rank, r.points, r.kills, r.team_logo, r.mvp_player_name, r.mvp_player_kills]
+      : [null]
+  );
 }
 
 export default function OverlayMvp() {
@@ -61,12 +68,21 @@ export default function OverlayMvp() {
 
         let query = (supabase as any)
           .from(VIEW_NAME)
-          .select("team_name,team_tag,team_logo,rank,points,kills,is_mvp,treino_id,queda_id,rodada_id")
+          .select(
+            "team_name,team_tag,team_logo,rank,points,kills,is_mvp,treino_id,queda_id,rodada_id,mvp_player_name,mvp_player_kills,mvp_player_avatar_url"
+          )
           .eq("treino_id", treinoId)
           .eq("is_mvp", true);
 
-        if (quedaId) query = query.eq("queda_id", quedaId);
-        if (rodadaId) query = query.eq("rodada_id", rodadaId);
+        // vw_tornefy_ranking tem níveis (geral/rodada/queda). Mantém o MVP coerente com o filtro.
+        if (quedaId) {
+          query = query.eq("queda_id", quedaId);
+          if (rodadaId) query = query.eq("rodada_id", rodadaId);
+        } else if (rodadaId) {
+          query = query.is("queda_id", null).eq("rodada_id", rodadaId);
+        } else {
+          query = query.is("queda_id", null).is("rodada_id", null);
+        }
 
         const { data, error } = await query.limit(1);
         if (error) throw error;
@@ -79,6 +95,9 @@ export default function OverlayMvp() {
               rank: Number((data as any)[0].rank ?? 0),
               points: Number((data as any)[0].points ?? 0),
               kills: Number((data as any)[0].kills ?? 0),
+              mvp_player_name: (data as any)[0].mvp_player_name ?? null,
+              mvp_player_kills: (data as any)[0].mvp_player_kills ?? null,
+              mvp_player_avatar_url: (data as any)[0].mvp_player_avatar_url ?? null,
             } as MvpRow)
           : null;
 
@@ -123,8 +142,19 @@ export default function OverlayMvp() {
         <div className="w-full max-w-[1100px] border border-border rounded-2xl bg-card/70 backdrop-blur-sm px-8 py-6">
           <div className="flex items-center justify-between gap-6">
             <div className="flex items-center gap-5 min-w-0">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border border-border flex-none" style={{ background: "transparent" }}>
+                {row?.mvp_player_avatar_url ? (
+                  <img
+                    src={row.mvp_player_avatar_url}
+                    alt={row?.mvp_player_name ? `Foto ${row.mvp_player_name}` : "Foto do MVP"}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : null}
+              </div>
+
               {showLogo ? (
-                <div className="w-20 h-20 rounded-2xl overflow-hidden border border-border flex-none bg-muted">
+                <div className="w-20 h-20 rounded-2xl overflow-hidden border border-border flex-none" style={{ background: "transparent" }}>
                   {row?.team_logo ? (
                     <img
                       src={row.team_logo}
@@ -137,7 +167,7 @@ export default function OverlayMvp() {
               ) : null}
 
               <div className="min-w-0">
-                <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-extrabold">
+                <div className="text-xs uppercase tracking-[0.18em] font-extrabold opacity-80">
                   MVP
                 </div>
                 <div
@@ -146,8 +176,15 @@ export default function OverlayMvp() {
                 >
                   {row?.team_name || "—"}
                 </div>
-                <div className="mt-1 text-sm text-muted-foreground">
+                <div className="mt-1 text-sm opacity-80">
                   {row?.team_tag ? `[${row.team_tag}]` : ""}
+                </div>
+                <div className="mt-1 text-sm opacity-90">
+                  {row?.mvp_player_name ? (
+                    <span>
+                      Jogador <span className="font-semibold">{row.mvp_player_name}</span>
+                    </span>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -157,7 +194,10 @@ export default function OverlayMvp() {
                 Rank <span className="font-black" style={{ fontSize: font }}>{row ? row.rank : "—"}</span>
               </div>
               <div className="rounded-full border border-border bg-muted/30 px-4 py-2 text-sm">
-                Kills <span className="font-black" style={{ fontSize: font }}>{row ? row.kills : "—"}</span>
+                Kills{" "}
+                <span className="font-black" style={{ fontSize: font }}>
+                  {row ? (row.mvp_player_kills ?? row.kills) : "—"}
+                </span>
               </div>
               <div className="rounded-full border border-border bg-muted/30 px-4 py-2 text-sm">
                 Pts <span className="font-black" style={{ fontSize: font }}>{row ? row.points : "—"}</span>
@@ -165,7 +205,7 @@ export default function OverlayMvp() {
             </div>
           </div>
 
-          <div className="mt-3 text-[11px] text-muted-foreground">{status}</div>
+          <div className="mt-3 text-[11px] opacity-70">{status}</div>
         </div>
       </div>
     </div>

@@ -1,10 +1,11 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, type ComponentType } from "react";
+import { Link } from "react-router-dom";
 import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Accordion,
   AccordionContent,
@@ -13,113 +14,54 @@ import {
 } from "@/components/ui/accordion";
 import { getCanonicalOrigin, setJsonLd, setSeo } from "@/lib/seo";
 import { z } from "zod";
-import { Play, FileText } from "lucide-react";
+import { Play, FileText, Search, Sparkles, Users, Trophy, Shield } from "lucide-react";
 import { YouTubeTutorialPlayer } from "@/components/faq/YouTubeTutorialPlayer";
-
-type FaqItem = {
-  id: string;
-  category: "jogador" | "organizador";
-  question: string;
-  answer: string;
-  keywords: string[];
-};
-
-type VideoItem = {
-  id: string;
-  category: "jogador" | "organizador";
-  title: string;
-  description: string;
-  youtubeId: string;
-  durationSeconds: number;
-};
+import { useI18n } from "@/i18n";
+import { getFaqContent, type FaqAudience, type FaqItem, type FaqTopic, type VideoItem } from "@/pages/faq/content";
 
 const searchSchema = z
   .string()
   .transform((v) => v.trim())
   .pipe(z.string().max(60));
 
-const FAQ_ITEMS: FaqItem[] = [
-  {
-    id: "criar-time",
-    category: "jogador",
-    question: "Como criar uma equipe?",
-    answer:
-      "Vá em Minha Equipe → Criar equipe. Escolha nome e TAG. Depois adicione seus jogadores (line/main/reserva) e salve. Sua TAG é usada para inscrições e convites.",
-    keywords: ["equipe", "time", "criar", "tag", "roster"],
-  },
-  {
-    id: "participar-scrim",
-    category: "jogador",
-    question: "Como participar de uma scrim/treino?",
-    answer:
-      "Abra a página de Scrims, escolha um treino e clique em Inscrever. Se o treino for privado, sua TAG precisa estar na lista de convidados. Em alguns modos, sua equipe precisa ter o mínimo de jogadores cadastrado.",
-    keywords: ["scrim", "treino", "inscrição", "inscrever", "privado", "convidados"],
-  },
-  {
-    id: "checkin",
-    category: "jogador",
-    question: "O que é check-in e como funciona?",
-    answer:
-      "Alguns treinos exigem check-in perto do horário. Quando disponível, um admin da equipe pode confirmar presença dentro da página do treino. Sem check-in, a equipe pode perder a vaga.",
-    keywords: ["check-in", "checkin", "vaga", "admin"],
-  },
-  {
-    id: "criar-scrim",
-    category: "organizador",
-    question: "Como criar uma scrim/treino como organizador?",
-    answer:
-      "Acesse Painel do Organizador → Criar Treino. Defina jogo, data/hora, modo, limite de vagas, links (Discord/WhatsApp) e regras. Você pode editar o treino depois pelo painel.",
-    keywords: ["organizador", "criar", "treino", "scrim", "painel"],
-  },
-  {
-    id: "pontuacao",
-    category: "jogador",
-    question: "Como funciona a pontuação?",
-    answer:
-      "A pontuação depende das configurações do treino (pontos por kill e por colocação). No detalhe do treino, abra a seção de Regras/Pontuação para ver exatamente o método daquele evento.",
-    keywords: ["pontuação", "kills", "colocação", "regras"],
-  },
-  {
-    id: "ranking",
-    category: "jogador",
-    question: "Como funciona o ranking de jogadores?",
-    answer:
-      "O ranking soma pontos por temporada e por jogo. Você pode alternar jogo/temporada no ranking e no seu perfil. Patentes (Bronze → Triunfante) dependem de pontos e regra de corte.",
-    keywords: ["ranking", "temporada", "patente", "triunfante", "pontos"],
-  },
+const TOPIC_ORDER: FaqTopic[] = [
+  "getting-started",
+  "teams",
+  "scrims",
+  "scoring",
+  "ranking",
+  "organizer",
 ];
 
-const VIDEO_ITEMS: VideoItem[] = [
-  {
-    id: "intro-player",
-    category: "jogador",
-    title: "Introdução para Jogadores",
-    description: "Aprenda a navegar pela plataforma como jogador e criar sua equipe.",
-    youtubeId: "MFMhoNtTSdk",
-    durationSeconds: 300,
-  },
-  {
-    id: "intro-organizer",
-    category: "organizador",
-    title: "Introdução para Organizadores",
-    description: "Saiba como criar e gerenciar treinos na plataforma.",
-    youtubeId: "MFMhoNtTSdk",
-    durationSeconds: 300,
-  },
-];
+const topicIcon: Record<FaqTopic, ComponentType<{ className?: string }>> = {
+  "getting-started": Sparkles,
+  teams: Users,
+  scrims: Shield,
+  scoring: Shield,
+  ranking: Trophy,
+  organizer: Users,
+};
 
 export default function FAQ() {
+  const { language } = useI18n();
+  const { copy, items: FAQ_ITEMS, videos: VIDEO_ITEMS } = useMemo(
+    () => getFaqContent(language),
+    [language]
+  );
+
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"text" | "videos">("text");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "jogador" | "organizador">("all");
+  const [audienceFilter, setAudienceFilter] = useState<"all" | FaqAudience>("all");
+  const [topicFilter, setTopicFilter] = useState<FaqTopic | "all">("all");
   const [watchedSeconds, setWatchedSeconds] = useState<Record<string, number>>({});
   const [videoDurations, setVideoDurations] = useState<Record<string, number>>({});
+  const [openText, setOpenText] = useState<string[]>([]);
 
   useEffect(() => {
     setSeo({
-      title: "FAQ • Tornefy",
+      title: copy.pageTitle,
       description:
-        "Perguntas frequentes e vídeos tutoriais: aprenda a criar equipe, participar de scrims e organizar treinos no Tornefy.",
+        copy.heroSubtitle,
       canonical: `${getCanonicalOrigin()}/faq`,
     });
 
@@ -145,7 +87,7 @@ export default function FAQ() {
         },
       })),
     });
-  }, []);
+  }, [copy.pageTitle, copy.heroSubtitle, FAQ_ITEMS]);
 
   useEffect(() => {
     const stored = localStorage.getItem("tornefy_video_progress");
@@ -166,8 +108,11 @@ export default function FAQ() {
 
   const filtered = useMemo(() => {
     let base = FAQ_ITEMS;
-    if (categoryFilter !== "all") {
-      base = base.filter((it) => it.category === categoryFilter);
+    if (audienceFilter !== "all") {
+      base = base.filter((it) => it.audience === audienceFilter);
+    }
+    if (topicFilter !== "all") {
+      base = base.filter((it) => it.topic === topicFilter);
     }
     if (!safeQuery) return base;
     const q = safeQuery.toLowerCase();
@@ -175,12 +120,15 @@ export default function FAQ() {
       const hay = `${it.question} ${it.answer} ${it.keywords.join(" ")}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [safeQuery, categoryFilter]);
+  }, [safeQuery, audienceFilter, topicFilter, FAQ_ITEMS]);
 
   const filteredVideos = useMemo(() => {
     let base = VIDEO_ITEMS;
-    if (categoryFilter !== "all") {
-      base = base.filter((v) => v.category === categoryFilter);
+    if (audienceFilter !== "all") {
+      base = base.filter((v) => v.audience === audienceFilter);
+    }
+    if (topicFilter !== "all") {
+      base = base.filter((v) => v.topic === topicFilter);
     }
     if (!safeQuery) return base;
     const q = safeQuery.toLowerCase();
@@ -188,16 +136,35 @@ export default function FAQ() {
       const hay = `${v.title} ${v.description}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [safeQuery, categoryFilter]);
+  }, [safeQuery, audienceFilter, topicFilter, VIDEO_ITEMS]);
 
-  const groupedText = useMemo(() => {
-    const groups: Record<"jogador" | "organizador", FaqItem[]> = {
-      jogador: [],
-      organizador: [],
-    };
-    filtered.forEach((it) => groups[it.category].push(it));
+  const groupedByTopic = useMemo(() => {
+    const groups = new Map<FaqTopic, FaqItem[]>();
+    TOPIC_ORDER.forEach((t) => groups.set(t, []));
+    filtered.forEach((it) => groups.get(it.topic)?.push(it));
     return groups;
   }, [filtered]);
+
+  const counts = useMemo(() => {
+    const byAudience: Record<"all" | FaqAudience, number> = {
+      all: FAQ_ITEMS.length,
+      player: FAQ_ITEMS.filter((i) => i.audience === "player").length,
+      organizer: FAQ_ITEMS.filter((i) => i.audience === "organizer").length,
+    };
+    const byTopic: Record<string, number> = { all: FAQ_ITEMS.length };
+    for (const t of TOPIC_ORDER) {
+      byTopic[t] = FAQ_ITEMS.filter((i) => i.topic === t).length;
+    }
+    return { byAudience, byTopic };
+  }, [FAQ_ITEMS]);
+
+  const activeTopics = useMemo(() => {
+    // Only show topics that have something under current audience filter.
+    const base = audienceFilter === "all" ? FAQ_ITEMS : FAQ_ITEMS.filter((i) => i.audience === audienceFilter);
+    const set = new Set<FaqTopic>();
+    base.forEach((i) => set.add(i.topic));
+    return TOPIC_ORDER.filter((t) => set.has(t));
+  }, [FAQ_ITEMS, audienceFilter]);
 
   const handleVideoProgress = (videoId: string, seconds: number, duration?: number) => {
     setWatchedSeconds((prev) => {
@@ -217,30 +184,21 @@ export default function FAQ() {
           <div className="relative overflow-hidden rounded-2xl border border-border bg-card/60 backdrop-blur p-5 sm:p-6">
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
             <div className="relative">
-              <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">
-                FAQ & Tutoriais
-              </h1>
+              <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">{copy.heroTitle}</h1>
               <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-                Aprenda com textos ou vídeos. Filtre por jogador ou organizador.
+                {copy.heroSubtitle}
               </p>
 
-              <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <Card className="p-3 bg-background/40 border-border">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Perguntas</p>
-                  <p className="text-lg font-black leading-none">{FAQ_ITEMS.length}</p>
-                </Card>
-                <Card className="p-3 bg-background/40 border-border">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vídeos</p>
-                  <p className="text-lg font-black leading-none">{VIDEO_ITEMS.length}</p>
-                </Card>
-                <Card className="p-3 bg-background/40 border-border">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Jogador</p>
-                  <p className="text-lg font-black leading-none">{FAQ_ITEMS.filter((i) => i.category === "jogador").length}</p>
-                </Card>
-                <Card className="p-3 bg-background/40 border-border">
-                  <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Organizador</p>
-                  <p className="text-lg font-black leading-none">{FAQ_ITEMS.filter((i) => i.category === "organizador").length}</p>
-                </Card>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild size="sm" className="rounded-full">
+                  <Link to="/scrims">{copy.ctaScrims}</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline" className="rounded-full">
+                  <Link to="/my-team">{copy.ctaMyTeam}</Link>
+                </Button>
+                <Button asChild size="sm" variant="outline" className="rounded-full">
+                  <Link to="/organizer">{copy.ctaOrganizer}</Link>
+                </Button>
               </div>
             </div>
           </div>
@@ -251,11 +209,11 @@ export default function FAQ() {
             <TabsList className="bg-card/50 mb-4 w-full sm:w-auto">
               <TabsTrigger value="text" className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
-                Texto
+                {copy.viewText}
               </TabsTrigger>
               <TabsTrigger value="videos" className="flex items-center gap-2">
                 <Play className="w-4 h-4" />
-                Vídeos
+                {copy.viewVideos}
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -263,43 +221,98 @@ export default function FAQ() {
           <div className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="faq-search" className="text-xs text-muted-foreground uppercase tracking-wide">
-              Buscar
-            </Label>
-            <Input
-              id="faq-search"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-                placeholder={viewMode === "text" ? "Digite uma palavra-chave..." : "Buscar vídeos..."}
-              inputMode="search"
-              autoComplete="off"
-            />
+                {copy.searchLabel}
+              </Label>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="faq-search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder={viewMode === "text" ? copy.searchPlaceholderText : copy.searchPlaceholderVideos}
+                  inputMode="search"
+                  autoComplete="off"
+                  className="pl-9"
+                />
+              </div>
             </div>
 
             <div className="flex flex-wrap gap-2">
               <Button
-                variant={categoryFilter === "all" ? "default" : "outline"}
+                variant={audienceFilter === "all" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setCategoryFilter("all")}
+                onClick={() => setAudienceFilter("all")}
                 className="rounded-full"
               >
-                Todos
+                {copy.audienceAll}
+                <span className="ml-1 text-xs opacity-80">({counts.byAudience.all})</span>
               </Button>
               <Button
-                variant={categoryFilter === "jogador" ? "default" : "outline"}
+                variant={audienceFilter === "player" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setCategoryFilter("jogador")}
+                onClick={() => setAudienceFilter("player")}
                 className="rounded-full"
               >
-                Jogador
+                {copy.audiencePlayer}
+                <span className="ml-1 text-xs opacity-80">({counts.byAudience.player})</span>
               </Button>
               <Button
-                variant={categoryFilter === "organizador" ? "default" : "outline"}
+                variant={audienceFilter === "organizer" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setCategoryFilter("organizador")}
+                onClick={() => setAudienceFilter("organizer")}
                 className="rounded-full"
               >
-                Organizador
+                {copy.audienceOrganizer}
+                <span className="ml-1 text-xs opacity-80">({counts.byAudience.organizer})</span>
               </Button>
+            </div>
+
+            <div className="grid gap-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">{copy.topicsLabel}</p>
+                <Button
+                  variant="ghost"
+                  size="xs"
+                  className="h-7"
+                  onClick={() => {
+                    setQuery("");
+                    setAudienceFilter("all");
+                    setTopicFilter("all");
+                  }}
+                >
+                  Limpar
+                </Button>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant={topicFilter === "all" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setTopicFilter("all")}
+                  className="rounded-full"
+                >
+                  {copy.topicAll}
+                  <span className="ml-1 text-xs opacity-80">({counts.byTopic.all})</span>
+                </Button>
+
+                {activeTopics.map((t) => {
+                  const Icon = topicIcon[t];
+                  return (
+                    <Button
+                      key={t}
+                      variant={topicFilter === t ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setTopicFilter(t)}
+                      className="rounded-full"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {copy.topics[t]}
+                      <span className="ml-1 text-xs opacity-80">({counts.byTopic[t] ?? 0})</span>
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </Card>
@@ -308,55 +321,80 @@ export default function FAQ() {
           <Card className="p-5 bg-card/60 border-border backdrop-blur">
             {filtered.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-10">
-                Nenhum resultado. Tente outra palavra.
+                {copy.noResultsText}
               </p>
             ) : (
               <div className="space-y-6">
-                {(categoryFilter === "all" || categoryFilter === "jogador") && (
-                  <section>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h2 className="text-sm font-black uppercase tracking-wide">Jogador</h2>
-                      <span className="text-xs text-muted-foreground">{groupedText.jogador.length} itens</span>
-                    </div>
-                    <Accordion type="single" collapsible className="w-full">
-                      {groupedText.jogador.map((it) => (
-                        <AccordionItem key={it.id} value={it.id}>
-                          <AccordionTrigger className="text-left">
-                            {it.question}
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                              {it.answer}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </section>
-                )}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <Card className="p-3 bg-background/40 border-border">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">FAQ</p>
+                    <p className="text-lg font-black leading-none">{FAQ_ITEMS.length}</p>
+                  </Card>
+                  <Card className="p-3 bg-background/40 border-border">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vídeos</p>
+                    <p className="text-lg font-black leading-none">{VIDEO_ITEMS.length}</p>
+                  </Card>
+                  <Card className="p-3 bg-background/40 border-border">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{copy.audiencePlayer}</p>
+                    <p className="text-lg font-black leading-none">{counts.byAudience.player}</p>
+                  </Card>
+                  <Card className="p-3 bg-background/40 border-border">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{copy.audienceOrganizer}</p>
+                    <p className="text-lg font-black leading-none">{counts.byAudience.organizer}</p>
+                  </Card>
+                </div>
 
-                {(categoryFilter === "all" || categoryFilter === "organizador") && (
-                  <section>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h2 className="text-sm font-black uppercase tracking-wide">Organizador</h2>
-                      <span className="text-xs text-muted-foreground">{groupedText.organizador.length} itens</span>
-                    </div>
-                    <Accordion type="single" collapsible className="w-full">
-                      {groupedText.organizador.map((it) => (
-                        <AccordionItem key={it.id} value={it.id}>
-                          <AccordionTrigger className="text-left">
-                            {it.question}
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="text-sm text-muted-foreground whitespace-pre-wrap">
-                              {it.answer}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      ))}
-                    </Accordion>
-                  </section>
-                )}
+                <Accordion
+                  type="multiple"
+                  className="w-full"
+                  value={openText}
+                  onValueChange={(v) => setOpenText(v as string[])}
+                >
+                  {TOPIC_ORDER.map((topic) => {
+                    const list = groupedByTopic.get(topic) || [];
+                    if (list.length === 0) return null;
+                    const Icon = topicIcon[topic];
+                    return (
+                      <section key={topic} className="space-y-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <h2 className="text-sm font-black uppercase tracking-wide flex items-center gap-2">
+                            <Icon className="h-4 w-4 text-muted-foreground" />
+                            {copy.topics[topic]}
+                          </h2>
+                          <span className="text-xs text-muted-foreground">{list.length}</span>
+                        </div>
+
+                        <div className="rounded-xl border border-border bg-background/30">
+                          {list.map((it, idx) => (
+                            <AccordionItem
+                              key={it.id}
+                              value={it.id}
+                              className={idx === 0 ? "border-t-0" : undefined}
+                            >
+                              <AccordionTrigger className="text-left px-4">
+                                <span className="flex items-center gap-2">
+                                  <span
+                                    className={
+                                      it.audience === "organizer" ? "text-muted-foreground" : "text-muted-foreground"
+                                    }
+                                  >
+                                    {it.audience === "organizer" ? "•" : "•"}
+                                  </span>
+                                  {it.question}
+                                </span>
+                              </AccordionTrigger>
+                              <AccordionContent>
+                                <div className="px-4 pb-4 text-sm text-muted-foreground whitespace-pre-wrap">
+                                  {it.answer}
+                                </div>
+                              </AccordionContent>
+                            </AccordionItem>
+                          ))}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </Accordion>
               </div>
             )}
           </Card>
@@ -385,7 +423,7 @@ export default function FAQ() {
                     </div>
                     <div className="p-4">
                       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                        {video.category === "jogador" ? "Jogador" : "Organizador"}
+                        {video.audience === "player" ? copy.audiencePlayer : copy.audienceOrganizer} • {copy.topics[video.topic]}
                       </p>
                       <h3 className="font-semibold text-lg mb-2">{video.title}</h3>
                       <p className="text-sm text-muted-foreground mb-3">{video.description}</p>

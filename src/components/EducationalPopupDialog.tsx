@@ -15,16 +15,23 @@ export function EducationalPopupDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-extrabold">{popup.title}</DialogTitle>
-        </DialogHeader>
+      <DialogContent className="max-w-lg p-0 overflow-hidden">
+        <div className="grid gap-5 p-6 animate-enter">
+          {/* título */}
+          <DialogHeader className="space-y-2">
+            <DialogTitle className="text-2xl font-extrabold leading-tight tracking-tight">
+              {popup.title}
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="grid gap-4">
+          {/* imagem */}
           {popup.svg_markup ? (
-            <div className="rounded-xl border border-border bg-card/50 p-3">
+            <div className="rounded-2xl border border-border bg-card/60 p-4 shadow-sm">
               <div
-                className="w-full max-h-[260px] overflow-hidden [&_svg]:w-full [&_svg]:h-auto"
+                className={
+                  "flex w-full justify-center items-center overflow-hidden " +
+                  "[&_svg]:block [&_svg]:mx-auto [&_svg]:max-w-full [&_svg]:max-h-[240px] [&_svg]:w-auto [&_svg]:h-auto"
+                }
                 // Admin-controlled content
                 // eslint-disable-next-line react/no-danger
                 dangerouslySetInnerHTML={{ __html: popup.svg_markup }}
@@ -32,10 +39,18 @@ export function EducationalPopupDialog({
             </div>
           ) : null}
 
-          {popup.description ? <p className="text-sm text-muted-foreground">{popup.description}</p> : null}
+          {/* texto */}
+          {popup.description ? (
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              {popup.description}
+            </p>
+          ) : null}
 
-          <div className="flex items-center justify-end gap-2">
-            <Button onClick={onCta}>{popup.cta_label || "Entendi"}</Button>
+          {/* botão */}
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <Button onClick={onCta} className="hover-scale">
+              {popup.cta_label || "Entendi"}
+            </Button>
           </div>
         </div>
       </DialogContent>
