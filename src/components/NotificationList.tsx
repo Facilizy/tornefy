@@ -64,9 +64,11 @@ export function NotificationList({
         notification.type === "status_change" ||
         notification.type === "live_status" ||
         notification.type === "team_registration" ||
-        notification.type === "team_unregistration")
+        notification.type === "team_unregistration" ||
+        notification.type === "team_removed" ||
+        notification.type === "training_question")
     ) {
-      navigate(`/training/${notification.related_id}`);
+      navigate(`/scrim/${notification.related_id}`);
       onClose();
       return;
     }
@@ -76,14 +78,14 @@ export function NotificationList({
       notification.related_id &&
       (notification.type === "chat_message" || notification.type === "training_message")
     ) {
-      navigate(`/training/${notification.related_id}?tab=chat`);
+      navigate(`/scrim/${notification.related_id}?tab=chat`);
       onClose();
       return;
     }
 
     // Ranking updates: go to ranking tab when related to a training
     if (notification.related_id && notification.type === "ranking_update") {
-      navigate(`/training/${notification.related_id}?tab=ranking`);
+      navigate(`/scrim/${notification.related_id}?tab=ranking`);
       onClose();
       return;
     }
@@ -106,12 +108,16 @@ export function NotificationList({
         return "✅";
       case "team_unregistration":
         return "❌";
+      case "team_removed":
+        return "🗑️";
       case "team_invite":
         return "👥";
       case "invite_accepted":
         return "✅";
       case "invite_rejected":
         return "❌";
+      case "training_question":
+        return "❓";
       default:
         return "🔔";
     }

@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, type ComponentType } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import MainLayout from "@/components/MainLayout";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Play, FileText, Search, Sparkles, Users, Trophy, Shield } from "lucide-
 import { YouTubeTutorialPlayer } from "@/components/faq/YouTubeTutorialPlayer";
 import { useI18n } from "@/i18n";
 import { getFaqContent, type FaqAudience, type FaqItem, type FaqTopic, type VideoItem } from "@/pages/faq/content";
+import { useFaqDbContent } from "@/hooks/useFaqDbContent";
 
 const searchSchema = z
   .string()
@@ -44,10 +45,58 @@ const topicIcon: Record<FaqTopic, ComponentType<{ className?: string }>> = {
 
 export default function FAQ() {
   const { language } = useI18n();
+  const params = useParams();
+  const slug = typeof params.slug === "string" && params.slug.trim() ? params.slug.trim() : null;
+
   const { copy, items: FAQ_ITEMS, videos: VIDEO_ITEMS } = useMemo(
     () => getFaqContent(language),
     [language]
   );
+
+  const faqDbQuery = useFaqDbContent(language);
+
+  const resolvedItems = useMemo(() => {
+    const dbItems = faqDbQuery.data?.items ?? [];
+
+    // Keep public FAQ always in sync with Admin FAQ (DB). Only fallback to static
+    // while loading/error (to avoid a flash of empty state).
+    if (faqDbQuery.isSuccess) {
+      return dbItems.map(
+        (r): (FaqItem & { slug: string }) => ({
+          id: r.id,
+          audience: r.audience,
+          topic: r.topic,
+          question: r.question,
+          answer: r.answer,
+          keywords: Array.isArray(r.keywords) ? r.keywords : [],
+          slug: r.slug,
+        }),
+      );
+    }
+
+    return FAQ_ITEMS.map((it) => ({ ...it, slug: it.id }));
+  }, [faqDbQuery.data?.items, faqDbQuery.isSuccess, FAQ_ITEMS]);
+
+  const resolvedVideos = useMemo(() => {
+    const dbVideos = faqDbQuery.data?.videos ?? [];
+
+    if (faqDbQuery.isSuccess) {
+      return dbVideos.map(
+        (r): (VideoItem & { slug: string }) => ({
+          id: r.id,
+          audience: r.audience,
+          topic: r.topic,
+          title: r.title,
+          description: r.description,
+          youtubeId: r.youtube_id,
+          durationSeconds: r.duration_seconds,
+          slug: r.slug,
+        }),
+      );
+    }
+
+    return VIDEO_ITEMS.map((v) => ({ ...v, slug: v.id }));
+  }, [faqDbQuery.data?.videos, faqDbQuery.isSuccess, VIDEO_ITEMS]);
 
   const [query, setQuery] = useState("");
   const [viewMode, setViewMode] = useState<"text" | "videos">("text");
@@ -62,7 +111,7 @@ export default function FAQ() {
       title: copy.pageTitle,
       description:
         copy.heroSubtitle,
-      canonical: `${getCanonicalOrigin()}/faq`,
+      canonical: `${getCanonicalOrigin()}${slug ? `/faq/${encodeURIComponent(slug)}` : "/faq"}`,
     });
 
     const origin = getCanonicalOrigin();
@@ -72,13 +121,23 @@ export default function FAQ() {
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Início", item: origin + "/" },
         { "@type": "ListItem", position: 2, name: "FAQ", item: origin + "/faq" },
+        ...(slug
+          ? [
+              {
+                "@type": "ListItem",
+                position: 3,
+                name: slug,
+                item: origin + "/faq/" + encodeURIComponent(slug),
+              },
+            ]
+          : []),
       ],
     });
 
     setJsonLd("faqpage", {
       "@context": "https://schema.org",
       "@type": "FAQPage",
-      mainEntity: FAQ_ITEMS.map((it) => ({
+      mainEntity: resolvedItems.map((it) => ({
         "@type": "Question",
         name: it.question,
         acceptedAnswer: {
@@ -87,7 +146,17 @@ export default function FAQ() {
         },
       })),
     });
-  }, [copy.pageTitle, copy.heroSubtitle, FAQ_ITEMS]);
+  }, [copy.pageTitle, copy.heroSubtitle, resolvedItems, slug]);
+
+  // Deep-link: /faq/:slug -> open the accordion item automatically
+  useEffect(() => {
+    if (!slug) return;
+    const target = resolvedItems.find((it) => it.slug === slug);
+    if (!target) return;
+
+    setViewMode("text");
+    setOpenText([target.id]);
+  }, [slug, resolvedItems]);
 
   useEffect(() => {
     const stored = localStorage.getItem("tornefy_video_progress");
@@ -107,7 +176,7 @@ export default function FAQ() {
   }, [query]);
 
   const filtered = useMemo(() => {
-    let base = FAQ_ITEMS;
+    let base = resolvedItems;
     if (audienceFilter !== "all") {
       base = base.filter((it) => it.audience === audienceFilter);
     }
@@ -120,10 +189,10 @@ export default function FAQ() {
       const hay = `${it.question} ${it.answer} ${it.keywords.join(" ")}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [safeQuery, audienceFilter, topicFilter, FAQ_ITEMS]);
+  }, [safeQuery, audienceFilter, topicFilter, resolvedItems]);
 
   const filteredVideos = useMemo(() => {
-    let base = VIDEO_ITEMS;
+    let base = resolvedVideos;
     if (audienceFilter !== "all") {
       base = base.filter((v) => v.audience === audienceFilter);
     }
@@ -136,7 +205,7 @@ export default function FAQ() {
       const hay = `${v.title} ${v.description}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [safeQuery, audienceFilter, topicFilter, VIDEO_ITEMS]);
+  }, [safeQuery, audienceFilter, topicFilter, resolvedVideos]);
 
   const groupedByTopic = useMemo(() => {
     const groups = new Map<FaqTopic, FaqItem[]>();
@@ -147,24 +216,24 @@ export default function FAQ() {
 
   const counts = useMemo(() => {
     const byAudience: Record<"all" | FaqAudience, number> = {
-      all: FAQ_ITEMS.length,
-      player: FAQ_ITEMS.filter((i) => i.audience === "player").length,
-      organizer: FAQ_ITEMS.filter((i) => i.audience === "organizer").length,
+      all: resolvedItems.length,
+      player: resolvedItems.filter((i) => i.audience === "player").length,
+      organizer: resolvedItems.filter((i) => i.audience === "organizer").length,
     };
-    const byTopic: Record<string, number> = { all: FAQ_ITEMS.length };
+    const byTopic: Record<string, number> = { all: resolvedItems.length };
     for (const t of TOPIC_ORDER) {
-      byTopic[t] = FAQ_ITEMS.filter((i) => i.topic === t).length;
+      byTopic[t] = resolvedItems.filter((i) => i.topic === t).length;
     }
     return { byAudience, byTopic };
-  }, [FAQ_ITEMS]);
+  }, [resolvedItems]);
 
   const activeTopics = useMemo(() => {
     // Only show topics that have something under current audience filter.
-    const base = audienceFilter === "all" ? FAQ_ITEMS : FAQ_ITEMS.filter((i) => i.audience === audienceFilter);
+    const base = audienceFilter === "all" ? resolvedItems : resolvedItems.filter((i) => i.audience === audienceFilter);
     const set = new Set<FaqTopic>();
     base.forEach((i) => set.add(i.topic));
     return TOPIC_ORDER.filter((t) => set.has(t));
-  }, [FAQ_ITEMS, audienceFilter]);
+  }, [resolvedItems, audienceFilter]);
 
   const handleVideoProgress = (videoId: string, seconds: number, duration?: number) => {
     setWatchedSeconds((prev) => {
@@ -185,9 +254,7 @@ export default function FAQ() {
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/16 via-transparent to-transparent" />
             <div className="relative">
               <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight">{copy.heroTitle}</h1>
-              <p className="mt-2 text-sm text-muted-foreground max-w-2xl">
-                {copy.heroSubtitle}
-              </p>
+              <p className="mt-2 text-sm text-muted-foreground max-w-2xl">{copy.heroSubtitle}</p>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button asChild size="sm" className="rounded-full">
@@ -204,9 +271,9 @@ export default function FAQ() {
           </div>
         </header>
 
-        <Card className="p-5 bg-card/60 border-border backdrop-blur mb-6">
+        <Card className="p-5 sm:p-6 bg-card/60 border-border backdrop-blur mb-6">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as any)}>
-            <TabsList className="bg-card/50 mb-4 w-full sm:w-auto">
+            <TabsList className="bg-card/50 mb-3 w-full sm:w-auto">
               <TabsTrigger value="text" className="flex items-center gap-2">
                 <FileText className="w-4 h-4" />
                 {copy.viewText}
@@ -318,21 +385,19 @@ export default function FAQ() {
         </Card>
 
         {viewMode === "text" ? (
-          <Card className="p-5 bg-card/60 border-border backdrop-blur">
+          <Card className="p-5 sm:p-6 bg-card/60 border-border backdrop-blur">
             {filtered.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-10">
-                {copy.noResultsText}
-              </p>
+              <p className="text-sm text-muted-foreground text-center py-8">{copy.noResultsText}</p>
             ) : (
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <Card className="p-3 bg-background/40 border-border">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">FAQ</p>
-                    <p className="text-lg font-black leading-none">{FAQ_ITEMS.length}</p>
+                    <p className="text-lg font-black leading-none">{resolvedItems.length}</p>
                   </Card>
                   <Card className="p-3 bg-background/40 border-border">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Vídeos</p>
-                    <p className="text-lg font-black leading-none">{VIDEO_ITEMS.length}</p>
+                    <p className="text-lg font-black leading-none">{resolvedVideos.length}</p>
                   </Card>
                   <Card className="p-3 bg-background/40 border-border">
                     <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{copy.audiencePlayer}</p>
@@ -344,6 +409,7 @@ export default function FAQ() {
                   </Card>
                 </div>
 
+
                 <Accordion
                   type="multiple"
                   className="w-full"
@@ -354,45 +420,39 @@ export default function FAQ() {
                     const list = groupedByTopic.get(topic) || [];
                     if (list.length === 0) return null;
                     const Icon = topicIcon[topic];
-                    return (
-                      <section key={topic} className="space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <h2 className="text-sm font-black uppercase tracking-wide flex items-center gap-2">
-                            <Icon className="h-4 w-4 text-muted-foreground" />
-                            {copy.topics[topic]}
-                          </h2>
-                          <span className="text-xs text-muted-foreground">{list.length}</span>
-                        </div>
+                      return (
+                        <section key={topic} className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <h2 className="text-sm font-black uppercase tracking-wide flex items-center gap-2">
+                              <Icon className="h-4 w-4 text-muted-foreground" />
+                              {copy.topics[topic]}
+                            </h2>
+                            <span className="text-xs text-muted-foreground">{list.length}</span>
+                          </div>
 
-                        <div className="rounded-xl border border-border bg-background/30">
-                          {list.map((it, idx) => (
-                            <AccordionItem
-                              key={it.id}
-                              value={it.id}
-                              className={idx === 0 ? "border-t-0" : undefined}
-                            >
-                              <AccordionTrigger className="text-left px-4">
-                                <span className="flex items-center gap-2">
-                                  <span
-                                    className={
-                                      it.audience === "organizer" ? "text-muted-foreground" : "text-muted-foreground"
-                                    }
-                                  >
-                                    {it.audience === "organizer" ? "•" : "•"}
+                          <div className="rounded-xl border border-border bg-background/30">
+                            {list.map((it, idx) => (
+                              <AccordionItem
+                                key={it.id}
+                                value={it.id}
+                                className={idx === 0 ? "border-t-0" : undefined}
+                              >
+                                <AccordionTrigger className="text-left px-4 py-3">
+                                  <span className="flex items-center gap-2">
+                                    <span className="text-muted-foreground">•</span>
+                                    {it.question}
                                   </span>
-                                  {it.question}
-                                </span>
-                              </AccordionTrigger>
-                              <AccordionContent>
-                                <div className="px-4 pb-4 text-sm text-muted-foreground whitespace-pre-wrap">
-                                  {it.answer}
-                                </div>
-                              </AccordionContent>
-                            </AccordionItem>
-                          ))}
-                        </div>
-                      </section>
-                    );
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                  <div className="px-4 pb-4 text-sm text-muted-foreground whitespace-pre-wrap">
+                                    {it.answer}
+                                  </div>
+                                </AccordionContent>
+                              </AccordionItem>
+                            ))}
+                          </div>
+                        </section>
+                      );
                   })}
                 </Accordion>
               </div>

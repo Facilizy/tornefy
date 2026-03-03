@@ -7,6 +7,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { CheckCircle, Shield, Users } from "lucide-react";
+import { ActionTile } from "@/components/ActionTile";
 import { format } from "date-fns";
 
 type Member = {
@@ -38,7 +39,7 @@ type Payload = {
   eventLogs: EventLog[];
 };
 
-export function ViewTeamsDialog({ trainingId }: { trainingId: string }) {
+export function ViewTeamsDialog({ trainingId, triggerVariant = "button" }: { trainingId: string; triggerVariant?: "button" | "tile" }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [payload, setPayload] = useState<Payload | null>(null);
@@ -67,10 +68,18 @@ export function ViewTeamsDialog({ trainingId }: { trainingId: string }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="xs" className="w-full justify-center gap-2">
-          <Users className="h-4 w-4" />
-          Visualizar Equipes
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Visualizar equipes"
+            description="Veja times, Anti-Hack e logs do evento."
+            icon={Users}
+          />
+        ) : (
+          <Button variant="outline" size="xs" className="w-full justify-center gap-2">
+            <Users className="h-4 w-4" />
+            Visualizar Equipes
+          </Button>
+        )}
       </DialogTrigger>
 
       <DialogContent className="max-w-4xl">

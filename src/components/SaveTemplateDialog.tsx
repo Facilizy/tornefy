@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2, Save } from "lucide-react";
+import { ActionTile } from "@/components/ActionTile";
 import { toast } from "sonner";
 
 interface Training {
@@ -31,9 +32,10 @@ interface Training {
 interface SaveTemplateDialogProps {
   training: Training;
   organizerId: string;
+  triggerVariant?: "button" | "tile";
 }
 
-export function SaveTemplateDialog({ training, organizerId }: SaveTemplateDialogProps) {
+export function SaveTemplateDialog({ training, organizerId, triggerVariant = "button" }: SaveTemplateDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [templateName, setTemplateName] = useState("");
@@ -82,10 +84,18 @@ export function SaveTemplateDialog({ training, organizerId }: SaveTemplateDialog
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
-          <Save className="w-4 h-4" />
-          Salvar como Template
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Salvar template"
+            description="Guarde essas configurações para usar depois."
+            icon={Save}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="w-full justify-center gap-2">
+            <Save className="w-4 h-4" />
+            Salvar como Template
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>

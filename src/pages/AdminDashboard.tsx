@@ -29,6 +29,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { PopupsAdminTab } from "@/components/admin/PopupsAdminTab";
+import { FaqAdminTab } from "@/components/admin/FaqAdminTab";
+import { FinanceAdminTab } from "@/components/admin/FinanceAdminTab";
 
 type AdminStats = {
   users: number;
@@ -104,6 +106,17 @@ type AuditRow = {
   created_at: string;
 };
 
+type BugReportRow = {
+  id: string;
+  title: string;
+  description: string;
+  page_path: string;
+  user_id: string;
+  user_agent: string | null;
+  created_at: string;
+  meta: any;
+};
+
 function toDatetimeLocal(iso: string) {
   const date = new Date(iso);
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -157,6 +170,9 @@ const AdminDashboard = () => {
   const [auditSearch, setAuditSearch] = useState("");
   const [auditActor, setAuditActor] = useState("");
   const [auditPage, setAuditPage] = useState(0);
+
+  const [bugReportsSearch, setBugReportsSearch] = useState("");
+  const [bugReportsPage, setBugReportsPage] = useState(0);
 
   const pageSize = 20;
 
@@ -307,6 +323,22 @@ const AdminDashboard = () => {
     },
   });
 
+  const bugReportsQuery = useQuery({
+    queryKey: ["admin", "bug-reports", bugReportsSearch, bugReportsPage],
+    enabled: isAdmin,
+    queryFn: async (): Promise<Paginated<BugReportRow>> => {
+      const res = await adminApi<Paginated<BugReportRow>>("/bug-reports", {
+        query: {
+          search: bugReportsSearch,
+          limit: String(pageSize),
+          offset: String(bugReportsPage * pageSize),
+        },
+      });
+      if (res.ok === false) throw new Error(res.error);
+      return res.data;
+    },
+  });
+
   const stats = statsQuery.data;
   const trainings = trainingsQuery.data?.items ?? [];
   const trainingsTotal = trainingsQuery.data?.total ?? 0;
@@ -320,6 +352,9 @@ const AdminDashboard = () => {
   const adminsTotal = adminsQuery.data?.total ?? 0;
   const auditRows = auditQuery.data?.items ?? [];
   const auditTotal = auditQuery.data?.total ?? 0;
+
+  const bugReports = bugReportsQuery.data?.items ?? [];
+  const bugReportsTotal = bugReportsQuery.data?.total ?? 0;
 
   const statsCards = useMemo(
     () =>
@@ -355,11 +390,14 @@ const AdminDashboard = () => {
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="w-full justify-start flex-wrap h-auto">
             <TabsTrigger value="overview">Visão Geral</TabsTrigger>
+            <TabsTrigger value="finance">Financeiro</TabsTrigger>
             <TabsTrigger value="trainings">Treinos</TabsTrigger>
             <TabsTrigger value="teams">Equipes</TabsTrigger>
             <TabsTrigger value="users">Usuários</TabsTrigger>
+            <TabsTrigger value="bugReports">Bug reports</TabsTrigger>
             <TabsTrigger value="verifications">Verificações</TabsTrigger>
-              <TabsTrigger value="popups">Popups</TabsTrigger>
+            <TabsTrigger value="popups">Popups</TabsTrigger>
+            <TabsTrigger value="faq">FAQ</TabsTrigger>
             <TabsTrigger value="admins">Admins</TabsTrigger>
             <TabsTrigger value="audit">Auditoria</TabsTrigger>
           </TabsList>
@@ -373,6 +411,10 @@ const AdminDashboard = () => {
                 </Card>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="finance">
+            <FinanceAdminTab />
           </TabsContent>
 
           <TabsContent value="trainings">
@@ -644,6 +686,66 @@ const AdminDashboard = () => {
             </section>
           </TabsContent>
 
+          <TabsContent value="bugReports">
+            <section className="mt-4">
+              <div className="flex flex-col sm:flex-row sm:items-end gap-3">
+                <div className="w-full sm:max-w-sm">
+                  <Label htmlFor="bugReportsSearch">Buscar</Label>
+                  <Input
+                    id="bugReportsSearch"
+                    value={bugReportsSearch}
+                    onChange={(e) => {
+                      setBugReportsSearch(e.target.value);
+                      setBugReportsPage(0);
+                    }}
+                    placeholder="title/descrição/path/user_id"
+                  />
+                </div>
+                <div className="ml-auto flex items-center gap-2">
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => setBugReportsPage((p) => Math.max(p - 1, 0))}
+                    disabled={bugReportsPage === 0}
+                  >
+                    Anterior
+                  </Button>
+                  <div className="text-xs text-muted-foreground">
+                    {bugReportsTotal ? bugReportsPage * pageSize + 1 : 0}-
+                    {Math.min((bugReportsPage + 1) * pageSize, bugReportsTotal)} de {bugReportsTotal}
+                  </div>
+                  <Button
+                    size="xs"
+                    variant="outline"
+                    onClick={() => setBugReportsPage((p) => p + 1)}
+                    disabled={(bugReportsPage + 1) * pageSize >= bugReportsTotal}
+                  >
+                    Próxima
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Quando</TableHead>
+                      <TableHead>Título</TableHead>
+                      <TableHead>Path</TableHead>
+                      <TableHead>User</TableHead>
+                      <TableHead className="text-right">Detalhes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {bugReports.map((r) => (
+                      <BugReportRowItem key={r.id} row={r} />
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </section>
+          </TabsContent>
+
           <TabsContent value="verifications">
             <section className="mt-4">
               <div className="flex flex-col sm:flex-row sm:items-end gap-3">
@@ -706,6 +808,10 @@ const AdminDashboard = () => {
 
           <TabsContent value="popups">
             <PopupsAdminTab />
+          </TabsContent>
+
+          <TabsContent value="faq">
+            <FaqAdminTab />
           </TabsContent>
 
           <TabsContent value="admins">
@@ -1189,6 +1295,8 @@ function UserRowItem({ user, onUpdated }: { user: UserRow; onUpdated: () => Prom
   const [avatarUrl, setAvatarUrl] = useState<string>("");
   const [bannerUrl, setBannerUrl] = useState<string>("");
   const [preferredGamesText, setPreferredGamesText] = useState<string>("");
+  const [rolesLoading, setRolesLoading] = useState(false);
+  const [organizerVerified, setOrganizerVerified] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -1204,13 +1312,36 @@ function UserRowItem({ user, onUpdated }: { user: UserRow; onUpdated: () => Prom
         setAvatarUrl(res.data.avatar_url ?? "");
         setBannerUrl(res.data.banner_url ?? "");
         setPreferredGamesText(res.data.preferred_games ? JSON.stringify(res.data.preferred_games, null, 2) : "");
+
+        setRolesLoading(true);
+        const rolesRes = await adminApi<{ roles: string[] }>(`/users/${user.id}/roles`);
+        if (rolesRes.ok === false) throw new Error(rolesRes.error);
+        setOrganizerVerified((rolesRes.data.roles || []).includes("organizer_verified"));
       } catch (e: any) {
         toast.error(e.message || "Erro ao carregar usuário");
       } finally {
         setLoadingDetails(false);
+        setRolesLoading(false);
       }
     })();
   }, [open, user.id]);
+
+  const toggleOrganizerVerified = async (enabled: boolean) => {
+    try {
+      setSaving(true);
+      const res = await adminApi(`/users/${user.id}/roles`, {
+        method: "POST",
+        body: { role: "organizer_verified", enabled },
+      });
+      if (res.ok === false) throw new Error(res.error);
+      setOrganizerVerified(enabled);
+      toast.success(enabled ? "Organizador verificado!" : "Verificação removida!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao atualizar verificação");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -1318,6 +1449,25 @@ function UserRowItem({ user, onUpdated }: { user: UserRow; onUpdated: () => Prom
                   />
                   <Label htmlFor={`user_available_${user.id}`}>Disponível para equipe</Label>
                 </div>
+
+                <Card className="p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium">Organizador verificado</div>
+                      <div className="text-xs text-muted-foreground">
+                        {rolesLoading ? "Carregando roles…" : "Define role organizer_verified"}
+                      </div>
+                    </div>
+                    <Button
+                      size="xs"
+                      variant={organizerVerified ? "outline" : "default"}
+                      onClick={() => toggleOrganizerVerified(!organizerVerified)}
+                      disabled={saving || rolesLoading || loadingDetails}
+                    >
+                      {organizerVerified ? "Remover" : "Verificar"}
+                    </Button>
+                  </div>
+                </Card>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <Button size="xs" variant="outline" onClick={resetUsername} disabled={saving || loadingDetails}>
                     Resetar username
@@ -1385,3 +1535,58 @@ function VerificationRowItem({
 }
 
 export default AdminDashboard;
+
+function BugReportRowItem({ row }: { row: BugReportRow }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <TableRow>
+      <TableCell className="text-xs">
+        {format(new Date(row.created_at), "dd/MM HH:mm", { locale: ptBR })}
+      </TableCell>
+      <TableCell className="font-medium max-w-[320px] truncate">{row.title}</TableCell>
+      <TableCell className="text-xs max-w-[260px] truncate">{row.page_path}</TableCell>
+      <TableCell className="font-mono text-xs max-w-[240px] truncate">{row.user_id}</TableCell>
+      <TableCell className="text-right">
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="xs" variant="outline">
+              Ver
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>{row.title}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-3">
+              <div className="text-xs text-muted-foreground">
+                {format(new Date(row.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })} • {row.page_path}
+              </div>
+              <Card className="p-3">
+                <div className="text-sm whitespace-pre-wrap">{row.description}</div>
+              </Card>
+              <div className="grid gap-1">
+                <div className="text-xs font-medium">User ID</div>
+                <div className="font-mono text-xs break-all">{row.user_id}</div>
+              </div>
+              {row.user_agent ? (
+                <div className="grid gap-1">
+                  <div className="text-xs font-medium">User Agent</div>
+                  <div className="text-xs break-all text-muted-foreground">{row.user_agent}</div>
+                </div>
+              ) : null}
+              {row.meta ? (
+                <div className="grid gap-1">
+                  <div className="text-xs font-medium">Meta</div>
+                  <pre className="text-xs overflow-auto rounded-md border border-border bg-muted/20 p-3 max-h-[260px]">
+                    {JSON.stringify(row.meta, null, 2)}
+                  </pre>
+                </div>
+              ) : null}
+            </div>
+          </DialogContent>
+        </Dialog>
+      </TableCell>
+    </TableRow>
+  );
+}

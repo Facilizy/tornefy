@@ -1,7 +1,8 @@
 import { useRef, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import MainLayout from "@/components/MainLayout";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Loader2, UserPlus } from "lucide-react";
+import { Search, Loader2, UserPlus, Users } from "lucide-react";
 import { fetchVerifiedMap } from "@/hooks/useVerifiedEntities";
 import { TeamVerifiedBadge } from "@/components/TeamVerifiedBadge";
 import { hexToHslTriplet } from "@/lib/color";
@@ -32,6 +33,7 @@ import {
 import type { GameId } from "@/lib/ranking";
 import { GAMES } from "@/lib/games";
 import { getCanonicalOrigin, setJsonLd, setSeo } from "@/lib/seo";
+import { useUserRole } from "@/hooks/useUserRole";
 
 interface Team {
   id: string;
@@ -58,6 +60,17 @@ type PlayerProfile = PlayerTradingCardData & {
 
 const Teams = () => {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [mainTeam, setMainTeam] = useState<
+    | {
+        id: string;
+        name: string | null;
+        tag: string | null;
+      }
+    | null
+  >(null);
+  const { role, loading: roleLoading } = useUserRole(userId ?? undefined);
   const [teams, setTeams] = useState<Team[]>([]);
   const [filteredTeams, setFilteredTeams] = useState<Team[]>([]);
   const [players, setPlayers] = useState<PlayerProfile[]>([]);
@@ -78,6 +91,14 @@ const Teams = () => {
   const rtRefetchTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
+    // If logged in as organizer, this page should not be accessible.
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      setUserId(session?.user?.id ?? null);
+    })();
+
     Promise.all([fetchTeams(), fetchPlayers()]).finally(() => setLoading(false));
 
     setSeo({
@@ -119,8 +140,61 @@ const Teams = () => {
   }, []);
 
   useEffect(() => {
+    if (roleLoading) return;
+    if (role === "organizer") {
+      navigate("/organizer");
+    }
+  }, [role, roleLoading, navigate]);
+
+  useEffect(() => {
+    const sp = new URLSearchParams(location.search);
+    const recruiting = sp.get("recruiting");
+    if (recruiting === "1" || recruiting === "true") {
+      setRecruitingOnly(true);
+    }
+  }, [location.search]);
+
+  useEffect(() => {
     filterTeamsAndPlayers();
-  }, [teams, players, searchTerm, typeFilter, recruitingOnly, viewMode, positionFilter, teamGameFilter, playerGameFilter, availableOnly]);
+  }, [
+    teams,
+    players,
+    searchTerm,
+    typeFilter,
+    recruitingOnly,
+    viewMode,
+    positionFilter,
+    teamGameFilter,
+    playerGameFilter,
+    availableOnly,
+  ]);
+
+  const fetchMainTeam = async (uid: string) => {
+    try {
+      const { data, error } = await (supabase as any)
+        .from("team_members")
+        .select("created_at, teams(id, name, tag)")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (error) throw error;
+
+      const row = (data || [])?.[0];
+      const t = row?.teams;
+      setMainTeam(t?.id ? { id: String(t.id), name: t.name ?? null, tag: t.tag ?? null } : null);
+    } catch {
+      setMainTeam(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!userId) {
+      setMainTeam(null);
+      return;
+    }
+    void fetchMainTeam(userId);
+  }, [userId]);
 
   const fetchTeams = async () => {
     try {
@@ -437,6 +511,21 @@ const Teams = () => {
     );
   }
 
+  if (!roleLoading && role === "organizer") {
+    return (
+      <MainLayout>
+        <main className="container mx-auto px-4 py-10">
+          <div className="max-w-xl mx-auto rounded-xl border border-border bg-card/50 p-6 text-center">
+            <h1 className="text-xl font-black uppercase tracking-tight">Acesso restrito</h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Contas de organizador não acessam a página de Equipes.
+            </p>
+          </div>
+        </main>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout>
       <header className="relative py-14 mb-8 overflow-hidden">
@@ -473,11 +562,38 @@ const Teams = () => {
             </TabsList>
           </Tabs>
 
-          <p className="text-sm text-muted-foreground md:text-right">
-            {viewMode === "players"
-              ? `${filteredPlayers.length} jogador${filteredPlayers.length !== 1 ? "es" : ""}`
-              : `${filteredTeams.length} equipe${filteredTeams.length !== 1 ? "s" : ""}`}
-          </p>
+          <div className="flex items-center gap-3 md:justify-end">
+            <p className="text-sm text-muted-foreground">
+              {viewMode === "players"
+                ? `${filteredPlayers.length} jogador${filteredPlayers.length !== 1 ? "es" : ""}`
+                : `${filteredTeams.length} equipe${filteredTeams.length !== 1 ? "s" : ""}`}
+            </p>
+
+            {userId ? (
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (mainTeam?.id) {
+                    navigate(`/team/${mainTeam.id}`);
+                    return;
+                  }
+                  navigate("/my-team");
+                }}
+              >
+                {mainTeam?.id ? (
+                  <>
+                    <Users className="w-4 h-4 mr-2" />
+                    {mainTeam?.name || mainTeam?.tag || "Meu time"}
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Criar equipe
+                  </>
+                )}
+              </Button>
+            ) : null}
+          </div>
         </section>
 
         {/* Filters */}

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { ArrowUpDown, Loader2, Save, Users } from "lucide-react";
+import { ActionTile } from "@/components/ActionTile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -27,9 +28,10 @@ interface Team {
 interface SlotReorderDialogProps {
   trainingId: string;
   onSlotsUpdated: () => void;
+  triggerVariant?: "button" | "tile";
 }
 
-export function SlotReorderDialog({ trainingId, onSlotsUpdated }: SlotReorderDialogProps) {
+export function SlotReorderDialog({ trainingId, onSlotsUpdated, triggerVariant = "button" }: SlotReorderDialogProps) {
   const [open, setOpen] = useState(false);
   const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(false);
@@ -127,10 +129,18 @@ export function SlotReorderDialog({ trainingId, onSlotsUpdated }: SlotReorderDia
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" variant="outline" className="w-full justify-center gap-2">
-          <ArrowUpDown className="w-4 h-4" />
-          Reorganizar Slots
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Reorganizar slots"
+            description="Ajuste a numeração dos slots das equipes."
+            icon={ArrowUpDown}
+          />
+        ) : (
+          <Button size="sm" variant="outline" className="w-full justify-center gap-2">
+            <ArrowUpDown className="w-4 h-4" />
+            Reorganizar Slots
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-lg max-h-[90vh]">
         <DialogHeader>

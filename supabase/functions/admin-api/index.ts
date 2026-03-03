@@ -123,6 +123,30 @@ serve(async (req) => {
       .maybeSingle();
     const isAdmin = !adminRoleError && !!adminRoleRow;
 
+    async function hasRole(role: string) {
+      const { data, error } = await adminDb
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .eq("role", role)
+        .maybeSingle();
+      return !error && !!data;
+    }
+
+    async function isOrganizerForTraining(trainingId: string) {
+      if (!trainingId) return false;
+      if (isAdmin) return true;
+      const organizer = await hasRole("organizer");
+      if (!organizer) return false;
+      const { data, error } = await adminDb
+        .from("trainings")
+        .select("id, organizer_id")
+        .eq("id", trainingId)
+        .maybeSingle();
+      if (error || !data) return false;
+      return String((data as any).organizer_id || "") === uid;
+    }
+
     const limit = Math.min(Math.max(numParam(url, "limit", 20), 1), 100);
     const offset = Math.max(numParam(url, "offset", 0), 0);
     const includeDeleted = url.searchParams.get("include_deleted") === "1";
@@ -328,8 +352,183 @@ serve(async (req) => {
       return json({ user_id: uid, is_admin: isAdmin });
     }
 
+    // ----------------
+    // GET /roles/me (auth ok)
+    // ----------------
+    if (req.method === "GET" && subPath === "/roles/me") {
+      const { data, error } = await adminDb
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid);
+      if (error) return serverError(error.message);
+
+      const roles = (data || []).map((r: any) => String(r.role)).filter(Boolean);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: "roles.me",
+        response_count: roles.length,
+      });
+
+      return json({ roles });
+    }
+
+    // ----------------
+    // Organizer/Admin tools for a specific training
+    // GET  /trainings/:id/confirmed-teams
+    // POST /trainings/:id/link-team-tag
+    // ----------------
+    if (subPath.startsWith("/trainings/") && (req.method === "GET" || req.method === "POST")) {
+      const parts = subPath.split("/").filter(Boolean);
+      const trainingId = parts[1] || "";
+      const action = parts[2] || "";
+
+      if (action === "confirmed-teams" && req.method === "GET") {
+        const allowed = await isOrganizerForTraining(trainingId);
+        if (!allowed) return forbidden();
+
+        const { data, error } = await adminDb
+          .from("training_registrations")
+          .select("team_id, teams(id, name, tag)")
+          .eq("training_id", trainingId);
+        if (error) return serverError(error.message);
+
+        const items = (data || [])
+          .map((r: any) => ({
+            team_id: String(r.team_id),
+            name: r.teams?.name ?? null,
+            tag: r.teams?.tag ?? null,
+          }))
+          .filter((r: any) => !!r.team_id);
+
+        await logAudit(adminDb, {
+          actor_id: uid,
+          method: req.method,
+          path: subPath,
+          action: "training.confirmed_teams",
+          entity_type: "training",
+          entity_id: trainingId,
+          response_count: items.length,
+        });
+
+        return json({ items });
+      }
+
+       if (action === "link-team-tag" && req.method === "POST") {
+        const allowed = await isOrganizerForTraining(trainingId);
+        if (!allowed) return forbidden();
+
+        const body = (await req.json()) as Record<string, unknown>;
+        const teamId = String(body.team_id ?? "").trim();
+        const tagRaw = String(body.tag ?? "");
+        const tag = tagRaw.trim().toUpperCase().replace(/\s+/g, "").slice(0, 10);
+         const roundId = String(body.round_id ?? "").trim();
+
+        if (!teamId) return badRequest("team_id é obrigatório");
+        if (!tag) return badRequest("tag é obrigatória");
+         if (!roundId) return badRequest("round_id é obrigatório");
+
+         // Ensure round belongs to this training
+         const { data: roundRow, error: roundErr } = await adminDb
+           .from("training_rounds")
+           .select("id, training_id")
+           .eq("id", roundId)
+           .maybeSingle();
+         if (roundErr) return serverError(roundErr.message);
+         if (!roundRow || String((roundRow as any).training_id ?? "") !== trainingId) {
+           return forbidden();
+         }
+
+        // Ensure team is confirmed in this training
+        const { data: regRow, error: regErr } = await adminDb
+          .from("training_registrations")
+          .select("id")
+          .eq("training_id", trainingId)
+          .eq("team_id", teamId)
+          .maybeSingle();
+        if (regErr) return serverError(regErr.message);
+        if (!regRow) return forbidden();
+
+         // Upsert link by (round_id, tag). This does NOT alter teams.tag.
+         const { data: before, error: beforeErr } = await adminDb
+           .from("training_round_tag_links")
+           .select("id, round_id, tag, team_id")
+           .eq("round_id", roundId)
+           .eq("tag", tag)
+           .maybeSingle();
+         if (beforeErr) return serverError(beforeErr.message);
+
+         const { data: after, error } = await adminDb
+           .from("training_round_tag_links")
+           .upsert(
+             {
+               round_id: roundId,
+               tag,
+               team_id: teamId,
+               created_by: uid,
+             } as any,
+             { onConflict: "round_id,tag" },
+           )
+           .select("id, round_id, tag, team_id")
+           .maybeSingle();
+         if (error) return serverError(error.message);
+
+        await logAudit(adminDb, {
+          actor_id: uid,
+          method: req.method,
+          path: subPath,
+           action: "training.link_team_tag_round",
+           entity_type: "training_round_tag_link",
+           entity_id: (after as any)?.id ?? null,
+           request: { training_id: trainingId, round_id: roundId, team_id: teamId, tag },
+          before,
+          after,
+          response_count: 1,
+        });
+
+        return json({ ok: true });
+      }
+    }
+
     // A partir daqui, tudo exige admin
     if (!isAdmin) return forbidden();
+
+    // ----------------
+    // Bug reports
+    // GET /bug-reports
+    // ----------------
+    if (req.method === "GET" && subPath === "/bug-reports") {
+      const search = url.searchParams.get("search") ?? "";
+
+      let q = adminDb
+        .from("bug_reports")
+        .select("id,title,description,page_path,user_id,user_agent,created_at,meta", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (search.trim()) {
+        const s = search.trim();
+        q = q.or(
+          `title.ilike.%${s}%,description.ilike.%${s}%,page_path.ilike.%${s}%,user_id.ilike.%${s}%`,
+        );
+      }
+
+      const { data, error, count } = await q;
+      if (error) return serverError(error.message);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: `${subPath}${url.search}`,
+        action: "bug_reports.list",
+        response_count: (data ?? []).length,
+        request: { search, limit, offset },
+      });
+
+      return json({ items: data ?? [], total: count ?? 0 });
+    }
 
     if (req.method === "GET" && subPath === "/stats") {
       const [{ count: users }, { count: teams }, { count: trainings }, { count: verifiedEntities }] = await Promise.all([
@@ -355,6 +554,180 @@ serve(async (req) => {
       });
 
       return json(payload);
+    }
+
+    // ----------------
+    // Financeiro (Admin)
+    // GET /finance/summary
+    // GET /finance/transactions
+    // GET /finance/withdrawals
+    // GET /finance/anticipations
+    // GET /finance/organizers/stale
+    // ----------------
+    if (req.method === "GET" && subPath === "/finance/summary") {
+      const { data, error } = await adminDb.rpc("admin_finance_summary");
+      if (error) return serverError(error.message);
+
+      const row = (data as any)?.[0] ?? {};
+      const gross = Number(row.gross ?? 0) || 0;
+      const fees = Number(row.fees ?? 0) || 0;
+      const net = Number(row.net ?? gross - fees) || 0;
+      const pending = Number(row.pending ?? 0) || 0;
+
+      return json({ gross, fees, net, pending });
+    }
+
+    if (req.method === "GET" && subPath === "/finance/transactions") {
+      const type = url.searchParams.get("type") ?? "";
+      const status = url.searchParams.get("status") ?? "";
+      const referenceType = url.searchParams.get("reference_type") ?? "";
+
+      let q = adminDb
+        .from("tornecoin_transactions")
+        .select(
+          "id,created_at,amount,type,status,service_fee,from_account_id,to_account_id,reference_type,reference_id,available_at,meta",
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (type.trim()) q = q.eq("type", type.trim());
+      if (status.trim()) q = q.eq("status", status.trim());
+      if (referenceType.trim()) q = q.eq("reference_type", referenceType.trim());
+
+      const { data, error, count } = await q;
+      if (error) return serverError(error.message);
+      return json({ items: data ?? [], total: count ?? 0 });
+    }
+
+    if (req.method === "GET" && subPath === "/finance/withdrawals") {
+      const status = url.searchParams.get("status") ?? "";
+
+      let q = adminDb
+        .from("tornecoin_withdrawal_requests")
+        .select(
+          "id,created_at,updated_at,processed_at,user_id,account_id,amount_coins,fee_coins,net_coins,pix_key_type,status,admin_notes",
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (status.trim()) q = q.eq("status", status.trim());
+
+      const { data, error, count } = await q;
+      if (error) return serverError(error.message);
+      return json({ items: data ?? [], total: count ?? 0 });
+    }
+
+    if (req.method === "GET" && subPath === "/finance/anticipations") {
+      const status = url.searchParams.get("status") ?? "";
+
+      let q = adminDb
+        .from("tornecoin_anticipation_requests")
+        .select(
+          "id,created_at,updated_at,processed_at,organizer_id,account_id,amount_coins,reason,status,admin_notes",
+          { count: "exact" },
+        )
+        .order("created_at", { ascending: false })
+        .range(offset, offset + limit - 1);
+
+      if (status.trim()) q = q.eq("status", status.trim());
+
+      const { data, error, count } = await q;
+      if (error) return serverError(error.message);
+      return json({ items: data ?? [], total: count ?? 0 });
+    }
+
+    if (req.method === "GET" && subPath === "/finance/organizers/stale") {
+      const cutoffDays = Math.min(Math.max(numParam(url, "days", 30), 1), 365);
+      const cutoff = new Date(Date.now() - cutoffDays * 24 * 60 * 60 * 1000).toISOString();
+
+      const [trainingsRes, tournamentsRes] = await Promise.all([
+        adminDb
+          .from("trainings")
+          .select("id,organizer_id,datetime")
+          .eq("status", "FINALIZADO")
+          .lte("datetime", cutoff),
+        adminDb
+          .from("tournaments")
+          .select("id,organizer_id,datetime")
+          .eq("status", "FINALIZADO")
+          .lte("datetime", cutoff),
+      ]);
+
+      if (trainingsRes.error) return serverError(trainingsRes.error.message);
+      if (tournamentsRes.error) return serverError(tournamentsRes.error.message);
+
+      const map = new Map<
+        string,
+        {
+          organizer_id: string;
+          trainings_count: number;
+          tournaments_count: number;
+          last_event_at: string | null;
+        }
+      >();
+
+      const upsert = (organizerId: string | null, datetime: string | null, kind: "training" | "tournament") => {
+        const oid = String(organizerId || "");
+        if (!oid) return;
+        const current = map.get(oid) ?? {
+          organizer_id: oid,
+          trainings_count: 0,
+          tournaments_count: 0,
+          last_event_at: null,
+        };
+
+        if (kind === "training") current.trainings_count += 1;
+        else current.tournaments_count += 1;
+
+        const t = datetime ? new Date(String(datetime)).toISOString() : null;
+        if (t) {
+          if (!current.last_event_at || new Date(t).getTime() > new Date(current.last_event_at).getTime()) {
+            current.last_event_at = t;
+          }
+        }
+
+        map.set(oid, current);
+      };
+
+      (trainingsRes.data || []).forEach((r: any) => upsert(r.organizer_id, r.datetime, "training"));
+      (tournamentsRes.data || []).forEach((r: any) => upsert(r.organizer_id, r.datetime, "tournament"));
+
+      const organizerIds = Array.from(map.keys());
+      if (organizerIds.length === 0) return json({ items: [], total: 0 });
+
+      const { data: accounts, error: accErr } = await adminDb
+        .from("tornecoin_accounts")
+        .select("owner_id,balance_pending,balance_frozen")
+        .eq("owner_type", "organizer")
+        .in("owner_id", organizerIds);
+      if (accErr) return serverError(accErr.message);
+
+      const accByOrg = new Map(
+        (accounts || []).map((a: any) => [
+          String(a.owner_id),
+          {
+            pending: Number(a.balance_pending || 0),
+            frozen: Number(a.balance_frozen || 0),
+          },
+        ]),
+      );
+
+      const items = organizerIds
+        .map((oid) => {
+          const base = map.get(oid)!;
+          const acc = accByOrg.get(oid) ?? { pending: 0, frozen: 0 };
+          return {
+            ...base,
+            pending_coins: acc.pending,
+            frozen_coins: acc.frozen,
+            total_hold_coins: acc.pending + acc.frozen,
+          };
+        })
+        .sort((a, b) => (b.total_hold_coins ?? 0) - (a.total_hold_coins ?? 0));
+
+      return json({ items, total: items.length });
     }
 
     // ----------------
@@ -701,6 +1074,8 @@ serve(async (req) => {
     // GET /users/:id
     // PATCH /users/:id
     // POST /users/:id/reset-username
+    // GET  /users/:id/roles
+    // POST /users/:id/roles { role, enabled }
     // ----------------
     if (req.method === "GET" && subPath === "/users") {
       const search = url.searchParams.get("search") ?? "";
@@ -763,6 +1138,70 @@ serve(async (req) => {
       });
 
       return json(data as any);
+    }
+
+    if (req.method === "GET" && subPath.startsWith("/users/") && subPath.endsWith("/roles")) {
+      const id = subPath.split("/")[2];
+      if (!id) return badRequest("missing id");
+
+      const { data, error } = await adminDb
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", id);
+      if (error) return serverError(error.message);
+
+      const roles = (data ?? []).map((r: any) => String(r.role)).filter(Boolean);
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: "users.roles.get",
+        entity_type: "user",
+        entity_id: id,
+        response_count: roles.length,
+      });
+
+      return json({ roles });
+    }
+
+    if (req.method === "POST" && subPath.startsWith("/users/") && subPath.endsWith("/roles")) {
+      const id = subPath.split("/")[2];
+      if (!id) return badRequest("missing id");
+
+      const body = (await req.json()) as Record<string, unknown>;
+      const role = String(body.role ?? "").trim();
+      const enabled = Boolean(body.enabled);
+
+      // Safety: only allow toggling organizer_verified via this endpoint
+      if (role !== "organizer_verified") return badRequest("role inválida");
+
+      if (enabled) {
+        const { error } = await adminDb
+          .from("user_roles")
+          .insert({ user_id: id, role: "organizer_verified", assigned_at: new Date().toISOString() } as any);
+        if (error && !String(error.message).toLowerCase().includes("duplicate")) return serverError(error.message);
+      } else {
+        const { error } = await adminDb
+          .from("user_roles")
+          .delete()
+          .eq("user_id", id)
+          .eq("role", "organizer_verified");
+        if (error) return serverError(error.message);
+      }
+
+      await logAudit(adminDb, {
+        actor_id: uid,
+        method: req.method,
+        path: subPath,
+        action: enabled ? "users.roles.grant" : "users.roles.revoke",
+        entity_type: "user",
+        entity_id: id,
+        request: { role: "organizer_verified", enabled },
+        response_count: 1,
+      });
+
+      return json({ ok: true });
     }
 
     if (req.method === "PATCH" && subPath.startsWith("/users/")) {

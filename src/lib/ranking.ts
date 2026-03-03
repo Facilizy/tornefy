@@ -1,14 +1,22 @@
-export type GameId = "free_fire" | "prime_rush" | "blood_strike" | "farlight_84" | "battlefield_6";
+export type GameId = "free_fire" | "prime_rush" | "blood_strike" | "farlight_84" | "pubg_mobile";
 
 export const GAME_LABELS: Record<GameId, string> = {
   free_fire: "Free Fire",
   prime_rush: "Prime Rush",
   blood_strike: "Blood Strike",
   farlight_84: "Farlight 84",
-  battlefield_6: "Battlefield 6",
+  pubg_mobile: "PUBG Mobile",
 };
 
-export type RankTierId = "bronze" | "ouro" | "platina" | "diamante" | "triunfante";
+export type RankTierId =
+  | "bronze"
+  | "prata"
+  | "ouro"
+  | "platina"
+  | "diamante"
+  | "ruby"
+  | "esmeralda"
+  | "triunfante";
 
 export type RankTier = {
   id: RankTierId;
@@ -19,11 +27,14 @@ export type RankTier = {
 // Thresholds iniciais (podemos calibrar depois sem mexer no banco)
 export const RANK_TIERS: RankTier[] = [
   { id: "bronze", label: "Bronze", minPoints: 0 },
+  { id: "prata", label: "Prata", minPoints: 500 },
   { id: "ouro", label: "Ouro", minPoints: 1500 },
   { id: "platina", label: "Platina", minPoints: 3500 },
   { id: "diamante", label: "Diamante", minPoints: 6000 },
+  { id: "ruby", label: "Ruby", minPoints: 8500 },
+  { id: "esmeralda", label: "Esmeralda", minPoints: 11500 },
   // Triunfante é especial (ver getRankTier)
-  { id: "triunfante", label: "Triunfante", minPoints: 8000 },
+  { id: "triunfante", label: "Triunfante", minPoints: 14000 },
 ];
 
 export function getTriunfanteCutoff(totalPlayers: number) {
@@ -39,11 +50,11 @@ export function getRankTier(params: {
 }): RankTier {
   const { points, position, totalPlayers } = params;
 
-  // Triunfante: 8000+ E (Top 3% OU Top 100)
+  // Triunfante: 14.000+ E (Top 3% OU Top 100)
   if (
     typeof position === "number" &&
     typeof totalPlayers === "number" &&
-    points >= 8000 &&
+    points >= 14000 &&
     position <= getTriunfanteCutoff(totalPlayers)
   ) {
     return RANK_TIERS[RANK_TIERS.length - 1];

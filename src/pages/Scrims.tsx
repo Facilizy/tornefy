@@ -12,7 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calendar, Gamepad2, Trophy, Users, SlidersHorizontal, User } from "lucide-react";
 import { addDays, endOfDay, startOfDay } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { useFollowedOrganizers } from "@/hooks/useFollowedOrganizers";
@@ -28,9 +27,9 @@ const Scrims = () => {
   const followed = useFollowedOrganizers(userId);
   const [showFollowed, setShowFollowed] = useState(true);
 
-  const [trainings, setTrainings] = useState<any[]>([]);
-  const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
-  const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
+  const [scrims, setScrims] = useState<any[]>([]);
+  const [liveScrims, setLiveScrims] = useState<any[]>([]);
+  const [filteredScrims, setFilteredScrims] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -40,14 +39,14 @@ const Scrims = () => {
   const [platformFilter, setPlatformFilter] = useState<string>("all");
 
   useEffect(() => {
-    fetchTrainings();
+    fetchScrims();
   }, []);
 
   useEffect(() => {
     setSeo({
       title: "Scrims — Tornefy",
       description:
-        "Encontre scrims e treinos abertos, siga organizadores verificados e participe em minutos.",
+        "Encontre scrims (treinos e torneios) abertos, siga organizadores verificados e participe em minutos.",
       canonical: window.location.origin + "/scrims",
     });
   }, []);
@@ -63,29 +62,30 @@ const Scrims = () => {
   }, []);
 
   useEffect(() => {
-    filterTrainings();
-  }, [trainings, dateFilter, modeFilter, gameFilter, platformFilter]);
+    filterScrims();
+  }, [scrims, dateFilter, modeFilter, gameFilter, platformFilter]);
 
-  const fetchTrainings = async () => {
+  const fetchScrims = async () => {
     try {
       setLoading(true);
-      const { data: trainingsData, error } = await supabase
+
+      const scrimsRes = await supabase
         .from("trainings")
-        .select(`*, training_registrations(count)`)
+        .select(`*, kind, training_registrations(count)`)
         .gte("datetime", new Date().toISOString())
         .order("datetime", { ascending: true });
 
-      if (error) throw error;
+      if (scrimsRes.error) throw scrimsRes.error;
 
-      const trainingsWithCount = (trainingsData || []).map((training) => ({
-        ...training,
-        registrations: training.training_registrations?.[0]?.count || 0,
+      const scrimsWithCount = (scrimsRes.data || []).map((s: any) => ({
+        ...s,
+        registrations: s.training_registrations?.[0]?.count || 0,
       }));
 
-      const enriched = await withOrganizerMeta(trainingsWithCount);
+      const enriched = await withOrganizerMeta(scrimsWithCount);
 
-      setTrainings(enriched || []);
-      setLiveTrainings(enriched?.filter((t) => t.is_live) || []);
+      setScrims(enriched || []);
+      setLiveScrims((enriched?.filter((t: any) => t.is_live) || []) as any[]);
     } catch (error) {
       console.error("Erro ao carregar scrims:", error);
     } finally {
@@ -93,8 +93,8 @@ const Scrims = () => {
     }
   };
 
-  const filterTrainings = () => {
-    let filtered = [...trainings];
+  const filterScrims = () => {
+    let filtered = [...scrims];
 
     // Date filter
     if (dateFilter !== "all") {
@@ -137,7 +137,9 @@ const Scrims = () => {
       filtered = filtered.filter((t) => t.platform === platformFilter);
     }
 
-    setFilteredTrainings(filtered);
+    filtered.sort((a, b) => String(a.datetime || "").localeCompare(String(b.datetime || "")));
+
+    setFilteredScrims(filtered);
   };
 
   const clearFilters = () => {
@@ -155,10 +157,10 @@ const Scrims = () => {
 
   const totals = useMemo(() => {
     return {
-      total: trainings.length,
-      live: liveTrainings.length,
+      total: scrims.length,
+      live: liveScrims.length,
     };
-  }, [trainings.length, liveTrainings.length]);
+  }, [scrims.length, liveScrims.length]);
 
   return (
     <MainLayout>
@@ -330,7 +332,7 @@ const Scrims = () => {
                     <SelectItem value="blood_strike">Blood Strike</SelectItem>
                     <SelectItem value="farlight_84">Farlight 84</SelectItem>
                     <SelectItem value="prime_rush">Prime Rush</SelectItem>
-                    <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
+                    <SelectItem value="pubg_mobile">PUBG Mobile</SelectItem>
                   </SelectContent>
                 </Select>
 
@@ -390,7 +392,7 @@ const Scrims = () => {
           </>
         ) : (
           <>
-            {liveTrainings.length > 0 && (
+            {liveScrims.length > 0 && (
               <section className="mb-10">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -402,14 +404,14 @@ const Scrims = () => {
                   <span className="text-sm text-muted-foreground">Atualizando em tempo real</span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {liveTrainings.map((training) => (
+                  {liveScrims.map((training) => (
                     <TrainingCard key={training.id} training={training} />
                   ))}
                 </div>
               </section>
             )}
 
-            {filteredTrainings.length === 0 ? (
+            {filteredScrims.length === 0 ? (
               <section className="text-center py-20">
                 <h3 className="text-xl font-semibold mb-2">Nenhuma scrim encontrada</h3>
                 <p className="text-muted-foreground mb-6">
@@ -429,14 +431,14 @@ const Scrims = () => {
                       Próximas scrims
                     </h2>
                     <p className="text-sm text-muted-foreground">
-                      {filteredTrainings.length} resultado{filteredTrainings.length !== 1 ? "s" : ""}
+                      {filteredScrims.length} resultado{filteredScrims.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredTrainings.map((training) => (
-                    <TrainingCard key={training.id} training={training} />
+                  {filteredScrims.map((scrim) => (
+                    <TrainingCard key={scrim.id} training={scrim} />
                   ))}
                 </div>
               </section>

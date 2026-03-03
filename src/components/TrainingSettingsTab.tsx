@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Loader2, Link as LinkIcon, Radio } from "lucide-react";
+import { Loader2, Link as LinkIcon, Radio, Sparkles } from "lucide-react";
 import { ExternalTeamDialog } from "@/components/ExternalTeamDialog";
 import { AddExistingExternalTeamDialog } from "@/components/AddExistingExternalTeamDialog";
 import { ScoreManagementDialog } from "@/components/ScoreManagementDialog";
@@ -20,7 +21,10 @@ import { InvitedTeamsManager } from "@/components/InvitedTeamsManager";
 import { TrainingColorEditor } from "@/components/TrainingColorEditor";
 import { BroadcastLinksDialog } from "@/components/BroadcastLinksDialog";
 import { ViewTeamsDialog } from "@/components/ViewTeamsDialog";
-
+import { TrainingRulesDialog } from "@/components/training/TrainingRulesDialog";
+import { ScrimGroupsDialog } from "@/components/scrims/ScrimGroupsDialog";
+import { ActionTile } from "@/components/ActionTile";
+import { hexToHslTriplet } from "@/lib/color";
 
 type TeamLite = { id: string; name: string; tag: string; logo_url: string | null };
 
@@ -50,6 +54,7 @@ export function TrainingSettingsTab({
   primaryColor,
   onUpdated,
 }: TrainingSettingsTabProps) {
+  const navigate = useNavigate();
   const [savingName, setSavingName] = useState(false);
   const [name, setName] = useState(training?.name || "");
 
@@ -164,6 +169,15 @@ export function TrainingSettingsTab({
     }
   };
 
+  const actionAccent = useMemo(() => {
+    const raw = String(training?.primary_color || primaryColor || "").trim();
+    return hexToHslTriplet(raw) || "";
+  }, [training?.primary_color, primaryColor]);
+
+  const actionAccent2 = useMemo(() => {
+    const raw = String(training?.secondary_color || "").trim();
+    return hexToHslTriplet(raw) || "";
+  }, [training?.secondary_color]);
 
   return (
     <div className="space-y-6">
@@ -338,44 +352,81 @@ export function TrainingSettingsTab({
         </div>
       </Card>
 
-      <Card className="p-6 bg-card/80 border-border">
+      <Card
+        className="p-6 bg-card/80 border-border"
+        style={
+          {
+            ...(actionAccent ? { "--event-accent": actionAccent } : {}),
+            ...(actionAccent2 ? { "--event-accent-2": actionAccent2 } : {}),
+          } as any
+        }
+      >
         <div>
           <h3 className="font-semibold">Ações</h3>
           <p className="text-xs text-muted-foreground">
-            Gerencie slots, convidados, pontuação e templates.
+            Toque em um card para abrir a ferramenta.
           </p>
         </div>
 
-        <Separator className="my-4" />
+        <Separator className="my-5" />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-          <BroadcastLinksDialog trainingId={trainingId} />
-          <ViewTeamsDialog trainingId={trainingId} />
-          <SlotReorderDialog trainingId={trainingId} onSlotsUpdated={onUpdated} />
-          <ExternalTeamDialog trainingId={trainingId} organizerId={userId} onTeamCreated={onUpdated} />
-          <AddExistingExternalTeamDialog trainingId={trainingId} organizerId={userId} onTeamAdded={onUpdated} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+          <BroadcastLinksDialog trainingId={trainingId} triggerVariant="tile" />
+          <ViewTeamsDialog trainingId={trainingId} triggerVariant="tile" />
+          <ScrimGroupsDialog
+            trainingId={trainingId}
+            canManage={true}
+            enabled={!!training?.use_groups}
+            registrations={registeredTeams as any}
+            onUpdated={onUpdated}
+            triggerVariant="tile"
+          />
+          <SlotReorderDialog trainingId={trainingId} onSlotsUpdated={onUpdated} triggerVariant="tile" />
+          <ExternalTeamDialog trainingId={trainingId} organizerId={userId} onTeamCreated={onUpdated} triggerVariant="tile" />
+          <AddExistingExternalTeamDialog trainingId={trainingId} organizerId={userId} onTeamAdded={onUpdated} triggerVariant="tile" />
+
+          <ActionTile
+            title="Gerar arte"
+            description="Crie a arte do ranking para postar ou compartilhar."
+            icon={Sparkles}
+            onClick={() => navigate(`/organizer/ranking-art/${trainingId}`)}
+          />
+
+          <TrainingRulesDialog
+            trainingId={trainingId}
+            currentRules={training?.rules ?? null}
+            primaryColor={primaryColor}
+            onSaved={onUpdated}
+            triggerVariant="tile"
+          />
+
           <ScoreManagementDialog
             trainingId={trainingId}
             teams={teamsForScore}
             pointsPerKill={training?.points_per_kill || 1}
             pointsPerPosition={Array.isArray(training?.points_per_position) ? training.points_per_position : []}
             onScoresUpdated={onUpdated}
+            triggerVariant="tile"
           />
+
           <ScoringConfigDialog
             trainingId={trainingId}
             currentPointsPerKill={training?.points_per_kill || 1}
             currentPointsPerPosition={Array.isArray(training?.points_per_position) ? training.points_per_position : []}
             onConfigUpdated={onUpdated}
+            triggerVariant="tile"
           />
-          <SaveTemplateDialog training={training} organizerId={userId} />
+
+          <SaveTemplateDialog training={training} organizerId={userId} triggerVariant="tile" />
         </div>
 
-        <div className="mt-4 flex justify-center">
+        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           <TrainingColorEditor
             trainingId={trainingId}
             currentPrimaryColor={training?.primary_color || "#9146FF"}
             currentSecondaryColor={training?.secondary_color || "#1F2937"}
             onColorsUpdated={onUpdated}
+            triggerVariant="tile"
           />
         </div>
       </Card>

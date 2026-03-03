@@ -227,7 +227,7 @@ export const UpcomingScrimWidget = () => {
             {/* CTA */}
             <Button
               className="w-full bg-primary hover:bg-primary/90"
-              onClick={() => navigate(`/training/${scrim.id}`)}
+              onClick={() => navigate(`/scrim/${scrim.id}`)}
             >
               Ver Detalhes
             </Button>

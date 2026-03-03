@@ -3,9 +3,12 @@ import type { RankTierId } from "@/lib/ranking";
 
 const VARIANTS: Record<RankTierId, { className: string; label: string }> = {
   bronze: { label: "Bronze", className: "bg-muted/40 border-border text-foreground" },
+  prata: { label: "Prata", className: "bg-muted/50 border-border text-foreground" },
   ouro: { label: "Ouro", className: "bg-primary/10 border-primary/25 text-primary" },
   platina: { label: "Platina", className: "bg-accent/10 border-accent/25 text-accent" },
   diamante: { label: "Diamante", className: "bg-primary/15 border-primary/35 text-foreground" },
+  ruby: { label: "Ruby", className: "bg-secondary/40 border-border text-foreground" },
+  esmeralda: { label: "Esmeralda", className: "bg-accent/15 border-accent/30 text-foreground" },
   triunfante: { label: "Triunfante", className: "bg-primary/20 border-primary/45 text-primary" },
 };
 

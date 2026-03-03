@@ -57,7 +57,7 @@ export function TriunfanteInfoDialog({
                   >
                     <span className="font-semibold">{t.label}</span>
                     <span className="tabular-nums text-muted-foreground">
-                      {t.id === "triunfante" ? "8.000+" : `${t.minPoints}+`} pts
+                      {t.id === "triunfante" ? "14.000+" : `${t.minPoints}+`} pts
                     </span>
                   </div>
                 ))}
@@ -67,7 +67,7 @@ export function TriunfanteInfoDialog({
             <div className="rounded-lg border border-border bg-card/40 p-4">
               <p className="font-semibold">Regra do Triunfante</p>
               <ul className="mt-2 list-disc pl-5 text-muted-foreground space-y-1">
-                <li>Ter <strong>8.000+</strong> pontos na season</li>
+                <li>Ter <strong>14.000+</strong> pontos na season</li>
                 <li>
                   Ficar no <strong>Top {cutoffPos}</strong> (Top 3% ou Top 100 — o menor dos dois)
                 </li>
@@ -92,19 +92,22 @@ export function TriunfanteInfoDialog({
               <p className="font-semibold">Como ganha pontos</p>
               <ul className="mt-2 list-disc pl-5 text-muted-foreground space-y-1">
                 <li>
-                  <strong>+5</strong> por participação
+                  <strong>+25</strong> por participação
                 </li>
                 <li>
-                  <strong>+2</strong> por abate
+                  <strong>+5</strong> por abate
                 </li>
                 <li>
-                  <strong>+30</strong> por vitória
+                  <strong>+60</strong> por vitória (Top 1)
                 </li>
                 <li>
-                  <strong>+20</strong> para Top 3
+                  <strong>+20</strong> para Top 2-3
                 </li>
                 <li>
-                  <strong>+10</strong> para Top 5
+                  <strong>+10</strong> para Top 4-5
+                </li>
+                <li>
+                  Abaixo do Top 5: perde <strong>2 pts</strong> por posição (cap em <strong>-10</strong>)
                 </li>
               </ul>
             </div>

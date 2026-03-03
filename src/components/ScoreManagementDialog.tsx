@@ -11,8 +11,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Trophy } from "lucide-react";
+import { ActionTile } from "@/components/ActionTile";
 import type { Match, MatchScore, PlayerStat, PositionPoint, Round, Team } from "./score-management/types";
 import { ScoreRoundsSection } from "./score-management/ScoreRoundsSection";
 import { ScoreMatchesSection } from "./score-management/ScoreMatchesSection";
@@ -24,6 +28,7 @@ interface ScoreManagementDialogProps {
   pointsPerKill: number;
   pointsPerPosition: PositionPoint[];
   onScoresUpdated: () => void;
+  triggerVariant?: "button" | "tile";
 }
 
 export function ScoreManagementDialog({
@@ -32,6 +37,7 @@ export function ScoreManagementDialog({
   pointsPerKill,
   pointsPerPosition,
   onScoresUpdated,
+  triggerVariant = "button",
 }: ScoreManagementDialogProps) {
   const [open, setOpen] = useState(false);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -42,6 +48,12 @@ export function ScoreManagementDialog({
   const [playerStatsByTeam, setPlayerStatsByTeam] = useState<Record<string, PlayerStat[]>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [trainingGame, setTrainingGame] = useState<string | null>(null);
+
+  // Grupos do scrim (para filtrar por rodada)
+  const [scrimGroups, setScrimGroups] = useState<Array<{ id: string; name: string }>>([]);
+  const [scrimGroupTeams, setScrimGroupTeams] = useState<Array<{ group_id: string; team_id: string }>>([]);
+
   const [modalError, setModalError] = useState<
     | null
     | {
@@ -77,9 +89,80 @@ export function ScoreManagementDialog({
   useEffect(() => {
     if (open) {
       setModalError(null);
+      void fetchTrainingGame();
+      void fetchGroups();
       fetchRounds();
     }
   }, [open, trainingId]);
+
+  const fetchTrainingGame = async () => {
+    try {
+      const { data, error } = await supabase.from("trainings").select("game").eq("id", trainingId).maybeSingle();
+      if (error) throw error;
+      setTrainingGame((data as any)?.game ?? null);
+    } catch (e) {
+      console.warn("Falha ao carregar training.game", e);
+      setTrainingGame(null);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const gRes = await supabase
+        .from("scrim_groups")
+        .select("id,name")
+        .eq("training_id", trainingId)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+
+      if (gRes.error) throw gRes.error;
+
+      const nextGroups = (gRes.data || []).map((g: any) => ({ id: String(g.id), name: String(g.name) }));
+      setScrimGroups(nextGroups);
+
+      const groupIds = nextGroups.map((g) => g.id);
+      if (groupIds.length === 0) {
+        setScrimGroupTeams([]);
+        return;
+      }
+
+      const gtRes = await supabase
+        .from("scrim_group_teams")
+        .select("group_id,team_id")
+        .in("group_id", groupIds);
+
+      if (gtRes.error) throw gtRes.error;
+
+      setScrimGroupTeams(
+        (gtRes.data || []).map((r: any) => ({ group_id: String(r.group_id), team_id: String(r.team_id) }))
+      );
+    } catch (e) {
+      // não bloqueia o modal (pode ser RLS ou scrim sem grupos)
+      setScrimGroups([]);
+      setScrimGroupTeams([]);
+    }
+  };
+
+  const isAutoScoreSupported = useMemo(() => {
+    const g = String(trainingGame ?? "").trim().toLowerCase();
+    if (!g) return false;
+    return (
+      g === "free_fire" ||
+      g === "free fire" ||
+      (g.includes("free") && g.includes("fire")) ||
+      g === "blood_strike" ||
+      (g.includes("blood") && g.includes("strike"))
+    );
+  }, [trainingGame]);
+
+  const normalizeTag = (tag: string) =>
+    String(tag)
+      .trim()
+      .replace(/^\[|\]$/g, "")
+      .replace(/^\(|\)$/g, "")
+      .replace(/\s+/g, "")
+      .toUpperCase();
+
 
   const reportError = (
     title: string,
@@ -617,8 +700,30 @@ export function ScoreManagementDialog({
     }
 
     // Validations
+    // Caso especial: se não houver nenhuma equipe, vamos apenas limpar a pontuação da queda
+    // em vez de bloquear o salvamento. Isso resolve o cenário em que o organizador remove
+    // todas as equipes e espera que a remoção seja persistida.
     if (scores.length === 0) {
-      toast.error("Adicione pelo menos 1 equipe antes de salvar");
+      setSaving(true);
+      try {
+        await supabase
+          .from("training_match_scores")
+          .delete()
+          .eq("match_id", selectedMatch);
+
+        await (supabase as any)
+          .from("training_player_stats")
+          .delete()
+          .eq("match_id", selectedMatch);
+
+        toast.success("Pontuação limpa para esta queda!");
+        onScoresUpdated();
+      } catch (error) {
+        console.error("Erro ao limpar pontuação:", error);
+        toast.error("Erro ao limpar pontuação");
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 
@@ -771,12 +876,28 @@ export function ScoreManagementDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
-          <Trophy className="w-4 h-4" />
-          Gerenciar Pontuação
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Pontuação (Quedas)"
+            description="Crie rodadas/quedas, lance kills/colocação e use IA quando disponível."
+            icon={Trophy}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="w-full justify-center gap-2">
+            <Trophy className="w-4 h-4" />
+            Gerenciar Pontuação
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-4xl h-[90vh] p-4 sm:p-6">
+      <DialogContent
+        className="max-w-[calc(100vw-1rem)] sm:max-w-4xl h-[90vh] p-4 sm:p-6"
+        // Este dialog abre sub‑dialogs (Auto‑Placar / Vincular TAG / Select) em portal.
+        // Sem isso, o Radix pode interpretar a interação no portal como "outside" e fechar o modal,
+        // resetando o estado e voltando para o início.
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="w-5 h-5 text-primary" />
@@ -818,6 +939,111 @@ export function ScoreManagementDialog({
               onDeleteRound={deleteRound}
             />
 
+            {/* Filtro de grupos por rodada */}
+            <Card className="p-4 bg-card/60 border-border">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <p className="font-semibold">Grupos desta rodada</p>
+                  <p className="text-xs text-muted-foreground">
+                    Selecione quais grupos vão jogar esta rodada (vazio = todos os times).
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-3">
+                {(() => {
+                  const round = rounds.find((r) => r.id === effectiveRoundId);
+                  const raw = round?.allowed_group_ids ?? null;
+
+                  // Semântica:
+                  // - NULL => todos os times
+                  // - array com 1+ ids => somente times desses grupos
+                  const isAllTeams = raw == null;
+                  const selected = Array.isArray(raw) ? raw : [];
+
+                  const persist = async (next: string[] | null) => {
+                    if (!effectiveRoundId) return;
+
+                    setRounds((prev) =>
+                      prev.map((r) => (r.id === effectiveRoundId ? { ...r, allowed_group_ids: next } : r))
+                    );
+
+                    const { error } = await supabase
+                      .from("training_rounds")
+                      .update({ allowed_group_ids: next })
+                      .eq("id", effectiveRoundId);
+
+                    if (error) toast.error("Não foi possível salvar o filtro de grupos");
+                  };
+
+                  return (
+                    <>
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="round-groups-all"
+                          checked={isAllTeams}
+                          onCheckedChange={async (v) => {
+                            if (!effectiveRoundId) return;
+
+                            // checked=true => todos (null)
+                            if (v) {
+                              await persist(null);
+                              return;
+                            }
+
+                            // checked=false => habilita seleção (inicializa com 1 grupo)
+                            const first = scrimGroups[0]?.id;
+                            await persist(first ? [first] : []);
+                          }}
+                        />
+                        <Label htmlFor="round-groups-all">Todos os times</Label>
+                      </div>
+
+                      {scrimGroups.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          Nenhum grupo criado ainda (ou você não tem permissão para ver grupos).
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {scrimGroups.map((g) => {
+                            const checked = selected.includes(g.id);
+                            const disabled = isAllTeams;
+
+                            return (
+                              <div
+                                key={g.id}
+                                className="flex items-center gap-2 rounded-lg border border-border bg-background/40 p-2"
+                              >
+                                <Checkbox
+                                  id={`round-group-${g.id}`}
+                                  checked={disabled ? false : checked}
+                                  disabled={disabled}
+                                  onCheckedChange={async (v) => {
+                                    if (!effectiveRoundId) return;
+
+                                    const base = Array.isArray(raw) ? raw : [];
+                                    const next = v
+                                      ? Array.from(new Set([...base, g.id]))
+                                      : base.filter((id) => id !== g.id);
+
+                                    // Se o usuário desmarcar tudo, volta para "Todos".
+                                    await persist(next.length === 0 ? null : next);
+                                  }}
+                                />
+                                <Label htmlFor={`round-group-${g.id}`} className="truncate">
+                                  {g.name}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </Card>
+
             <Separator />
 
             <ScoreMatchesSection
@@ -840,7 +1066,23 @@ export function ScoreManagementDialog({
             <Separator />
 
             <ScoreEntrySection
-              teams={teams}
+              trainingId={trainingId}
+              teams={(() => {
+                const round = rounds.find((r) => r.id === effectiveRoundId);
+                const allowed = round?.allowed_group_ids ?? null;
+                const allowedList = Array.isArray(allowed) ? allowed : [];
+
+                // NULL ou [] => todos
+                if (!Array.isArray(allowed) || allowedList.length === 0) return teams;
+
+                const eligibleTeamIds = new Set(
+                  scrimGroupTeams
+                    .filter((gt) => allowedList.includes(String(gt.group_id)))
+                    .map((gt) => String(gt.team_id))
+                );
+
+                return teams.filter((t) => eligibleTeamIds.has(String(t.id)));
+              })()}
               selectedMatchId={selectedMatch}
               pointsPerKill={pointsPerKill}
               positionPointsMap={positionPointsMap}
@@ -856,6 +1098,11 @@ export function ScoreManagementDialog({
               onToggleMvp={toggleMvp}
               saving={saving}
               onSave={saveScores}
+              autoScoreEnabled={isAutoScoreSupported}
+              onScoreboardProcessed={() => {
+                if (!selectedMatch) return;
+                void fetchScores(selectedMatch);
+              }}
             />
 
             {loading && (

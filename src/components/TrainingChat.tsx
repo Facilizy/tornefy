@@ -59,7 +59,7 @@ export const TrainingChat = ({
   useEffect(() => {
     fetchMessages();
     getCurrentUser();
-    
+
     // Subscribe to new messages
     const channel = supabase
       .channel(`training-messages-${trainingId}`)
@@ -86,7 +86,7 @@ export const TrainingChat = ({
           filter: `training_id=eq.${trainingId}`
         },
         (payload) => {
-          setMessages(prev => prev.map(msg => 
+          setMessages(prev => prev.map(msg =>
             msg.id === payload.new.id ? payload.new as Message : msg
           ));
         }
@@ -192,7 +192,7 @@ export const TrainingChat = ({
     try {
       setLoading(true);
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const { error } = await supabase
         .from("training_messages")
         .insert([{
@@ -202,7 +202,7 @@ export const TrainingChat = ({
         }]);
 
       if (error) throw error;
-      
+
       setNewMessage("");
       // After sending, always go to the bottom
       setIsAtBottom(true);
@@ -265,7 +265,7 @@ export const TrainingChat = ({
         .eq("id", messageId);
 
       if (error) throw error;
-      
+
       setEditingId(null);
       setEditText("");
       toast.success("Mensagem editada!");
@@ -287,7 +287,7 @@ export const TrainingChat = ({
         .eq("id", messageId);
 
       if (error) throw error;
-      
+
       toast.success("Mensagem deletada!");
     } catch (error: any) {
       toast.error("Erro ao deletar mensagem");
@@ -319,7 +319,7 @@ export const TrainingChat = ({
           {chatDisabledReason || "Chat indisponível no momento."}
         </div>
       )}
-      
+
       <div className="relative h-64 mb-3">
         {newBelowCount > 0 && !isAtBottom && (
           <div className="absolute inset-x-0 top-2 z-10 flex justify-center">
@@ -338,112 +338,112 @@ export const TrainingChat = ({
         )}
 
         <div className="h-full overflow-y-auto" ref={scrollRef} onScroll={handleScroll}>
-        <div className="space-y-3">
-           {loading ? (
-             <div className="flex items-center justify-center py-10">
-               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
-             </div>
-           ) : messages.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Nenhuma mensagem ainda
-            </p>
-          ) : (
-             messages.map((msg, idx) => {
-               const key = msg.id ?? `${msg.sender_id}-${idx}`;
-               const sender = getSenderDisplay(msg.sender_id);
-               const isEditing = !!editingId && !!msg.id && editingId === msg.id;
-               return (
-               <div key={key} className="bg-background/50 p-3 rounded-lg">
-                 <div className="flex items-center justify-between gap-3 mb-2">
-                   <div className="flex items-center gap-2 min-w-0">
-                   <Avatar className="h-7 w-7">
-                     <AvatarImage src={sender.avatar || undefined} alt={sender.name || "Organizador"} />
-                      <AvatarFallback>
-                        <DefaultAvatarMark className="h-4 w-4 text-muted-foreground" title="Avatar padrão" />
-                      </AvatarFallback>
-                   </Avatar>
-                   <div className="min-w-0">
-                     <p className="text-sm font-medium leading-none truncate">{sender.name}</p>
-                     <p className="text-xs text-muted-foreground truncate">
-                       enviado por {sender.username ? `@${sender.username}` : "@organizador"}
-                     </p>
-                   </div>
-                   </div>
-                   <Badge variant="secondary" className="text-[10px] h-5">Organizador</Badge>
-                 </div>
-
-                 {isEditing ? (
-                  <div className="space-y-2">
-                    <Textarea
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      className="resize-none text-sm"
-                      rows={2}
-                    />
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        onClick={() => handleEditMessage(msg.id)}
-                        className="text-xs"
-                      >
-                        Salvar
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setEditingId(null);
-                          setEditText("");
-                        }}
-                        className="text-xs"
-                      >
-                        Cancelar
-                      </Button>
+          <div className="space-y-3">
+            {loading ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                Nenhuma mensagem ainda
+              </p>
+            ) : (
+              messages.map((msg, idx) => {
+                const key = msg.id ?? `${msg.sender_id}-${idx}`;
+                const sender = getSenderDisplay(msg.sender_id);
+                const isEditing = !!editingId && !!msg.id && editingId === msg.id;
+                return (
+                  <div key={key} className="bg-background/50 p-3 rounded-lg">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={sender.avatar || undefined} alt={sender.name || "Organizador"} />
+                          <AvatarFallback>
+                            <DefaultAvatarMark className="h-4 w-4 text-muted-foreground" title="Avatar padrão" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-none truncate">{sender.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            enviado por {sender.username ? `@${sender.username}` : "@organizador"}
+                          </p>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] h-5">Organizador</Badge>
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-xs text-muted-foreground">
-                        {msg.created_at
-                          ? format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
-                          : ""}
-                      </p>
-                      {chatEnabled && isOrganizer && currentUserId === msg.sender_id && (
-                        <div className="flex gap-1">
+
+                    {isEditing ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                          className="resize-none text-sm"
+                          rows={2}
+                        />
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => startEditing(msg)}
-                            className="h-6 px-2 text-xs"
+                            onClick={() => handleEditMessage(msg.id)}
+                            className="text-xs"
                           >
-                            <Edit className="w-3 h-3 mr-1" />
-                            Editar
+                            Salvar
                           </Button>
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => handleDeleteMessage(msg.id)}
-                            className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                            variant="outline"
+                            onClick={() => {
+                              setEditingId(null);
+                              setEditText("");
+                            }}
+                            className="text-xs"
                           >
-                            <Trash2 className="w-3 h-3 mr-1" />
-                            Deletar
+                            Cancelar
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-             );
-             })
-          )}
-        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.message}</p>
+                        <div className="flex items-center justify-between mt-1">
+                          <p className="text-xs text-muted-foreground">
+                            {msg.created_at
+                              ? format(new Date(msg.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })
+                              : ""}
+                          </p>
+                          {chatEnabled && isOrganizer && currentUserId === msg.sender_id && (
+                            <div className="flex gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => startEditing(msg)}
+                                className="h-6 px-2 text-xs"
+                              >
+                                <Edit className="w-3 h-3 mr-1" />
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteMessage(msg.id)}
+                                className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                              >
+                                <Trash2 className="w-3 h-3 mr-1" />
+                                Deletar
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         </div>
       </div>
 
-      {isOrganizer && (
+      {isOrganizer ? (
         <div className="space-y-2">
           <Textarea
             placeholder="Digite sua mensagem para as equipes confirmadas..."
@@ -466,6 +466,11 @@ export const TrainingChat = ({
             )}
             Enviar Mensagem
           </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 p-3 rounded-lg border border-border/50 bg-muted/30 text-sm text-muted-foreground">
+          <span className="text-base">🔒</span>
+          <span>Apenas o organizador pode enviar mensagens neste canal.</span>
         </div>
       )}
     </Card>

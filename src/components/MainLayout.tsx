@@ -8,8 +8,30 @@ import { UpcomingScrimWidget } from "@/components/UpcomingScrimWidget";
 import { Button } from "@/components/ui/button";
 import { OrganizerBadge } from "@/components/OrganizerBadge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Menu, X, User, LogOut, Settings, Users, Home as HomeIcon, Gamepad2, Award, ChevronDown, Mail, HelpCircle, Bell } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Menu,
+  X,
+  User,
+  LogOut,
+  Settings,
+  Users,
+  Home as HomeIcon,
+  Gamepad2,
+  Award,
+  ChevronDown,
+  Mail,
+  HelpCircle,
+  Bell,
+  Search,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useI18n } from "@/i18n";
@@ -24,29 +46,22 @@ interface MainLayoutProps {
 const MainLayout = ({
   children,
   showFooter = true,
-  showUpcomingScrimWidget = true
+  showUpcomingScrimWidget = true,
 }: MainLayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    t
-  } = useI18n();
+  const { t } = useI18n();
   const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [mainTeam, setMainTeam] = useState<any>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const {
-    role,
-    isOrganizerVerified
-  } = useUserRole(user?.id);
-  const {
-    verified: isUserVerified
-  } = useVerifiedEntity("user", user?.id);
+  const { role, isOrganizerVerified } = useUserRole(user?.id);
+  const { verified: isUserVerified } = useVerifiedEntity("user", user?.id);
+
   useEffect(() => {
     checkUser();
     const {
-      data: {
-        subscription
-      }
+      data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         setUser(session.user);
@@ -54,26 +69,83 @@ const MainLayout = ({
       } else {
         setUser(null);
         setProfile(null);
+        setMainTeam(null);
       }
     });
     return () => subscription.unsubscribe();
   }, []);
+
   const checkUser = async () => {
     const {
-      data: {
-        session
-      }
+      data: { session },
     } = await supabase.auth.getSession();
     if (session?.user) {
       setUser(session.user);
       fetchProfile(session.user.id);
     }
   };
+
+  const fetchMainTeam = async (userId: string) => {
+    try {
+      // 1) If user owns a team, treat it as the main team and ensure membership exists.
+      const { data: ownedTeam, error: ownedErr } = await supabase
+        .from("teams")
+        .select("id, name, tag")
+        .eq("owner_id", userId)
+        .maybeSingle();
+
+      if (ownedErr && ownedErr.code !== "PGRST116") throw ownedErr;
+
+      if (ownedTeam?.id) {
+        // Best-effort: guarantee leaders are real players (team_members row).
+        try {
+          const { data: existing } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("team_id", ownedTeam.id)
+            .eq("user_id", userId)
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            await supabase.from("team_members").insert({
+              team_id: ownedTeam.id,
+              user_id: userId,
+              player_name: null,
+              function: "CAPITÃO",
+              game_id: null,
+              line_id: null,
+              discord: null,
+            } as any);
+          }
+        } catch {
+          // best-effort
+        }
+
+        setMainTeam(ownedTeam);
+        return;
+      }
+
+      // 2) Otherwise, main team = oldest membership
+      const { data, error } = await (supabase as any)
+        .from("team_members")
+        .select("created_at, teams(id, name, tag)")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (error) throw error;
+
+      const row = (data || [])?.[0];
+      setMainTeam(row?.teams?.id ? row.teams : null);
+    } catch {
+      setMainTeam(null);
+    }
+  };
+
   const fetchProfile = async (userId: string) => {
-    const {
-      data
-    } = await supabase.from("profiles").select("*").eq("id", userId).single();
+    const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
     setProfile(data);
+    void fetchMainTeam(userId);
 
     // Force onboarding for OAuth users without username
     if (data && (!data.username || String(data.username).trim().length < 3) && !location.pathname.startsWith("/auth")) {
@@ -183,23 +255,77 @@ const MainLayout = ({
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuLabel>Minha Conta</DropdownMenuLabel>
+                    <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Minha conta
+                    </DropdownMenuLabel>
                     <DropdownMenuItem onClick={() => navigate('/profile')}>
                       <User className="w-4 h-4 mr-2" />
                       Ver Perfil
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate('/my-team')}>
-                      <Users className="w-4 h-4 mr-2" />
-                      Minha Equipe
+                    <DropdownMenuItem onClick={() => navigate('/profile/edit')}>
+                      <Settings className="w-4 h-4 mr-2" />
+                      Configurações
                     </DropdownMenuItem>
-                    {(role === 'organizer' || role === 'admin') && <DropdownMenuItem onClick={() => navigate('/organizer')}>
-                        <Settings className="w-4 h-4 mr-2" />
-                        Painel Organizador
-                      </DropdownMenuItem>}
-                    {role === 'admin' && <DropdownMenuItem onClick={() => navigate('/admin')}>
-                        <Settings className="w-4 h-4 mr-2" />
-                        Admin
-                      </DropdownMenuItem>}
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Meu time
+                    </DropdownMenuLabel>
+
+                    {mainTeam?.id ? (
+                      <>
+                        <DropdownMenuItem onClick={() => navigate(`/team/${mainTeam.id}`)}>
+                          <Users className="w-4 h-4 mr-2" />
+                          {mainTeam?.name || mainTeam?.tag || "Meu time"}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate("/my-team")}>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Gerenciar time
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => navigate("/equipes")}>
+                          <Search className="w-4 h-4 mr-2" />
+                          Explorar Times
+                        </DropdownMenuItem>
+                      </>
+                    ) : (
+                      <DropdownMenuItem onClick={() => navigate("/equipes?recruiting=1")}>
+                        <Search className="w-4 h-4 mr-2" />
+                        Buscar Time
+                      </DropdownMenuItem>
+                    )}
+
+                    {(role === 'organizer' || role === 'admin') && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground">
+                          Competições
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem onClick={() => navigate('/organizer')}>
+                          <Gamepad2 className="w-4 h-4 mr-2" />
+                          Meus Scrims
+                        </DropdownMenuItem>
+                      </>
+                    )}
+
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-xs uppercase tracking-widest text-muted-foreground">
+                      Central
+                    </DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => navigate('/notificacoes')}>
+                      <Bell className="w-4 h-4 mr-2" />
+                      Notificações
+                    </DropdownMenuItem>
+
+                    {role === 'admin' && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => navigate('/admin')}>
+                          <Settings className="w-4 h-4 mr-2" />
+                          Admin
+                        </DropdownMenuItem>
+                      </>
+                    )}
+
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleLogout} className="text-destructive">
                       <LogOut className="w-4 h-4 mr-2" />

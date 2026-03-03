@@ -87,13 +87,14 @@ const ExternalTeams = () => {
     if (roleLoading) return;
     
     if (user) {
-      if (role && role !== "organizer") {
+      // Allow admins to manage their own external teams too (useful for testing/support).
+      if (role && role !== "organizer" && role !== "admin") {
         toast.error("Acesso negado. Apenas organizadores podem acessar esta página.");
         navigate("/");
         return;
       }
       
-      if (role === "organizer") {
+      if (role === "organizer" || role === "admin") {
         fetchExternalTeams();
       }
     }

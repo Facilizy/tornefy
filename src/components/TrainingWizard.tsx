@@ -58,7 +58,7 @@ const GAMES = [
   { id: "blood_strike", name: "Blood Strike", logo: "/game-logos/blood-strike.png" },
   { id: "farlight_84", name: "Farlight 84", logo: "/game-logos/farlight-84.png" },
   { id: "prime_rush", name: "Prime Rush", logo: "/game-logos/prime-rush.png" },
-  { id: "battlefield_6", name: "Battlefield 6", logo: "/game-logos/battlefield-6.webp" },
+  { id: "pubg_mobile", name: "PUBG Mobile", logo: "/game-logos/pubg-mobile.png" },
 ];
 
 export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
@@ -144,7 +144,7 @@ export const TrainingWizard = ({ userId, onCreated }: TrainingWizardProps) => {
             | "blood_strike"
             | "farlight_84"
             | "prime_rush"
-            | "battlefield_6",
+            | "pubg_mobile",
           mode: form.mode,
           platform: form.platform as "PC" | "Mobile" | "console" | "Misto",
           datetime: form.datetime,

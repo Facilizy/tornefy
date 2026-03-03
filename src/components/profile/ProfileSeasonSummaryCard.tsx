@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RankPill } from "@/components/ranking/RankPill";
 import { GAME_LABELS, getRankTier, type GameId } from "@/lib/ranking";
 import { Award, ArrowRight } from "lucide-react";
+import { RankInsignia } from "@/components/ranking/RankInsignia";
 
 type SeasonRow = { id: string; name: string; start_at: string; end_at: string | null };
 
@@ -103,7 +104,7 @@ export function ProfileSeasonSummaryCard({
   const showSkeleton = loading;
 
   return (
-    <Card className="p-6 bg-card/50 border-border backdrop-blur">
+    <Card className="relative overflow-hidden p-6 bg-card/50 border-border backdrop-blur">
       <div className="flex items-center justify-between gap-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
@@ -149,14 +150,12 @@ export function ProfileSeasonSummaryCard({
                 <p className="text-[11px] text-muted-foreground">Pontos</p>
                 <p className="text-2xl font-black tabular-nums text-primary">{points}</p>
               </div>
-              <div className="col-span-2 rounded-lg border border-border bg-card/40 p-3 flex items-center justify-between">
+              <div className="col-span-2 rounded-lg border border-border bg-card/40 p-3 flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[11px] text-muted-foreground">Patente</p>
                   <p className="text-lg font-black uppercase tracking-tight">{tier.label}</p>
                 </div>
-                <div className="h-12 w-24 rounded-lg border border-border bg-background/40 flex items-center justify-center text-xs text-muted-foreground">
-                  Logo
-                </div>
+                <RankInsignia tierId={tier.id} label={tier.label} size="lg" />
               </div>
             </div>
           )}

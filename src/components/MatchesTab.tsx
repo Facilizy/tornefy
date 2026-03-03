@@ -13,6 +13,7 @@ interface Team {
   name: string;
   tag: string;
   logo_url?: string;
+  is_external?: boolean;
 }
 
 interface PositionPoint {
@@ -74,6 +75,7 @@ export function MatchesTab({
   const [selectedRound, setSelectedRound] = useState<string>("");
   const [selectedMatch, setSelectedMatch] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     fetchRounds();
@@ -92,7 +94,10 @@ export function MatchesTab({
   }, [selectedMatch]);
 
   const fetchRounds = async () => {
-    setLoading(true);
+    const isInitialLoad = rounds.length === 0;
+    if (isInitialLoad) setLoading(true);
+    else setRefreshing(true);
+
     const { data, error } = await supabase
       .from("training_rounds")
       .select("*")
@@ -100,12 +105,22 @@ export function MatchesTab({
       .order("round_number");
 
     if (!error && data) {
-      setRounds(data);
-      if (data.length > 0) {
-        setSelectedRound(data[0].id);
+      // Defensive: ignore invalid rows (id null) so the UI doesn't get stuck blank after refetch.
+      const valid = (data as any[]).filter((r) => !!r?.id);
+      setRounds(valid as any);
+
+      if (valid.length === 0) {
+        // If backend briefly returns empty during a refetch, don't wipe the UI; just clear selection.
+        setSelectedRound("");
+        setSelectedMatch("");
+      } else {
+        // Preserve user selection when possible (avoid jumping back to the 1st round after save)
+        setSelectedRound((prev) => (valid.some((r) => r.id === prev) ? prev : valid[0].id));
       }
     }
-    setLoading(false);
+
+    if (isInitialLoad) setLoading(false);
+    setRefreshing(false);
   };
 
   const fetchMatches = async (roundId: string) => {
@@ -116,12 +131,15 @@ export function MatchesTab({
       .order("match_number");
 
     if (!error && data) {
-      setMatches(data);
-      if (data.length > 0) {
-        setSelectedMatch(data[0].id);
-      } else {
+      const valid = (data as any[]).filter((m) => !!m?.id);
+      setMatches(valid as any);
+
+      if (valid.length === 0) {
         setSelectedMatch("");
         setScores([]);
+      } else {
+        // Preserve selected match when possible
+        setSelectedMatch((prev) => (valid.some((m) => m.id === prev) ? prev : valid[0].id));
       }
     }
   };
@@ -196,7 +214,14 @@ export function MatchesTab({
   return (
     <Card className="p-6 bg-card/80 border-border">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <h2 className="text-xl font-bold" style={{ color: primaryColor }}>Partidas</h2>
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold" style={{ color: primaryColor }}>
+            Partidas
+          </h2>
+          {refreshing && (
+            <span className="text-xs text-muted-foreground">Atualizando…</span>
+          )}
+        </div>
         {isOrganizer && (
           <ScoreManagementDialog
             trainingId={trainingId}
@@ -214,9 +239,9 @@ export function MatchesTab({
       {tableImageUrl && (
         <div className="mb-6">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
-              <Trophy className="w-4 h-4" style={{ color: primaryColor }} />
-              Tabela de Resultados
-            </h3>
+            <Trophy className="w-4 h-4" style={{ color: primaryColor }} />
+            Tabela de Resultados
+          </h3>
           <img
             src={tableImageUrl}
             alt="Tabela de resultados"
@@ -304,29 +329,26 @@ export function MatchesTab({
 
               <div className="space-y-2">
                 {scores.map((score) => {
-                  const team = getTeamById(score.team_id);
-                  if (!team) return null;
+                  const team = getTeamById(score.team_id) || { id: score.team_id, name: "Equipe Desconhecida", tag: "???" };
 
                   return (
                     <div
                       key={`${selectedMatch}:${score.team_id}:${score.position}`}
-                      className={`flex items-center gap-4 p-3 rounded-lg border ${
-                        score.position <= 3
-                          ? "bg-primary/10 border-primary/30"
-                          : "bg-muted/30 border-border"
-                      }`}
+                      className={`flex items-center gap-4 p-3 rounded-lg border ${score.position <= 3
+                        ? "bg-primary/10 border-primary/30"
+                        : "bg-muted/30 border-border"
+                        }`}
                     >
                       {/* Position */}
                       <div
-                        className={`w-10 h-10 flex items-center justify-center rounded-full font-bold text-lg ${
-                          score.position === 1
-                            ? "bg-yellow-500/20 text-yellow-500"
-                            : score.position === 2
+                        className={`w-10 h-10 flex items-center justify-center rounded-full font-bold text-lg ${score.position === 1
+                          ? "bg-yellow-500/20 text-yellow-500"
+                          : score.position === 2
                             ? "bg-gray-400/20 text-gray-400"
                             : score.position === 3
-                            ? "bg-orange-500/20 text-orange-500"
-                            : "bg-muted text-muted-foreground"
-                        }`}
+                              ? "bg-orange-500/20 text-orange-500"
+                              : "bg-muted text-muted-foreground"
+                          }`}
                       >
                         {score.position}º
                       </div>
@@ -348,10 +370,17 @@ export function MatchesTab({
                           </div>
                         )}
                         <div className="min-w-0">
-                          <p className="font-semibold text-sm uppercase truncate">
-                            {team.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground uppercase">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-semibold text-sm uppercase truncate">
+                              {team.name}
+                            </p>
+                            {team.is_external && (
+                              <Badge variant="secondary" className="text-[8px] h-3 px-1 bg-muted/20 text-muted-foreground border-border/40">
+                                CONVIDADA
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground uppercase leading-none mt-0.5">
                             [{team.tag}]
                           </p>
                         </div>

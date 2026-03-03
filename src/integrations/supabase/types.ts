@@ -160,6 +160,33 @@ export type Database = {
         }
         Relationships: []
       }
+      discord_active_resources: {
+        Row: {
+          created_at: string | null
+          discord_id: string
+          id: string
+          resource_type: string
+          team_id: string | null
+          training_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          discord_id: string
+          id?: string
+          resource_type: string
+          team_id?: string | null
+          training_id: string
+        }
+        Update: {
+          created_at?: string | null
+          discord_id?: string
+          id?: string
+          resource_type?: string
+          team_id?: string | null
+          training_id?: string
+        }
+        Relationships: []
+      }
       educational_popups: {
         Row: {
           active: boolean
@@ -202,6 +229,99 @@ export type Database = {
           svg_markup?: string | null
           title?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      faq_items: {
+        Row: {
+          active: boolean
+          answer: string
+          audience: string
+          created_at: string
+          id: string
+          keywords: string[]
+          language: string
+          question: string
+          slug: string
+          sort_order: number
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          answer: string
+          audience?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          language?: string
+          question: string
+          slug: string
+          sort_order?: number
+          topic?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          answer?: string
+          audience?: string
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          language?: string
+          question?: string
+          slug?: string
+          sort_order?: number
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      faq_videos: {
+        Row: {
+          active: boolean
+          audience: string
+          created_at: string
+          description: string
+          duration_seconds: number
+          id: string
+          language: string
+          slug: string
+          sort_order: number
+          title: string
+          topic: string
+          updated_at: string
+          youtube_id: string
+        }
+        Insert: {
+          active?: boolean
+          audience?: string
+          created_at?: string
+          description?: string
+          duration_seconds?: number
+          id?: string
+          language?: string
+          slug: string
+          sort_order?: number
+          title: string
+          topic?: string
+          updated_at?: string
+          youtube_id: string
+        }
+        Update: {
+          active?: boolean
+          audience?: string
+          created_at?: string
+          description?: string
+          duration_seconds?: number
+          id?: string
+          language?: string
+          slug?: string
+          sort_order?: number
+          title?: string
+          topic?: string
+          updated_at?: string
+          youtube_id?: string
         }
         Relationships: []
       }
@@ -316,6 +436,92 @@ export type Database = {
         }
         Relationships: []
       }
+      organizer_plan_memberships: {
+        Row: {
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          organizer_id: string
+          plan_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end: string
+          current_period_start?: string
+          id?: string
+          organizer_id: string
+          plan_id: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          organizer_id?: string
+          plan_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizer_plan_memberships_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizer_subscription_plans: {
+        Row: {
+          active: boolean
+          benefits_text: string | null
+          created_at: string
+          description: string | null
+          id: string
+          max_subscribers: number | null
+          monthly_fee_coins: number
+          name: string
+          organizer_id: string
+          period_days: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          benefits_text?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_subscribers?: number | null
+          monthly_fee_coins?: number
+          name: string
+          organizer_id: string
+          period_days?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          benefits_text?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          max_subscribers?: number | null
+          monthly_fee_coins?: number
+          name?: string
+          organizer_id?: string
+          period_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       player_card_frames: {
         Row: {
           accent_hsl: string | null
@@ -352,6 +558,36 @@ export type Database = {
           rarity?: string
           slug?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      player_game_accounts: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          in_game_id: string | null
+          in_game_nick: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          in_game_id?: string | null
+          in_game_nick: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          in_game_id?: string | null
+          in_game_nick?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -594,6 +830,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ranking_art_templates: {
+        Row: {
+          created_at: string
+          document: Json
+          format: string
+          id: string
+          name: string
+          owner_id: string
+          training_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document: Json
+          format: string
+          id?: string
+          name: string
+          owner_id: string
+          training_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document?: Json
+          format?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          training_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ranking_seasons: {
         Row: {
           created_at: string
@@ -617,6 +886,80 @@ export type Database = {
           start_at?: string
         }
         Relationships: []
+      }
+      scrim_group_teams: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          seed: number | null
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          seed?: number | null
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          seed?: number | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrim_group_teams_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "scrim_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scrim_group_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scrim_groups: {
+        Row: {
+          created_at: string
+          id: string
+          locked: boolean
+          name: string
+          sort_order: number
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          locked?: boolean
+          name: string
+          sort_order?: number
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          locked?: boolean
+          name?: string
+          sort_order?: number
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scrim_groups_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       team_badges: {
         Row: {
@@ -911,6 +1254,553 @@ export type Database = {
         }
         Relationships: []
       }
+      tornecoin_accounts: {
+        Row: {
+          balance_available: number
+          balance_frozen: number
+          balance_pending: number
+          created_at: string
+          id: string
+          owner_id: string
+          owner_type: Database["public"]["Enums"]["tornecoin_owner_type"]
+          updated_at: string
+        }
+        Insert: {
+          balance_available?: number
+          balance_frozen?: number
+          balance_pending?: number
+          created_at?: string
+          id?: string
+          owner_id: string
+          owner_type: Database["public"]["Enums"]["tornecoin_owner_type"]
+          updated_at?: string
+        }
+        Update: {
+          balance_available?: number
+          balance_frozen?: number
+          balance_pending?: number
+          created_at?: string
+          id?: string
+          owner_id?: string
+          owner_type?: Database["public"]["Enums"]["tornecoin_owner_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tornecoin_anticipation_requests: {
+        Row: {
+          account_id: string | null
+          admin_notes: string | null
+          amount_coins: number
+          created_at: string
+          id: string
+          organizer_id: string
+          processed_at: string | null
+          reason: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          account_id?: string | null
+          admin_notes?: string | null
+          amount_coins: number
+          created_at?: string
+          id?: string
+          organizer_id: string
+          processed_at?: string | null
+          reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string | null
+          admin_notes?: string | null
+          amount_coins?: number
+          created_at?: string
+          id?: string
+          organizer_id?: string
+          processed_at?: string | null
+          reason?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tornecoin_stripe_topups: {
+        Row: {
+          amount_coins: number
+          created_at: string
+          currency: string
+          id: string
+          stripe_session_id: string
+          user_id: string
+        }
+        Insert: {
+          amount_coins: number
+          created_at?: string
+          currency?: string
+          id?: string
+          stripe_session_id: string
+          user_id: string
+        }
+        Update: {
+          amount_coins?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          stripe_session_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tornecoin_transactions: {
+        Row: {
+          amount: number
+          available_at: string | null
+          created_at: string
+          from_account_id: string | null
+          id: string
+          is_anticipation: boolean
+          meta: Json | null
+          reference_id: string | null
+          reference_type: string | null
+          service_fee: number
+          status: Database["public"]["Enums"]["tornecoin_tx_status"]
+          to_account_id: string | null
+          type: Database["public"]["Enums"]["tornecoin_tx_type"]
+        }
+        Insert: {
+          amount: number
+          available_at?: string | null
+          created_at?: string
+          from_account_id?: string | null
+          id?: string
+          is_anticipation?: boolean
+          meta?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          service_fee?: number
+          status?: Database["public"]["Enums"]["tornecoin_tx_status"]
+          to_account_id?: string | null
+          type: Database["public"]["Enums"]["tornecoin_tx_type"]
+        }
+        Update: {
+          amount?: number
+          available_at?: string | null
+          created_at?: string
+          from_account_id?: string | null
+          id?: string
+          is_anticipation?: boolean
+          meta?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          service_fee?: number
+          status?: Database["public"]["Enums"]["tornecoin_tx_status"]
+          to_account_id?: string | null
+          type?: Database["public"]["Enums"]["tornecoin_tx_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tornecoin_transactions_from_account_id_fkey"
+            columns: ["from_account_id"]
+            isOneToOne: false
+            referencedRelation: "tornecoin_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tornecoin_transactions_to_account_id_fkey"
+            columns: ["to_account_id"]
+            isOneToOne: false
+            referencedRelation: "tornecoin_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tornecoin_withdrawal_requests: {
+        Row: {
+          account_id: string | null
+          admin_notes: string | null
+          amount_coins: number
+          created_at: string
+          fee_coins: number
+          id: string
+          net_coins: number
+          pix_key: string
+          pix_key_type: string
+          processed_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          admin_notes?: string | null
+          amount_coins: number
+          created_at?: string
+          fee_coins?: number
+          id?: string
+          net_coins: number
+          pix_key: string
+          pix_key_type?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          admin_notes?: string | null
+          amount_coins?: number
+          created_at?: string
+          fee_coins?: number
+          id?: string
+          net_coins?: number
+          pix_key?: string
+          pix_key_type?: string
+          processed_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      tournament_event_logs: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          team_id: string | null
+          team_name: string
+          team_tag: string
+          tournament_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          team_id?: string | null
+          team_name?: string
+          team_tag?: string
+          tournament_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          team_id?: string | null
+          team_name?: string
+          team_tag?: string
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_event_logs_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_event_logs_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_group_teams: {
+        Row: {
+          created_at: string
+          group_id: string
+          id: string
+          seed: number | null
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          group_id: string
+          id?: string
+          seed?: number | null
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          group_id?: string
+          id?: string
+          seed?: number | null
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_group_teams_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "tournament_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_group_teams_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_groups: {
+        Row: {
+          created_at: string
+          id: string
+          locked: boolean
+          name: string
+          sort_order: number
+          tournament_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          locked?: boolean
+          name: string
+          sort_order?: number
+          tournament_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          locked?: boolean
+          name?: string
+          sort_order?: number
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_groups_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_registrations: {
+        Row: {
+          created_at: string
+          id: string
+          paid_amount_coins: number
+          status: string
+          team_id: string
+          tournament_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          paid_amount_coins?: number
+          status?: string
+          team_id: string
+          tournament_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          paid_amount_coins?: number
+          status?: string
+          team_id?: string
+          tournament_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_registrations_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_registrations_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournament_team_scores: {
+        Row: {
+          created_at: string
+          id: string
+          kills: number
+          points: number
+          team_id: string
+          tournament_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kills?: number
+          points?: number
+          team_id: string
+          tournament_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kills?: number
+          points?: number
+          team_id?: string
+          tournament_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tournament_team_scores_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tournament_team_scores_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tournaments: {
+        Row: {
+          banner_url: string | null
+          created_at: string
+          datetime: string | null
+          entry_fee_coins: number
+          game: string | null
+          id: string
+          important_info: string | null
+          invited_tags: Json | null
+          is_private: boolean
+          mode: string | null
+          name: string
+          organizer_id: string
+          platform: string | null
+          rules: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string
+          datetime?: string | null
+          entry_fee_coins?: number
+          game?: string | null
+          id?: string
+          important_info?: string | null
+          invited_tags?: Json | null
+          is_private?: boolean
+          mode?: string | null
+          name: string
+          organizer_id: string
+          platform?: string | null
+          rules?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string
+          datetime?: string | null
+          entry_fee_coins?: number
+          game?: string | null
+          id?: string
+          important_info?: string | null
+          invited_tags?: Json | null
+          is_private?: boolean
+          mode?: string | null
+          name?: string
+          organizer_id?: string
+          platform?: string | null
+          rules?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      training_allowed_plans: {
+        Row: {
+          created_at: string
+          plan_id: string
+          training_id: string
+        }
+        Insert: {
+          created_at?: string
+          plan_id: string
+          training_id: string
+        }
+        Update: {
+          created_at?: string
+          plan_id?: string
+          training_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_allowed_plans_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_subscription_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_allowed_plans_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_answers: {
+        Row: {
+          answer: string
+          author_id: string
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          question_id: string
+          updated_at: string
+        }
+        Insert: {
+          answer: string
+          author_id: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          question_id: string
+          updated_at?: string
+        }
+        Update: {
+          answer?: string
+          author_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          question_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "training_questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_checkins: {
         Row: {
           checked_in_at: string
@@ -938,7 +1828,7 @@ export type Database = {
       training_event_logs: {
         Row: {
           action: string | null
-          created_at: string | null
+          created_at: string
           id: string | null
           team_id: string | null
           team_name: string | null
@@ -947,7 +1837,7 @@ export type Database = {
         }
         Insert: {
           action?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string | null
           team_id?: string | null
           team_name?: string | null
@@ -956,7 +1846,7 @@ export type Database = {
         }
         Update: {
           action?: string | null
-          created_at?: string | null
+          created_at?: string
           id?: string | null
           team_id?: string | null
           team_name?: string | null
@@ -1136,10 +2026,52 @@ export type Database = {
           },
         ]
       }
+      training_questions: {
+        Row: {
+          author_id: string
+          created_at: string
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          question: string
+          training_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          question: string
+          training_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          deleted_by?: string | null
+          id?: string
+          question?: string
+          training_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_questions_training_id_fkey"
+            columns: ["training_id"]
+            isOneToOne: false
+            referencedRelation: "trainings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_registrations: {
         Row: {
           id: string
           line_id: string | null
+          paid_amount_coins: number
           registered_at: string
           slot_number: number | null
           team_id: string
@@ -1148,6 +2080,7 @@ export type Database = {
         Insert: {
           id?: string
           line_id?: string | null
+          paid_amount_coins?: number
           registered_at?: string
           slot_number?: number | null
           team_id: string
@@ -1156,6 +2089,7 @@ export type Database = {
         Update: {
           id?: string
           line_id?: string | null
+          paid_amount_coins?: number
           registered_at?: string
           slot_number?: number | null
           team_id?: string
@@ -1185,8 +2119,71 @@ export type Database = {
           },
         ]
       }
+      training_round_slots: {
+        Row: {
+          created_at: string
+          id: string
+          round_id: string
+          slot_number: number
+          team_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          round_id: string
+          slot_number: number
+          team_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          round_id?: string
+          slot_number?: number
+          team_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_round_slots_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_round_tag_links: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          round_id: string
+          tag: string
+          team_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          round_id: string
+          tag: string
+          team_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          round_id?: string
+          tag?: string
+          team_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       training_rounds: {
         Row: {
+          allowed_group_ids: string[] | null
           created_at: string
           id: string
           name: string | null
@@ -1194,6 +2191,7 @@ export type Database = {
           training_id: string | null
         }
         Insert: {
+          allowed_group_ids?: string[] | null
           created_at?: string
           id?: string
           name?: string | null
@@ -1201,6 +2199,7 @@ export type Database = {
           training_id?: string | null
         }
         Update: {
+          allowed_group_ids?: string[] | null
           created_at?: string
           id?: string
           name?: string | null
@@ -1328,12 +2327,14 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           discord_link: string | null
+          entry_fee_coins: number
           game: string | null
           id: string
           important_info: string | null
           invited_tags: Json | null
           is_live: boolean | null
           is_private: boolean | null
+          kind: string
           live_link: string | null
           max_slots: number | null
           mode: string | null
@@ -1345,12 +2346,16 @@ export type Database = {
           points_per_position_text: string | null
           primary_color: string | null
           prize: string | null
+          prize_coins: number
+          required_plan_id: string | null
           rounds: number | null
           rules: string | null
           secondary_color: string | null
           status: string | null
+          subscription_access_mode: string
           table_image_url: string | null
           updated_at: string | null
+          use_groups: boolean
           whatsapp_link: string | null
         }
         Insert: {
@@ -1360,12 +2365,14 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           discord_link?: string | null
+          entry_fee_coins?: number
           game?: string | null
           id: string
           important_info?: string | null
           invited_tags?: Json | null
           is_live?: boolean | null
           is_private?: boolean | null
+          kind?: string
           live_link?: string | null
           max_slots?: number | null
           mode?: string | null
@@ -1377,12 +2384,16 @@ export type Database = {
           points_per_position_text?: string | null
           primary_color?: string | null
           prize?: string | null
+          prize_coins?: number
+          required_plan_id?: string | null
           rounds?: number | null
           rules?: string | null
           secondary_color?: string | null
           status?: string | null
+          subscription_access_mode?: string
           table_image_url?: string | null
           updated_at?: string | null
+          use_groups?: boolean
           whatsapp_link?: string | null
         }
         Update: {
@@ -1392,12 +2403,14 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           discord_link?: string | null
+          entry_fee_coins?: number
           game?: string | null
           id?: string
           important_info?: string | null
           invited_tags?: Json | null
           is_live?: boolean | null
           is_private?: boolean | null
+          kind?: string
           live_link?: string | null
           max_slots?: number | null
           mode?: string | null
@@ -1409,15 +2422,27 @@ export type Database = {
           points_per_position_text?: string | null
           primary_color?: string | null
           prize?: string | null
+          prize_coins?: number
+          required_plan_id?: string | null
           rounds?: number | null
           rules?: string | null
           secondary_color?: string | null
           status?: string | null
+          subscription_access_mode?: string
           table_image_url?: string | null
           updated_at?: string | null
+          use_groups?: boolean
           whatsapp_link?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "trainings_required_plan_id_fkey"
+            columns: ["required_plan_id"]
+            isOneToOne: false
+            referencedRelation: "organizer_subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tutorial_video_progress: {
         Row: {
@@ -1732,7 +2757,25 @@ export type Database = {
       }
     }
     Functions: {
+      _insert_training_event_log:
+        | {
+            Args: { _action: Json; _team_id?: string; _training_id: string }
+            Returns: undefined
+          }
+        | {
+            Args: { _action: Json; _team_id: string; _training_id: string }
+            Returns: undefined
+          }
       accept_team_invite: { Args: { _invite_id: string }; Returns: Json }
+      admin_finance_summary: {
+        Args: never
+        Returns: {
+          fees: number
+          gross: number
+          net: number
+          pending: number
+        }[]
+      }
       apply_rank_adjustment: {
         Args: { _adjustment_id: string }
         Returns: undefined
@@ -1741,10 +2784,45 @@ export type Database = {
         Args: { _match_id: string }
         Returns: undefined
       }
+      can_moderate_training_qa: {
+        Args: { _training_id: string }
+        Returns: boolean
+      }
       claim_waitlist_slot: {
         Args: { _line_id?: string; _team_id: string; _training_id: string }
         Returns: Json
       }
+      force_player_role: { Args: never; Returns: undefined }
+      get_my_plan_membership: {
+        Args: { _plan_id: string }
+        Returns: {
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          organizer_id: string
+          plan_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizer_plan_memberships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_my_training_access: {
+        Args: { _training_id: string }
+        Returns: {
+          allowed_plans: Json
+          eligible: boolean
+          matched_plan_id: string
+          mode: string
+        }[]
+      }
+      get_or_create_team_frame: { Args: { _team_id: string }; Returns: string }
       get_organizer_follow_count: {
         Args: { _organizer_id: string }
         Returns: number
@@ -1761,6 +2839,7 @@ export type Database = {
           verified: boolean
         }[]
       }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_entity_verified: {
         Args: {
           _entity_id: string
@@ -1774,8 +2853,98 @@ export type Database = {
         Args: { _team_id: string; _user_id: string }
         Returns: boolean
       }
+      is_training_organizer: {
+        Args: { _training_id: string }
+        Returns: boolean
+      }
+      register_team_for_scrim: {
+        Args: { _team_id: string; _training_id: string }
+        Returns: {
+          id: string
+          line_id: string | null
+          paid_amount_coins: number
+          registered_at: string
+          slot_number: number | null
+          team_id: string
+          training_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "training_registrations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      register_team_for_tournament: {
+        Args: { _team_id: string; _tournament_id: string }
+        Returns: Json
+      }
+      subscribe_to_plan: {
+        Args: { _plan_id: string }
+        Returns: {
+          created_at: string
+          current_period_end: string
+          current_period_start: string
+          id: string
+          organizer_id: string
+          plan_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "organizer_plan_memberships"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      tornecoin_credit_user: {
+        Args: {
+          _amount: number
+          _meta?: Json
+          _reference_id?: string
+          _reference_type?: string
+          _user_id: string
+        }
+        Returns: string
+      }
+      tornecoin_get_or_create_account: {
+        Args: {
+          _owner_id: string
+          _owner_type: Database["public"]["Enums"]["tornecoin_owner_type"]
+        }
+        Returns: string
+      }
+      tornecoin_transfer_available: {
+        Args: {
+          _amount: number
+          _from_account_id: string
+          _meta?: Json
+          _reference_id?: string
+          _reference_type?: string
+          _to_account_id: string
+          _type: Database["public"]["Enums"]["tornecoin_tx_type"]
+        }
+        Returns: string
+      }
     }
     Enums: {
+      tornecoin_owner_type:
+        | "user"
+        | "organizer"
+        | "tournament_escrow"
+        | "platform"
+        | "training_escrow"
+      tornecoin_tx_status: "posted" | "cancelled"
+      tornecoin_tx_type:
+        | "deposit"
+        | "entry_fee"
+        | "refund"
+        | "release"
+        | "anticipation"
+        | "withdrawal"
+        | "fee"
       verified_entity_type: "user" | "team"
     }
     CompositeTypes: {
@@ -1904,6 +3073,23 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      tornecoin_owner_type: [
+        "user",
+        "organizer",
+        "tournament_escrow",
+        "platform",
+        "training_escrow",
+      ],
+      tornecoin_tx_status: ["posted", "cancelled"],
+      tornecoin_tx_type: [
+        "deposit",
+        "entry_fee",
+        "refund",
+        "release",
+        "anticipation",
+        "withdrawal",
+        "fee",
+      ],
       verified_entity_type: ["user", "team"],
     },
   },

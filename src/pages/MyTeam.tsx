@@ -54,6 +54,9 @@ const MyTeam = () => {
   const [profile, setProfile] = useState<any>(null);
   const [team, setTeam] = useState<any>(null);
   const [members, setMembers] = useState<any[]>([]);
+  const [memberProfilesByUserId, setMemberProfilesByUserId] = useState<Map<string, any>>(
+    () => new Map()
+  );
   const [upcomingTrainings, setUpcomingTrainings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -208,6 +211,30 @@ const MyTeam = () => {
       }
 
       // Owner team case
+      // Auto-corrigir times antigos: garante que o dono esteja listado como membro.
+      try {
+        const { data: existing } = await supabase
+          .from("team_members")
+          .select("id")
+          .eq("team_id", ownedTeam.id)
+          .eq("user_id", user.id)
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          await supabase.from("team_members").insert({
+            team_id: ownedTeam.id,
+            user_id: user.id,
+            player_name: null,
+            function: "CAPITÃO",
+            game_id: null,
+            line_id: null,
+            discord: null,
+          } as any);
+        }
+      } catch {
+        // best-effort
+      }
+
       setTeam(ownedTeam);
       const integratedGames = Array.isArray((ownedTeam as any).integrated_games)
         ? ((ownedTeam as any).integrated_games as any[]).filter((g) => typeof g === "string")
@@ -273,6 +300,27 @@ const MyTeam = () => {
           if (!error) m.id = newId;
         })
       );
+    }
+
+    // Enrich internal members with profile info (so owner shows name/avatar).
+    try {
+      const userIds = Array.from(
+        new Set(rows.map((m) => String(m.user_id || "")).filter((x) => x && x !== "null"))
+      );
+      if (userIds.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("id, username, full_name, avatar_url")
+          .in("id", userIds);
+
+        const map = new Map<string, any>();
+        (profs || []).forEach((p: any) => map.set(String(p.id), p));
+        setMemberProfilesByUserId(map);
+      } else {
+        setMemberProfilesByUserId(new Map());
+      }
+    } catch {
+      setMemberProfilesByUserId(new Map());
     }
 
     setMembers(rows);
@@ -463,6 +511,32 @@ const MyTeam = () => {
 
         if (error) throw error;
         setTeam(data);
+
+        // Ensure owner exists as a team member (so menus & registrations can resolve mainTeam).
+        try {
+          const { data: existing } = await supabase
+            .from("team_members")
+            .select("id")
+            .eq("team_id", data.id)
+            .eq("user_id", user.id)
+            .limit(1);
+
+          if (!existing || existing.length === 0) {
+            await supabase.from("team_members").insert({
+              team_id: data.id,
+              user_id: user.id,
+              // Player name is optional for internal users; keep null and let game accounts handle nick.
+              player_name: null,
+              function: "CAPITÃO",
+              game_id: null,
+              line_id: null,
+              discord: null,
+            } as any);
+          }
+        } catch {
+          // best-effort
+        }
+
         toast.success("Equipe criada!");
       }
 
@@ -771,7 +845,7 @@ const MyTeam = () => {
                       { id: "blood_strike", label: "Blood Strike" },
                       { id: "farlight_84", label: "Farlight 84" },
                       { id: "prime_rush", label: "Prime Rush" },
-                      { id: "battlefield_6", label: "Battlefield 6" },
+                      { id: "pubg_mobile", label: "PUBG Mobile" },
                     ].map((g) => (
                       <label
                         key={g.id}
@@ -1259,27 +1333,36 @@ const MyTeam = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {members.map((member, index) => (
-                    <Card
-                      key={member.id}
-                      className="p-4 bg-background/50 flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
-                          {(member.player_name || "??").substring(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold">{member.player_name}</span>
-                            {index === 0 && <Crown className="w-4 h-4 text-primary" />}
+                  {members.map((member, index) => {
+                    const prof = member?.user_id ? memberProfilesByUserId.get(String(member.user_id)) : null;
+                    const displayName =
+                      String(member?.player_name || "").trim() ||
+                      String(prof?.username || "").trim() ||
+                      String(prof?.full_name || "").trim() ||
+                      "Jogador";
+                    const initials = displayName.substring(0, 2).toUpperCase();
+
+                    return (
+                      <Card
+                        key={member.id}
+                        className="p-4 bg-background/50 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center text-sm font-bold">
+                            {initials}
                           </div>
-                          <p className="text-xs text-muted-foreground">{member.function}</p>
-                          {member.team_lines?.name && (
-                            <p className="text-xs text-primary mt-1">Line: {member.team_lines.name}</p>
-                          )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-semibold">{displayName}</span>
+                              {index === 0 && <Crown className="w-4 h-4 text-primary" />}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{member.function}</p>
+                            {member.team_lines?.name && (
+                              <p className="text-xs text-primary mt-1">Line: {member.team_lines.name}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
+                        <div className="flex gap-2">
                         <Button size="sm" variant="ghost" onClick={() => openEditMember(member)}>
                           <Edit className="w-4 h-4" />
                         </Button>
@@ -1290,10 +1373,11 @@ const MyTeam = () => {
                           className="hover:text-destructive"
                         >
                           <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </Card>
-                  ))}
+                         </Button>
+                       </div>
+                     </Card>
+                     );
+                   })}
                 </div>
               )}
             </Card>
@@ -1315,7 +1399,7 @@ const MyTeam = () => {
                       <Card
                         key={reg.id}
                         className="p-4 bg-background/50 cursor-pointer hover:border-primary/50 transition-colors"
-                        onClick={() => navigate(`/training/${reg.trainings.id}`)}
+                        onClick={() => navigate(`/scrim/${reg.trainings.id}`)}
                       >
                         <h4 className="font-semibold line-clamp-1">{reg.trainings.name}</h4>
                         <p className="text-sm text-muted-foreground">
@@ -1340,7 +1424,7 @@ const MyTeam = () => {
                       <Card
                         key={reg.id}
                         className="p-4 bg-background/50 cursor-pointer hover:border-primary/50 transition-colors"
-                        onClick={() => navigate(`/training/${reg.trainings.id}`)}
+                        onClick={() => navigate(`/scrim/${reg.trainings.id}`)}
                       >
                         <h4 className="font-semibold line-clamp-1">{reg.trainings.name}</h4>
                         <p className="text-sm text-muted-foreground">

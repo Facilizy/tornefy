@@ -48,6 +48,9 @@ All colors MUST be HSL.
     --status-live: 45 93% 52%;
     --status-done: 264 100% 64%;
 
+    /* Scrim tag/chip background (matches #282B31) */
+    --tag: 220 10% 17%;
+
     --border: 220 10% 18%; /* More visible borders */
     --input: 214 17% 8%;
     --ring: 264 100% 64%;

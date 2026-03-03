@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Play } from "lucide-react";
 import { GAMES } from "@/lib/games";
+import pubgMobileCover from "@/assets/game-covers/pubg-mobile-home.png";
 import {
   Carousel,
   CarouselContent,
@@ -24,8 +25,9 @@ function getCoverByGameId(gameId: string): string {
       return "/game-covers/farlight-84.webp";
     case "prime_rush":
       return "/game-covers/prime-rush.webp";
-    case "battlefield_6":
-      return "/game-covers/battlefield-6.webp";
+    case "pubg_mobile":
+      // Use bundled asset (hashed URL) to avoid stale PWA cache of /public files.
+      return pubgMobileCover;
     default:
       return "";
   }

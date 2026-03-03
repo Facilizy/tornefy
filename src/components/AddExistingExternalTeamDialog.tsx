@@ -10,6 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search, Loader2, UserPlus } from 'lucide-react';
+import { ActionTile } from "@/components/ActionTile";
 import { toast } from 'sonner';
 
 interface ExternalTeam {
@@ -23,12 +24,14 @@ interface AddExistingExternalTeamDialogProps {
   trainingId: string;
   organizerId: string;
   onTeamAdded: () => void;
+  triggerVariant?: "button" | "tile";
 }
 
 export function AddExistingExternalTeamDialog({
   trainingId,
   organizerId,
   onTeamAdded,
+  triggerVariant = "button",
 }: AddExistingExternalTeamDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -151,10 +154,18 @@ export function AddExistingExternalTeamDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
-          <UserPlus className="w-4 h-4" />
-          Buscar Equipe Externa
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Buscar equipe externa"
+            description="Inscreva um time convidado que já existe."
+            icon={UserPlus}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="w-full justify-center gap-2">
+            <UserPlus className="w-4 h-4" />
+            Buscar Equipe Externa
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-lg">
         <DialogHeader>

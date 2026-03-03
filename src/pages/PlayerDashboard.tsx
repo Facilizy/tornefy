@@ -207,7 +207,7 @@ const PlayerDashboard = () => {
                 <SelectItem value="blood_strike">Blood Strike</SelectItem>
                 <SelectItem value="farlight_84">Farlight 84</SelectItem>
                 <SelectItem value="prime_rush">Prime Rush</SelectItem>
-                <SelectItem value="battlefield_6">Battlefield 6</SelectItem>
+                <SelectItem value="pubg_mobile">PUBG Mobile</SelectItem>
               </SelectContent>
             </Select>
 

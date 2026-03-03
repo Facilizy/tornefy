@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Plus, Loader2 } from 'lucide-react';
+import { ActionTile } from "@/components/ActionTile";
 import { toast } from 'sonner';
 import {
   Select,
@@ -24,9 +25,10 @@ interface ExternalTeamDialogProps {
   trainingId: string;
   organizerId: string;
   onTeamCreated: () => void;
+  triggerVariant?: "button" | "tile";
 }
 
-export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: ExternalTeamDialogProps) {
+export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated, triggerVariant = "button" }: ExternalTeamDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [teamName, setTeamName] = useState('');
@@ -144,10 +146,18 @@ export function ExternalTeamDialog({ trainingId, organizerId, onTeamCreated }: E
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="w-full justify-center gap-2">
-          <Plus className="w-4 h-4" />
-          Adicionar Equipe Externa
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Equipe externa"
+            description="Crie e inscreva um time convidado manualmente."
+            icon={Plus}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="w-full justify-center gap-2">
+            <Plus className="w-4 h-4" />
+            Adicionar Equipe Externa
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>

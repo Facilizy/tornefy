@@ -21,15 +21,17 @@ const Home = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState<any>(null);
   const [userGames, setUserGames] = useState<string[]>([]);
-  const [trainings, setTrainings] = useState<any[]>([]);
-  const [liveTrainings, setLiveTrainings] = useState<any[]>([]);
-  const [filteredTrainings, setFilteredTrainings] = useState<any[]>([]);
+
+  const [scrims, setScrims] = useState<any[]>([]);
+  const [liveScrims, setLiveScrims] = useState<any[]>([]);
+  const [filteredScrims, setFilteredScrims] = useState<any[]>([]);
+
   const [gameFilter, setGameFilter] = useState<string>("all");
   const [calendarDateFilter, setCalendarDateFilter] = useState<Date | null>(null);
 
   useEffect(() => {
     checkUser();
-    fetchTrainings();
+    fetchScrims();
 
     setSeo({
       title: "Tornefy — Plataforma de Torneios Competitivos",
@@ -61,11 +63,14 @@ const Home = () => {
   }, []);
 
   useEffect(() => {
-    filterTrainings();
-  }, [trainings, gameFilter, userGames, calendarDateFilter]);
+    filterScrims();
+  }, [scrims, gameFilter, userGames, calendarDateFilter]);
 
   const checkUser = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
     if (session?.user) {
       setUser(session.user);
       // Fetch user's preferred games
@@ -74,7 +79,7 @@ const Home = () => {
         .select("preferred_games")
         .eq("id", session.user.id)
         .single();
-      
+
       if (profile?.preferred_games) {
         const pg: any = profile.preferred_games;
         const games: string[] = Array.isArray(pg)
@@ -94,32 +99,32 @@ const Home = () => {
     }
   };
 
-  const fetchTrainings = async () => {
+  const fetchScrims = async () => {
     try {
-      const { data: trainingsData, error } = await supabase
+      const scrimsRes = await supabase
         .from("trainings")
-        .select(`*, training_registrations(count)`)
+        .select(`*, kind, training_registrations(count)`)
         .gte("datetime", new Date().toISOString())
         .order("datetime", { ascending: true });
 
-      if (error) throw error;
+      if (scrimsRes.error) throw scrimsRes.error;
 
-      const trainingsWithCount = (trainingsData || []).map((training) => ({
-        ...training,
-        registrations: training.training_registrations?.[0]?.count || 0,
+      const scrimsWithCount = (scrimsRes.data || []).map((s: any) => ({
+        ...s,
+        registrations: s.training_registrations?.[0]?.count || 0,
       }));
 
-      const enriched = await withOrganizerMeta(trainingsWithCount);
+      const enriched = await withOrganizerMeta(scrimsWithCount);
 
-      setTrainings(enriched || []);
-      setLiveTrainings(enriched?.filter((t) => t.is_live) || []);
+      setScrims(enriched || []);
+      setLiveScrims((enriched?.filter((t: any) => t.is_live) || []) as any[]);
     } catch (error) {
-      console.error("Erro ao carregar treinos:", error);
+      console.error("Erro ao carregar scrims:", error);
     }
   };
 
-  const filterTrainings = () => {
-    let filtered = [...trainings];
+  const filterScrims = () => {
+    let filtered = [...scrims];
 
     if (calendarDateFilter) {
       filtered = filtered.filter((t) => {
@@ -129,18 +134,19 @@ const Home = () => {
     }
 
     if (gameFilter !== "all") {
-      filtered = filtered.filter((training) => training.game === gameFilter);
+      filtered = filtered.filter((t) => t.game === gameFilter);
     } else if (user && userGames.length > 0) {
       // Auto-filter by user's preferred games when logged in
       const preferredScrims = filtered.filter((t) => userGames.includes(t.game));
-      // If there are preferred scrims, show them first, otherwise show all
       if (preferredScrims.length > 0) {
         const otherScrims = filtered.filter((t) => !userGames.includes(t.game));
         filtered = [...preferredScrims, ...otherScrims];
       }
     }
 
-    setFilteredTrainings(filtered);
+    filtered.sort((a, b) => String(a.datetime || "").localeCompare(String(b.datetime || "")));
+
+    setFilteredScrims(filtered);
   };
 
   const calendarLabel = useMemo(() => {
@@ -159,7 +165,7 @@ const Home = () => {
 
   return (
     <MainLayout showFooter showUpcomingScrimWidget>
-      <HeroSection backgroundImageUrl={heroBg} onPrimaryCta={() => { scrollToScrims(); }} />
+      <HeroSection backgroundImageUrl={heroBg} onPrimaryCta={() => scrollToScrims()} />
 
       <GamesShowcase
         onSelectGame={(id) => {
@@ -170,27 +176,21 @@ const Home = () => {
 
       <NextLevelSection />
 
-      {/* Calendar + Próximos Treinos (logo abaixo) */}
       <section id="scrims" className="relative container mx-auto px-4 py-10">
         <WeekCalendar
-          trainings={trainings}
+          trainings={scrims}
           onSelectDate={(date) => {
             setCalendarDateFilter(date);
           }}
         />
 
-        {/* Calendar filter pill */}
         {calendarDateFilter && (
           <div className="mt-2 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-primary/20 bg-card/40 px-5 py-4">
             <div>
-              <p className="text-sm text-muted-foreground">Mostrando treinos do dia</p>
+              <p className="text-sm text-muted-foreground">Mostrando scrims do dia</p>
               <p className="text-lg font-extrabold text-foreground">{calendarLabel}</p>
             </div>
-            <Button
-              variant="outline"
-              onClick={() => setCalendarDateFilter(null)}
-              className="gap-2"
-            >
+            <Button variant="outline" onClick={() => setCalendarDateFilter(null)} className="gap-2">
               <X className="h-4 w-4" />
               Limpar data
             </Button>
@@ -199,9 +199,9 @@ const Home = () => {
 
         <div className="flex items-end justify-between gap-3 mb-6">
           <div>
-            <h2 className="text-3xl font-black tracking-tight">Próximos Treinos</h2>
+            <h2 className="text-3xl font-black tracking-tight">Próximas Scrims</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Garanta seu slot — confira os próximos horários.
+              Treinos e torneios — tudo no mesmo formato.
             </p>
           </div>
           <Button variant="outline" onClick={() => navigate("/scrims")}>
@@ -209,48 +209,40 @@ const Home = () => {
           </Button>
         </div>
 
-        {/* Live Trainings Section */}
-        {liveTrainings.length > 0 && (
+        {liveScrims.length > 0 && (
           <div className="mb-8">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-destructive text-2xl">●</span>
-              <h3 className="text-2xl font-bold text-primary">Treinos Ao Vivo</h3>
+              <h3 className="text-2xl font-bold text-primary">Ao Vivo</h3>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-              {liveTrainings.map((training) => (
+              {liveScrims.map((training) => (
                 <TrainingCard key={training.id} training={training} />
               ))}
             </div>
           </div>
         )}
 
-        {/* Trainings Grid */}
-        {filteredTrainings.length === 0 ? (
+        {filteredScrims.length === 0 ? (
           <div className="text-center py-16">
-            <p className="text-muted-foreground text-lg">
-              Nenhum treino encontrado
-            </p>
+            <p className="text-muted-foreground text-lg">Nenhuma scrim encontrada</p>
             {!calendarDateFilter && (
-              <Button variant="outline" className="mt-4" onClick={() => navigate("/scrims")}
-              >
+              <Button variant="outline" className="mt-4" onClick={() => navigate("/scrims")}>
                 Ver página de scrims
               </Button>
             )}
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-              {filteredTrainings.map((training) => (
-                <TrainingCard key={training.id} training={training} />
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
+            {filteredScrims.map((scrim) => (
+              <TrainingCard key={scrim.id} training={scrim} />
+            ))}
+          </div>
         )}
       </section>
 
       <FeedbackSection />
 
-      {/* Final (mais forte e com respiro) */}
       <section className="relative overflow-hidden">
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute left-1/2 top-0 h-40 w-[60rem] -translate-x-1/2 bg-primary/10 blur-3xl" />

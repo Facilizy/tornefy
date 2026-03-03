@@ -49,7 +49,8 @@ import {
   type PlayerTradingCardData,
   type PlayerCardFrame,
 } from "@/components/players/PlayerTradingCard";
-import type { GameId } from "@/lib/ranking";
+import { getRankTier, type GameId } from "@/lib/ranking";
+import { RankInsignia } from "@/components/ranking/RankInsignia";
 
 interface TeamMember {
   id: string;
@@ -107,6 +108,40 @@ const TeamProfile = () => {
   const memberUserIds = members
     .map((m) => m.user_id)
     .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+  const teamRankSummary = useMemo(() => {
+    if (!activeSeasonId) return null;
+
+    const games = Array.from(
+      new Set(
+        members
+          .map((m) => m.game_id)
+          .filter((g): g is string => typeof g === "string" && g.length > 0)
+      )
+    );
+
+    const gameId = (games[0] as GameId | undefined) || null;
+    if (!gameId) return null;
+
+    const rosterIds = memberUserIds;
+    if (rosterIds.length === 0) return null;
+
+    const sum = rosterIds.reduce((acc, uid) => {
+      const key = `${uid}::${gameId}`;
+      const pts = rankByUserAndGame.get(key)?.points ?? 0;
+      return acc + (Number.isFinite(pts) ? pts : 0);
+    }, 0);
+
+    const avgPoints = Math.round(sum / Math.max(1, rosterIds.length));
+    const tier = getRankTier({ points: avgPoints });
+
+    return {
+      gameId,
+      avgPoints,
+      tier,
+      playersCount: rosterIds.length,
+    };
+  }, [activeSeasonId, members, memberUserIds, rankByUserAndGame]);
 
   const linesWithMembers = useMemo(() => {
     const byLine = new Map<string, TeamMember[]>();
@@ -462,9 +497,31 @@ const TeamProfile = () => {
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">Resumo</p>
                 <p className="text-xl font-black uppercase tracking-tight">Performance</p>
               </div>
-              <div className="h-12 w-24 rounded-xl border border-border bg-background/40 flex items-center justify-center text-xs text-muted-foreground">
-                Patente
-              </div>
+
+              {teamRankSummary ? (
+                <div className="flex items-center gap-3 rounded-xl border border-border bg-background/40 px-3 py-2">
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                      Patente do time
+                    </p>
+                    <p className="text-xs font-black uppercase leading-tight">
+                      {teamRankSummary.tier.label}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Média • {teamRankSummary.playersCount} jogadores
+                    </p>
+                  </div>
+                  <RankInsignia
+                    tierId={teamRankSummary.tier.id}
+                    label={teamRankSummary.tier.label}
+                    size="sm"
+                  />
+                </div>
+              ) : (
+                <div className="h-12 w-24 rounded-xl border border-border bg-background/40 flex items-center justify-center text-xs text-muted-foreground">
+                  Patente
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-3 gap-2 text-center">
@@ -715,7 +772,7 @@ const TeamProfile = () => {
                 <Card
                   key={item.id}
                   className="p-4 bg-card/50 border-border hover:border-primary/30 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/training/${item.trainings.id}`)}
+                  onClick={() => navigate(`/scrim/${item.trainings.id}`)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
@@ -768,7 +825,7 @@ const TeamProfile = () => {
                 <Card
                   key={item.id}
                   className="p-4 bg-card/50 border-border hover:border-primary/30 transition-colors cursor-pointer"
-                  onClick={() => navigate(`/training/${item.trainings.id}`)}
+                  onClick={() => navigate(`/scrim/${item.trainings.id}`)}
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">

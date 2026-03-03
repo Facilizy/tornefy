@@ -12,6 +12,7 @@ import {
 } from "@/lib/ranking";
 import { RankPill } from "@/components/ranking/RankPill";
 import { TriunfanteInfoDialog } from "@/components/ranking/TriunfanteInfoDialog";
+import { RankInsignia } from "@/components/ranking/RankInsignia";
 
 type SeasonRow = { id: string; name: string; start_at: string; end_at: string | null };
 
@@ -130,7 +131,7 @@ export function SeasonRankCard({
   return (
     <Card
       className={
-        "p-6 bg-card/50 border-border " +
+        "relative overflow-hidden p-6 bg-card/50 border-border " +
         (highlight ? "border-primary/40 ring-1 ring-primary/15" : "")
       }
     >
@@ -139,7 +140,7 @@ export function SeasonRankCard({
           <p className="text-xs uppercase tracking-wide text-muted-foreground">
             {GAME_LABELS[gameId]} • {season?.name || "Season"}
           </p>
-          <div className="mt-1 flex items-center gap-2 flex-wrap">
+          <div className="mt-1 flex items-center gap-3 flex-wrap">
             {showSkeleton ? (
               <>
                 <Skeleton className="h-6 w-44" />
@@ -162,11 +163,14 @@ export function SeasonRankCard({
         {showSkeleton ? (
           <Skeleton className="h-9 w-36 rounded-md" />
         ) : (
-          <TriunfanteInfoDialog
-            totalPlayers={totalPlayers}
-            cutoffPoints={cutoffPoints}
-            triggerText="Regra Triunfante"
-          />
+          <div className="flex items-center gap-3">
+            <RankInsignia tierId={tier.id} label={tier.label} size="lg" />
+            <TriunfanteInfoDialog
+              totalPlayers={totalPlayers}
+              cutoffPoints={cutoffPoints}
+              triggerText="Regra Triunfante"
+            />
+          </div>
         )}
       </div>
 
@@ -223,7 +227,7 @@ export function SeasonRankCard({
         <Skeleton className="mt-4 h-4 w-3/4" />
       ) : (
         <p className="mt-4 text-xs text-muted-foreground">
-          Triunfante exige 8.000+ pontos e estar dentro do cutoff (Top 3% ou Top 100).
+          Triunfante exige 14.000+ pontos e estar dentro do cutoff (Top 3% ou Top 100).
         </p>
       )}
     </Card>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -8,10 +8,18 @@ import {
 } from "@/components/ui/dialog";
 import { FileText, Target, HelpCircle, ChevronRight, Skull, Trophy, AlertCircle, MessageCircle } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { hexToHslTriplet } from "@/lib/color";
 
 interface PointsPerPosition {
   position: number;
   points: number;
+}
+
+function normalizeLines(value: string): string[] {
+  return value
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
 }
 
 interface EventInfoSectionProps {
@@ -22,6 +30,9 @@ interface EventInfoSectionProps {
   discordLink?: string;
   whatsappLink?: string;
   primaryColor?: string;
+  entryFeeCoins?: number | null;
+  prizeCoins?: number | null;
+  prizeText?: string | null;
 }
 
 export const EventInfoSection = ({
@@ -32,8 +43,12 @@ export const EventInfoSection = ({
   discordLink,
   whatsappLink,
   primaryColor = "#9146FF",
+  entryFeeCoins,
+  prizeCoins,
+  prizeText,
 }: EventInfoSectionProps) => {
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [prizeOpen, setPrizeOpen] = useState(false);
   const [scoringOpen, setScoringOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
 
@@ -41,8 +56,8 @@ export const EventInfoSection = ({
   const positionPoints = useMemo(() => {
     const arr = pointsPerPosition && Array.isArray(pointsPerPosition)
       ? pointsPerPosition
-          .map((p) => ({ position: Number(p.position), points: Number(p.points) }))
-          .filter((p) => Number.isFinite(p.position) && Number.isFinite(p.points))
+        .map((p) => ({ position: Number(p.position), points: Number(p.points) }))
+        .filter((p) => Number.isFinite(p.position) && Number.isFinite(p.points))
       : [];
 
     if (arr.length > 0) return [...arr].sort((a, b) => a.position - b.position);
@@ -69,58 +84,71 @@ export const EventInfoSection = ({
   // Count rules lines for badge
   const rulesLineCount = rules ? rules.split('\n').filter(line => line.trim()).length : 0;
 
+  const accent = useMemo(() => {
+    try {
+      return primaryColor ? hexToHslTriplet(primaryColor) : null;
+    } catch {
+      return null;
+    }
+  }, [primaryColor]);
+
   return (
-    <>
-      {/* Button Group */}
-      <div className="flex flex-col w-full gap-3">
+    <div className="space-y-4">
+      {/* Botões de Ação em 3 Colunas */}
+      <div className="grid grid-cols-3 gap-2">
         <Button
           variant="outline"
-          className="gap-2 w-full bg-card/50 border-border hover:bg-muted/50 text-foreground hover:text-foreground justify-center"
           onClick={() => setRulesOpen(true)}
+          className="flex flex-col items-center justify-center p-2 h-auto aspect-square border-dashed hover:bg-muted/50 transition-all text-[11px] font-bold uppercase tracking-tight"
+          style={{ borderColor: `${primaryColor}40`, color: primaryColor }}
         >
-          <FileText className="w-4 h-4" />
+          <FileText className="w-5 h-5 mb-1.5 opacity-80" />
           Regras
-          {rulesLineCount > 0 && (
-            <span className="text-xs text-muted-foreground">({rulesLineCount})</span>
-          )}
         </Button>
-        
         <Button
           variant="outline"
-          className="gap-2 w-full bg-card/50 border-border hover:bg-muted/50 text-foreground hover:text-foreground justify-center"
           onClick={() => setScoringOpen(true)}
+          className="flex flex-col items-center justify-center p-2 h-auto aspect-square border-dashed hover:bg-muted/50 transition-all text-[11px] font-bold uppercase tracking-tight"
+          style={{ borderColor: `${primaryColor}40`, color: primaryColor }}
         >
-          <Target className="w-4 h-4" />
-          Pontuação
+          <Target className="w-5 h-5 mb-1.5 opacity-80" />
+          Pontos
         </Button>
-        
         <Button
           variant="outline"
-          className="gap-2 w-full bg-card/50 border-border hover:bg-muted/50 text-foreground hover:text-foreground justify-center"
           onClick={() => setHelpOpen(true)}
+          className="flex flex-col items-center justify-center p-2 h-auto aspect-square border-dashed hover:bg-muted/50 transition-all text-[11px] font-bold uppercase tracking-tight"
+          style={{ borderColor: `${primaryColor}40`, color: primaryColor }}
         >
-          <HelpCircle className="w-4 h-4" />
+          <HelpCircle className="w-5 h-5 mb-1.5 opacity-80" />
           Ajuda
         </Button>
       </div>
 
       {/* Rules Dialog */}
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
-        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto bg-background border-border">
+        <DialogContent
+          className="max-w-lg max-h-[80vh] overflow-y-auto bg-background border-border"
+          style={
+            {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ["--event-accent" as any]: accent || "var(--primary)",
+            } as CSSProperties
+          }
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 uppercase tracking-wide">
-              <FileText className="w-5 h-5" style={{ color: primaryColor }} />
+              <FileText className="w-5 h-5 text-[hsl(var(--event-accent))]" />
               Regras da Scrim
             </DialogTitle>
           </DialogHeader>
-          
-          <div 
-            className="p-3 rounded-lg text-sm mb-4"
-            style={{ backgroundColor: `${primaryColor}15`, border: `1px solid ${primaryColor}30` }}
+
+          <div
+            className="p-3 rounded-lg text-sm mb-4 border bg-[hsl(var(--event-accent)/0.08)] border-[hsl(var(--event-accent)/0.22)]"
           >
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4" style={{ color: primaryColor }} />
-              <span className="font-medium" style={{ color: primaryColor }}>
+              <AlertCircle className="w-4 h-4 text-[hsl(var(--event-accent))]" />
+              <span className="font-medium text-[hsl(var(--event-accent))]">
                 Leitura obrigatória antes do check-in
               </span>
             </div>
@@ -128,13 +156,79 @@ export const EventInfoSection = ({
 
           {rules ? (
             <div className="space-y-4 text-sm">
-              {parseRulesIntoSections(rules)}
+              {renderRulesCards(rules)}
             </div>
           ) : (
             <p className="text-muted-foreground text-sm italic">
               Nenhuma regra definida para este treino.
             </p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Prize Dialog */}
+      <Dialog open={prizeOpen} onOpenChange={setPrizeOpen}>
+        <DialogContent
+          className="max-w-lg max-h-[80vh] overflow-y-auto bg-background border-border"
+          style={
+            {
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ["--event-accent" as any]: accent || "var(--primary)",
+            } as CSSProperties
+          }
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 uppercase tracking-wide">
+              <Trophy className="w-5 h-5 text-[hsl(var(--event-accent))]" />
+              Premiação
+            </DialogTitle>
+          </DialogHeader>
+
+          {(() => {
+            const lines = normalizeLines(String(prizeText ?? "").trim());
+            const totalPrize = Math.max(0, Math.trunc(Number(prizeCoins ?? 0)));
+            const fee = Math.max(0, Math.trunc(Number(entryFeeCoins ?? 0)));
+
+            return (
+              <div className="space-y-4">
+                <div className="rounded-lg border border-border bg-card/50 p-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Entrada</span>
+                    <span className="font-semibold text-foreground">
+                      {fee > 0 ? `${fee.toLocaleString("pt-BR")} TC` : "Grátis"}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Premiação total</span>
+                    <span className="font-semibold text-foreground">
+                      {totalPrize > 0 ? `${totalPrize.toLocaleString("pt-BR")} TC` : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {lines.length > 0 ? (
+                  <ol className="space-y-2">
+                    {lines.map((text, idx) => (
+                      <li key={`${idx}-${text}`} className="flex items-start gap-3 rounded-xl border border-border bg-card/40 px-4 py-3">
+                        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-background/40 text-xs font-black text-muted-foreground">
+                          {idx + 1}
+                        </div>
+                        <p className="text-sm leading-relaxed font-medium text-foreground whitespace-pre-wrap">
+                          {text}
+                        </p>
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Nenhuma premiação detalhada cadastrada.</p>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  Dica: edite isso em Configurações → Premiação e Regras (uma linha por item).
+                </p>
+              </div>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
@@ -147,9 +241,9 @@ export const EventInfoSection = ({
               Como Funciona a Pontuação
             </DialogTitle>
           </DialogHeader>
-          
+
           {/* Scoring explanation */}
-          <div 
+          <div
             className="p-4 rounded-lg mb-4"
             style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` }}
           >
@@ -170,12 +264,12 @@ export const EventInfoSection = ({
               </h4>
               <div className="grid grid-cols-4 gap-2">
                 {positionPoints.map((item, index) => (
-                  <div 
+                  <div
                     key={item.position}
                     className="text-center py-2 px-1 rounded-lg border border-border bg-card/50"
                   >
                     <div className="text-xs text-muted-foreground">{item.position}º</div>
-                    <div 
+                    <div
                       className="font-bold text-sm"
                       style={{ color: index < 4 ? primaryColor : undefined }}
                     >
@@ -188,7 +282,7 @@ export const EventInfoSection = ({
           )}
 
           {/* Points per kill */}
-          <div 
+          <div
             className="p-4 rounded-lg mb-4"
             style={{ backgroundColor: `${primaryColor}10`, border: `1px solid ${primaryColor}30` }}
           >
@@ -240,7 +334,7 @@ export const EventInfoSection = ({
           </DialogHeader>
 
           <div className="text-sm text-muted-foreground mb-4">Ações Rápidas</div>
-          
+
           {discordLink && (
             <Button
               variant="outline"
@@ -304,67 +398,30 @@ export const EventInfoSection = ({
           </Accordion>
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   );
 };
 
-function parseRulesIntoSections(rules: string) {
-  const lines = rules.split('\n').filter(line => line.trim());
-  
-  // Simple fallback: show as bullet list if no structured numbering
-  const hasNumbering = lines.some(line => /^\d+\./.test(line.trim()));
-
-  if (!hasNumbering) {
-    return (
-      <ul className="list-disc list-inside space-y-1">
-        {lines.map((line, index) => (
-          <li key={index}>{line}</li>
-        ))}
-      </ul>
-    );
-  }
-
-  // Group by top-level rule numbers (1., 2., 3., ...)
-  const sections: { title: string; items: string[] }[] = [];
-  let currentSection: { title: string; items: string[] } | null = null;
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const match = trimmed.match(/^(\d+)\.(.*)$/);
-
-    if (match) {
-      // New section
-      if (currentSection) {
-        sections.push(currentSection);
-      }
-      currentSection = {
-        title: trimmed,
-        items: [],
-      };
-    } else if (currentSection) {
-      currentSection.items.push(trimmed);
-    }
-  }
-
-  if (currentSection) {
-    sections.push(currentSection);
-  }
+function renderRulesCards(rules: string) {
+  const items = rules
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^\d+\s*[\.)-]\s*/, ""));
 
   return (
     <div className="space-y-3">
-      {sections.map((section, index) => (
-        <div key={index} className="border border-border rounded-lg p-3 bg-card/50">
-          <div className="flex items-start gap-2 mb-1">
-            <span className="mt-0.5 text-xs font-semibold text-muted-foreground">{index + 1}.</span>
-            <p className="text-sm font-medium">{section.title.replace(/^\d+\.\s*/, "")}</p>
+      {items.map((text, idx) => (
+        <div
+          key={idx}
+          className="rounded-xl border border-border bg-card/40 px-4 py-4 shadow-sm"
+        >
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-border bg-background/40 text-xs font-black text-muted-foreground">
+              {idx + 1}
+            </div>
+            <p className="text-sm leading-relaxed font-medium text-foreground">{text}</p>
           </div>
-          {section.items.length > 0 && (
-            <ul className="list-disc list-inside text-xs text-muted-foreground space-y-0.5">
-              {section.items.map((item, idx) => (
-                <li key={idx}>{item}</li>
-              ))}
-            </ul>
-          )}
         </div>
       ))}
     </div>

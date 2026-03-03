@@ -6,14 +6,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LazyRouteErrorBoundary } from "@/components/LazyRouteErrorBoundary";
 import { TwitchOAuthCallbackForwarder } from "@/components/twitch/TwitchOAuthCallbackForwarder";
-import { GoogleTranslateLoader } from "@/components/GoogleTranslateLoader";
 
 const Home = lazy(() => import("./pages/Home"));
 const Auth = lazy(() => import("./pages/Auth"));
-const PlayerDashboard = lazy(() => import("./pages/PlayerDashboard"));
+
 const TrainingDetails = lazy(() => import("./pages/TrainingDetails"));
 const MyTeam = lazy(() => import("./pages/MyTeam"));
 const OrganizerDashboard = lazy(() => import("./pages/OrganizerDashboard"));
+const RankingArtGenerator = lazy(() => import("./pages/RankingArtGenerator"));
 const ExternalTeams = lazy(() => import("./pages/ExternalTeams"));
 const UserProfile = lazy(() => import("./pages/UserProfile"));
 const TeamProfile = lazy(() => import("./pages/TeamProfile"));
@@ -31,6 +31,10 @@ const Notifications = lazy(() => import("./pages/Notifications"));
 const FAQ = lazy(() => import("./pages/FAQ"));
 const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
 const AntiHack = lazy(() => import("./pages/AntiHack"));
+const LiveOperator = lazy(() => import("./pages/LiveOperator"));
+
+// Compat: redirecionar URLs antigas
+const LegacyTrainingRedirect = lazy(() => import("./pages/LegacyTrainingRedirect"));
 
 const OverlayTabelaGeral = lazy(() => import("./pages/overlays/OverlayTabelaGeral"));
 const OverlayQueda = lazy(() => import("./pages/overlays/OverlayQueda"));
@@ -46,7 +50,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <GoogleTranslateLoader />
+
         <TwitchOAuthCallbackForwarder />
         <LazyRouteErrorBoundary>
           <Suspense
@@ -59,20 +63,24 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/auth" element={<Auth />} />
-              <Route path="/dashboard" element={<PlayerDashboard />} />
+
               <Route path="/scrims" element={<Scrims />} />
+              <Route path="/scrim/:id" element={<TrainingDetails />} />
               <Route path="/players" element={<Players />} />
               <Route path="/ranking" element={<Ranking />} />
               <Route path="/equipes" element={<Teams />} />
               <Route path="/faq" element={<FAQ />} />
+              <Route path="/faq/:slug" element={<FAQ />} />
               <Route path="/anti-hack" element={<AntiHack />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/profile/edit" element={<ProfileEdit />} />
-              <Route path="/training/:id" element={<TrainingDetails />} />
+              <Route path="/training/:id" element={<LegacyTrainingRedirect />} />
               <Route path="/my-team" element={<MyTeam />} />
               <Route path="/organizer" element={<OrganizerDashboard />} />
+              <Route path="/organizer/ranking-art/:trainingId" element={<RankingArtGenerator />} />
+              <Route path="/operador/:trainingId" element={<LiveOperator />} />
               <Route path="/external-teams" element={<ExternalTeams />} />
               <Route path="/profile" element={<UserProfile />} />
               <Route path="/profile/:userId" element={<UserProfile />} />

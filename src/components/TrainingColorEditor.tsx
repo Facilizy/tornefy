@@ -12,12 +12,14 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Palette, Loader2 } from "lucide-react";
+import { ActionTile } from "@/components/ActionTile";
 
 interface TrainingColorEditorProps {
   trainingId: string;
   currentPrimaryColor: string;
   currentSecondaryColor: string;
   onColorsUpdated: () => void;
+  triggerVariant?: "button" | "tile";
 }
 
 export function TrainingColorEditor({
@@ -25,6 +27,7 @@ export function TrainingColorEditor({
   currentPrimaryColor,
   currentSecondaryColor,
   onColorsUpdated,
+  triggerVariant = "button",
 }: TrainingColorEditorProps) {
   const [open, setOpen] = useState(false);
   const [primaryColor, setPrimaryColor] = useState(currentPrimaryColor || "#9146FF");
@@ -57,10 +60,18 @@ export function TrainingColorEditor({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2">
-          <Palette className="w-4 h-4" />
-          Cores do Evento
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Cores do evento"
+            description="Personalize o banner do scrim."
+            icon={Palette}
+          />
+        ) : (
+          <Button variant="outline" size="sm" className="gap-2">
+            <Palette className="w-4 h-4" />
+            Cores do Evento
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>

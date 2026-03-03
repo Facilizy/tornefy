@@ -2,24 +2,29 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Calendar, Users, Monitor, Gamepad2, Handshake } from "lucide-react";
+  Calendar,
+  Users,
+  Monitor,
+  Gamepad2,
+  Smartphone,
+  MonitorSmartphone,
+} from "lucide-react";
 import { getGameLabel, getGameLogo } from "@/lib/games";
 import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 import { OrganizerBadge } from "@/components/OrganizerBadge";
 import { DynamicBanner } from "@/components/DynamicBanner";
 import TornefyBannerMark from "@/components/TornefyBannerMark";
+import { ScrimPaymentBadges } from "@/components/scrims/ScrimPaymentBadges";
 
 import { useNavigate } from "react-router-dom";
+import { useRef } from "react";
+import { toast } from "@/hooks/use-toast";
 
 interface TrainingCardProps {
   training: {
     id: string;
     name: string;
+    kind?: "training" | "tournament" | string;
     banner_url?: string;
     primary_color?: string | null;
     secondary_color?: string | null;
@@ -37,23 +42,32 @@ interface TrainingCardProps {
     organizer_name?: string | null;
     organizer_avatar_url?: string | null;
     organizer_verified?: boolean;
+    entry_fee_coins?: number | null;
+    prize_coins?: number | null;
+    prize?: string | null;
   };
 }
-
 
 const TrainingCard = ({ training }: TrainingCardProps) => {
   const navigate = useNavigate();
   const registrationsCount = training.registrations || 0;
   const availableSlots = training.max_slots - registrationsCount;
 
+  const logoToastRef = useRef<ReturnType<typeof toast> | null>(null);
+
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
+      case "Mobile":
+        return <Smartphone className="w-4 h-4" />;
       case "PC":
         return <Monitor className="w-4 h-4" />;
-      case "Mobile":
+      case "Misto":
+        return <MonitorSmartphone className="w-4 h-4" />;
+      case "Console":
+      case "console":
         return <Gamepad2 className="w-4 h-4" />;
       default:
-        return <Monitor className="w-4 h-4" />;
+        return <MonitorSmartphone className="w-4 h-4" />;
     }
   };
 
@@ -66,9 +80,12 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
   const isRegistrationsOpen = !training.status || normalizedStatus === "INSCRIÇÕES ABERTAS";
   const isOpen = availableSlots > 0;
 
+  // Não usar tudo em caixa alta (fica mais limpo)
+  const kindLabel = training.kind === "tournament" ? "Torneio" : "Treino";
+
   return (
     <Card className="group h-full overflow-hidden bg-card/60 border-border hover:border-primary/30 transition-all duration-300 hover:-translate-y-0.5">
-      {/* Banner */}
+      {/* Imagem */}
       <DynamicBanner
         bannerUrl={training.banner_url}
         title={`Banner da scrim ${training.name}`}
@@ -78,18 +95,18 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
         className="rounded-none"
         fallback={<TornefyBannerMark className="w-44 text-foreground/10" />}
       >
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-primary/20 via-transparent to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background/85 via-background/20 to-transparent" />
 
-        {/* Status and Live Badges */}
-        <div className="absolute top-3 left-3 right-3 flex justify-between items-start gap-2">
+        {/* Status no topo */}
+        <div className="absolute top-3 left-3 right-3 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2">
             {isRegistrationsOpen ? (
               <Badge
                 variant="outline"
                 className={
                   isOpen
-                    ? "pointer-events-none rounded-full border-status-open/50 bg-status-open/80 text-foreground"
-                    : "pointer-events-none rounded-full border-status-closed/50 bg-status-closed/80 text-foreground"
+                    ? "pointer-events-none rounded-full border-status-open/50 bg-status-open/70 text-foreground uppercase"
+                    : "pointer-events-none rounded-full border-status-closed/50 bg-status-closed/70 text-foreground uppercase"
                 }
               >
                 {isOpen ? "INSCRIÇÕES ABERTAS" : "LOTADO"}
@@ -97,73 +114,72 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
             ) : (
               <TrainingStatusBadge status={training.status} showFallback={false} />
             )}
-            {training.is_private && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="outline" className="cursor-help">
-                      <Handshake className="w-3 h-3" />
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Somente convidados</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
           </div>
 
           <div className="flex items-center gap-2">
-            {training.is_live && (
-              <Badge className="bg-destructive/90 backdrop-blur-sm font-bold pointer-events-none">
-                ● AO VIVO
-              </Badge>
-            )}
-            {gameLogo && (
-              <div className="h-9 w-9 rounded-xl bg-background/70 border border-border backdrop-blur-sm p-1.5">
-                <img
-                  src={gameLogo}
-                  alt={`Logo do jogo ${gameLabel ?? ""}`}
-                  className="h-full w-full object-contain"
-                  loading="lazy"
-                />
-              </div>
-            )}
+            {training.is_live ? (
+              <Badge className="bg-destructive/90 backdrop-blur-sm font-bold pointer-events-none uppercase">● AO VIVO</Badge>
+            ) : null}
+
+            {gameLogo ? (
+              <img
+                src={gameLogo}
+                alt={`Logo do jogo ${gameLabel ?? ""}`.trim()}
+                className="h-12 w-12 rounded-lg border border-border bg-background/40 object-contain p-2"
+                loading="lazy"
+                onMouseEnter={() => {
+                  if (!gameLabel) return;
+                  if (logoToastRef.current) return;
+
+                  logoToastRef.current = toast({
+                    title: gameLabel,
+                  });
+                }}
+                onMouseLeave={() => {
+                  if (!logoToastRef.current) return;
+                  logoToastRef.current.dismiss();
+                  logoToastRef.current = null;
+                }}
+              />
+            ) : null}
           </div>
         </div>
 
-        {/* Title overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-4">
-          <h3 className="font-black text-xl text-foreground line-clamp-2 uppercase tracking-tight drop-shadow">
-            {training.name}
-          </h3>
+        {/* Nome + organizador (sobre a imagem) */}
+        <div className="absolute left-4 right-4 bottom-4">
+          <h3 className="text-lg font-black text-foreground line-clamp-2 tracking-tight">{training.name}</h3>
           {organizerLabel && (
             <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground line-clamp-1">
               <span className="truncate">{organizerLabel}</span>
-              {showOrganizerVerified ? (
-                <OrganizerBadge verified variant="icon" size="sm" />
-              ) : null}
+              {showOrganizerVerified ? <OrganizerBadge verified variant="icon" size="sm" /> : null}
             </p>
           )}
         </div>
       </DynamicBanner>
 
-      {/* Content */}
-      <div className="p-4 space-y-4 flex flex-col">
-        <div className="space-y-2 flex-1">
+      {/* Conteúdo */}
+      <div className="p-4 space-y-3 flex flex-col">
+        {/* Infos principais */}
+        <div className="space-y-2">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="w-4 h-4" />
             <span>
-              {new Intl.DateTimeFormat("pt-BR", {
-                timeZone: "America/Sao_Paulo",
-                day: "2-digit",
-                month: "2-digit",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-                .format(new Date(training.datetime))
-                .replace(",", " às")}
+              {(() => {
+                try {
+                  return new Intl.DateTimeFormat("pt-BR", {
+                    timeZone: "America/Sao_Paulo",
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                    .format(new Date(training.datetime))
+                    .replace(",", " às");
+                } catch {
+                  return "";
+                }
+              })()}
             </span>
           </div>
 
@@ -176,39 +192,42 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
               equipes inscritas
             </span>
           </div>
+
+          {/* Chips compactos */}
+          <div className="flex gap-2 flex-wrap pt-1">
+            <Badge variant="secondary" className="flex items-center gap-1 uppercase bg-tag text-foreground px-2 py-0.5 text-[11px]">
+              {getPlatformIcon(training.platform)}
+              {training.platform}
+            </Badge>
+
+            <Badge variant="outline" className="border-border uppercase bg-tag text-foreground px-2 py-0.5 text-[11px]">
+              {training.mode}
+            </Badge>
+
+            <Badge variant="outline" className="border-border uppercase bg-tag text-foreground px-2 py-0.5 text-[11px]">
+              {kindLabel}
+            </Badge>
+
+            {gameLabel && (
+              <Badge variant="outline" className="border-border uppercase bg-tag text-foreground px-2 py-0.5 text-[11px]">
+                <span>{gameLabel}</span>
+              </Badge>
+            )}
+          </div>
         </div>
 
-        {/* Badges */}
-        <div className="flex gap-2 flex-wrap">
-          <Badge variant="secondary" className="flex items-center gap-1">
-            {getPlatformIcon(training.platform)}
-            {training.platform}
-          </Badge>
+        {/* Inscrição + Premiação (mínimo, sem “card dentro de card”) */}
+        <ScrimPaymentBadges
+          entryFeeCoins={training.entry_fee_coins}
+          prizeCoins={training.prize_coins}
+          prizeText={training.prize}
+          primaryColor={training.primary_color}
+          secondaryColor={training.secondary_color}
+        />
 
-          <Badge variant="outline" className="border-primary/30">
-            {training.mode}
-          </Badge>
-
-          {typeof training.rounds === "number" && training.rounds > 0 && (
-            <Badge variant="outline">
-              {training.rounds} rodada{training.rounds !== 1 ? "s" : ""}
-            </Badge>
-          )}
-
-          {gameLabel && (
-            <Badge variant="default" className="bg-gradient-primary">
-              {gameLabel}
-            </Badge>
-          )}
-        </div>
-
-        {/* CTA Button */}
-        <Button
-          onClick={() => navigate(`/training/${training.id}`)}
-          className="w-full mt-auto"
-          size="lg"
-        >
-          Ver Detalhes
+        {/* CTA */}
+        <Button onClick={() => navigate(`/scrim/${training.id}`)} className="w-full mt-auto" size="lg">
+          {isRegistrationsOpen && isOpen ? "Se inscrever" : "Ver detalhes"}
         </Button>
       </div>
     </Card>
@@ -216,4 +235,3 @@ const TrainingCard = ({ training }: TrainingCardProps) => {
 };
 
 export default TrainingCard;
-

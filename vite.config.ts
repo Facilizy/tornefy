@@ -58,6 +58,8 @@ export default defineConfig(({ mode }) => ({
       },
       workbox: {
         navigateFallback: "/index.html",
+        // O default é 2 MiB; precisamos mais para capas de jogos.
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
       },
     }),

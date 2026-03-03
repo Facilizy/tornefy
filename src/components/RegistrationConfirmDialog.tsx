@@ -64,9 +64,9 @@ export const RegistrationConfirmDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-xl">Confirmar Inscrição</DialogTitle>
+          <DialogTitle className="text-xl">Confirmar inscrição</DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Você tem certeza que deseja inscrever sua equipe neste treino?
+            Você está prestes a inscrever sua equipe neste scrim.
           </DialogDescription>
         </DialogHeader>
 
@@ -78,9 +78,20 @@ export const RegistrationConfirmDialog = ({
               <span className="font-semibold text-primary">{teamName}</span>
             </div>
             <div className="text-sm">
-              <span className="text-muted-foreground">Treino: </span>
+              <span className="text-muted-foreground">Scrim: </span>
               <span className="font-semibold">{training.name}</span>
             </div>
+            <div className="text-sm">
+              <span className="text-muted-foreground">Entrada: </span>
+              <span className="font-semibold">
+                {Number(training.entry_fee_coins || 0) > 0 ? `${Number(training.entry_fee_coins)} TC` : "Gratuito"}
+              </span>
+            </div>
+            {Number(training.entry_fee_coins || 0) > 0 ? (
+              <div className="text-xs text-muted-foreground">
+                A taxa é debitada automaticamente via TorneCoins no momento da inscrição.
+              </div>
+            ) : null}
           </div>
 
           <Separator />

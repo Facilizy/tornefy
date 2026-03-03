@@ -9,6 +9,8 @@ export interface Round {
   id: string;
   name: string;
   round_number: number;
+  /** NULL/[] => todos os times; array => apenas times dos grupos escolhidos */
+  allowed_group_ids?: string[] | null;
 }
 
 export interface Match {

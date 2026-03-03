@@ -18,6 +18,7 @@ import { ReportTeamDialog } from './ReportTeamDialog';
 import { fetchVerifiedMap } from '@/hooks/useVerifiedEntities';
 import { TeamVerifiedBadge } from '@/components/TeamVerifiedBadge';
 import { DefaultAvatarMark } from '@/components/DefaultAvatarMark';
+import { ExternalTeamsJsonImportDialog } from "@/components/external-teams/ExternalTeamsJsonImportDialog";
 
 interface TeamMember {
   player_name: string;
@@ -49,12 +50,31 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
   const [verifiedMap, setVerifiedMap] = useState<Map<string, boolean>>(new Map());
+  const [canImportExternal, setCanImportExternal] = useState(false);
 
   useEffect(() => {
     if (open) {
       fetchTeams();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    void (async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return setCanImportExternal(false);
+        const { data: training } = await supabase
+          .from("trainings")
+          .select("organizer_id")
+          .eq("id", trainingId)
+          .maybeSingle();
+        setCanImportExternal(String(training?.organizer_id ?? "") === String(user.id));
+      } catch {
+        setCanImportExternal(false);
+      }
+    })();
+  }, [open, trainingId]);
 
   useEffect(() => {
     const ids = teams.map((t) => t.id).filter(Boolean);
@@ -251,12 +271,17 @@ export function RegisteredTeamsDialog({ trainingId, trainingName }: RegisteredTe
                     {trainingName}
                   </span>
                 </div>
-                {teams.length > 0 && (
-                  <Button variant="outline" size="sm" onClick={downloadAllInfo} className="shrink-0">
-                    <Download className="w-4 h-4 mr-2" />
-                    Baixar tudo
-                  </Button>
-                )}
+                 <div className="flex items-center gap-2 shrink-0">
+                   {canImportExternal ? (
+                     <ExternalTeamsJsonImportDialog trainingId={trainingId} onCreated={fetchTeams} />
+                   ) : null}
+                   {teams.length > 0 ? (
+                     <Button variant="outline" size="sm" onClick={downloadAllInfo}>
+                       <Download className="w-4 h-4 mr-2" />
+                       Baixar tudo
+                     </Button>
+                   ) : null}
+                 </div>
               </DialogTitle>
             </DialogHeader>
           </div>

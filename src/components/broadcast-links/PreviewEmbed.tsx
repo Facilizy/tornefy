@@ -7,6 +7,8 @@ type Props = {
   baseHeight?: number;
   /** Altura máxima do preview no modal (fica menor) */
   maxPreviewHeight?: number;
+  /** Remove o fundo/borda do container (útil para preview transparente) */
+  transparent?: boolean;
 };
 
 export function PreviewEmbed({
@@ -14,6 +16,7 @@ export function PreviewEmbed({
   baseWidth = 1920,
   baseHeight = 300,
   maxPreviewHeight = 160,
+  transparent = false,
 }: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [scale, setScale] = useState(0.3);
@@ -36,7 +39,11 @@ export function PreviewEmbed({
   return (
     <div
       ref={wrapRef}
-      className="w-full rounded-xl border border-border bg-muted/20 overflow-hidden"
+      className={
+        transparent
+          ? "w-full overflow-hidden"
+          : "w-full rounded-xl border border-border bg-muted/20 overflow-hidden"
+      }
       style={{ height: baseHeight * scale }}
     >
       <iframe

@@ -42,20 +42,20 @@ function StatPill({ children, variant }: { children: ReactNode; variant: "neutra
   );
 }
 
-function PodiumCard({ 
-  player, 
-  rank, 
-  teamLabel, 
-  onClick 
-}: { 
-  player: MvpRow; 
-  rank: number; 
+function PodiumCard({
+  player,
+  rank,
+  teamLabel,
+  onClick
+}: {
+  player: MvpRow;
+  rank: number;
   teamLabel?: string;
   onClick: () => void;
 }) {
   const isFirst = rank === 1;
   const medalColor = rank === 1 ? "text-yellow-400" : rank === 2 ? "text-gray-400" : "text-amber-700";
-  
+
   return (
     <button
       type="button"
@@ -69,7 +69,7 @@ function PodiumCard({
         {isFirst ? (
           <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/18 via-transparent to-transparent" />
         ) : null}
-        
+
         <div className="flex items-center gap-3">
           <div className="relative shrink-0">
             <Avatar className="h-14 w-14 border-2 border-border">
@@ -84,7 +84,7 @@ function PodiumCard({
               <Trophy className="w-3.5 h-3.5" />
             </div>
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="font-bold truncate text-sm">{player.player_name}</div>
             {teamLabel ? (
@@ -96,7 +96,7 @@ function PodiumCard({
               <span>K.D {player.kd.toFixed(2)}</span>
             </div>
           </div>
-          
+
           <div className="text-right shrink-0">
             <div className={"text-2xl font-black leading-none tabular-nums " + (isFirst ? "text-primary" : "")}>
               {player.kills}
@@ -128,7 +128,7 @@ export function MvpListCard({
 
   const teamById = useMemo(() => {
     const map = new Map<string, TeamLite>();
-    teams.forEach((t) => map.set(t.id, t));
+    (teams || []).forEach((t) => map.set(t.id, t));
     return map;
   }, [teams]);
 
@@ -206,10 +206,7 @@ export function MvpListCard({
 
         (stats || []).forEach((s: any) => {
           const userId = s.team_member_id ? memberToUser.get(String(s.team_member_id)) : undefined;
-          // Regra: só entra no ranking quem tem conta na plataforma
-          if (!userId) return;
-
-          const key = `${userId}::${s.team_id}`;
+          const key = userId ? `${userId}::${s.team_id}` : `ghost::${s.player_name}::${s.team_id}`;
           const prev =
             agg.get(key) ||
             {
@@ -295,9 +292,9 @@ export function MvpListCard({
 
   const selectedTeamLabel = selected
     ? (() => {
-        const t = teamById.get(selected.team_id);
-        return t ? `${t.name} [${t.tag}]` : undefined;
-      })()
+      const t = teamById.get(selected.team_id);
+      return t ? `${t.name} [${t.tag}]` : undefined;
+    })()
     : undefined;
 
   return (

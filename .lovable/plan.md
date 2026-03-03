@@ -1,118 +1,225 @@
 
-Objetivo
-- Definir quais vídeos tutoriais curtos você deve gravar (foco Jogador + Organizador).
-- Trocar o sistema de idioma para um “tradutor automático estilo Google/AI”, onde ao mudar o idioma, a plataforma inteira muda junto (prioridade: rápido).
+## O que você pediu (resumo)
+1) Mostrar os **planos do organizador no perfil** (vitrine pública, com botão de assinar).  
+2) Em **Configurações do perfil**, permitir **adicionar TorneCoins via dinheiro (R$)**, deixando claro que **1 TC = R$ 1,00**.  
+3) **Sem taxa para colocar dinheiro** (sem taxa Tornefy).  
+4) **Quando tirar (saque)**: mostrar que há **prazo em dias úteis** e que pode existir **taxa de processamento** (você citou Stripe).  
+5) No **Admin**, criar uma área de **Financeiro completo**: transações, cards de bruto/líquido/pendente/à pagar/à receber, listas (organizadores com eventos finalizados há +30d, pedidos de antecipação, etc).
 
-1) Lista de vídeos tutoriais curtos (roteiro sugerido)
-Formato recomendado
-- Duração: 30–60s (até 90s quando precisar)
-- Estrutura: Problema → Onde clicar → Resultado → “Dica rápida”
-- Gravar em 1080p, cursor visível, zoom leve nos cliques, legenda curta.
+Você respondeu nas perguntas:
+- **Saque**: Pix (manual)
+- **Conversão**: 1 TC = R$ 1
+- **Recarga**: valor livre com mínimo de **R$ 5**
+- **Taxa no saque**: “Só Stripe” (vamos tratar como “taxa de processamento”, configurável; e também mostrar o prazo em dias úteis)
 
-A. Tutoriais para Jogadores (essenciais)
-1. “Como criar conta e entrar (login)”
-   - Mostrar /auth, criar conta, confirmar e entrar.
-2. “Como achar uma scrim e se inscrever”
-   - Entrar em /scrims, escolher scrim, ver detalhes, confirmar.
-3. “Como ver e aceitar convites de equipe”
-   - Ir em /invites, aceitar/rejeitar, confirmar que mudou na equipe.
-4. “Como ver notificações e marcar como lidas”
-   - /notificacoes, filtros, marcar como lida, limpar lidas.
-5. “Como editar perfil (nickname, redes, idioma)”
-   - /profile/edit: username, redes, preferred games, idioma.
+---
 
-B. Tutoriais para Organizadores (essenciais)
-1. “Como criar/organizar uma scrim”
-   - Fluxo principal do painel do organizador (onde cria/edita treino).
-2. “Como configurar pontuação / partidas / rodadas”
-   - Mostrar telas de scoring/score management (o básico que impacta o evento).
-3. “Como convidar equipes e gerenciar lista”
-   - Convites enviados, pendentes, reenviar, cancelar.
-4. “Como acompanhar resultados / ranking do treino”
-   - Onde vê placar, status, tabela geral.
-5. “Como usar overlays no OBS (tabela/mvp/rodada/queda)”
-   - Acessar rotas de overlay e colocar no OBS (browser source).
+## Situação atual (o que já existe no projeto)
+- Já existe o “sistema TorneCoins” no banco: `tornecoin_accounts` e `tornecoin_transactions` (+ tipos `deposit`, `fee`, `withdrawal`, etc).
+- Já existe UI parcial:
+  - `ProfileEdit` tem “Resumo” com `TorneCoinsSummaryCards` e “Transações” (ainda placeholder).
+  - `OrganizerDashboard` já mostra `OrganizerReceivablesPanel` (saldos do organizador e últimas transações).
+- Planos de assinatura já existem e já são usados em treinos (agora com múltiplos planos por treino via `training_allowed_plans` e `get_my_training_access`).
+- Ainda falta a vitrine de planos em `/profile` (UserProfile).
+- Ainda **não existe Stripe no código** (não há Edge Functions de checkout/verify), então precisaremos implementar a integração para recarga.
 
-C. Tutoriais “de apoio” (curtos e muito úteis)
-1. “Como usar a Tornefy Secure (anti-cheat) na scrim”
-   - Entrar na landing /anti-hack, baixar Windows, o que acontece depois.
-2. “FAQ: principais dúvidas em 30s”
-   - “Posso participar sem equipe?”, “Como recebo convite?”, “Como ligo Twitch?”, etc.
+---
 
-Entrega prática (o que vou te devolver dentro do app, se você quiser)
-- Uma página/aba “Tutoriais” (ou no /faq) com cards de vídeo, miniatura e progresso (você já tem um player YouTube com tracking: `YouTubeTutorialPlayer.tsx`), então dá para montar uma área de “trilha” bem rápido.
+## Decisões de produto (como vamos fazer “do melhor jeito possível” sem complicar)
+### A) Recarga de TorneCoins (R$ → TC)
+- Implementar recarga via **Stripe Checkout (pagamento único)**.
+- Regra: **1 TC = R$ 1,00**.
+- Mínimo: **R$ 5,00**.
+- “Sem taxa para colocar dinheiro”: vamos **creditar 100% dos TorneCoins** equivalentes ao valor pago (sem descontar taxa Tornefy em TC).
+  - Observação importante: o Stripe sempre cobra taxa do pagamento no mundo real; mas como você quer “sem taxa no início”, a plataforma absorve isso (ou você ajusta preços depois). Na UI vamos comunicar “sem taxa Tornefy na recarga”.
 
-2) Idioma automático “tipo Google” para a plataforma inteira (rápido)
-Estado atual do projeto (o que encontrei)
-- Já existe um sistema de i18n próprio: `src/i18n/index.tsx` + `LanguageSelector`.
-- Porém ele só traduz algumas chaves (nav/footer/404/auth) e a maioria das telas está com texto fixo em PT-BR.
-- Ou seja: hoje, trocar idioma NÃO traduz “a plataforma inteira”.
+### B) Saque (TC → R$ via Pix manual)
+- Criar um fluxo de **pedido de saque**:
+  - Usuário informa chave Pix (CPF/CNPJ/email/telefone/aleatória) + nome/CPF (opcional dependendo do seu padrão).
+  - Sistema “reserva” (congela) os TorneCoins solicitados (para não gastar duas vezes).
+  - Admin revisa e marca como “Pago” (você faz o Pix fora do sistema).
+- Prazo: mostrar texto “Pagamento em alguns dias úteis”.
+- Taxa no saque:
+  - Como não há Stripe no Pix manual, vamos implementar uma **taxa de processamento configurável** (ex.: 0% por padrão) e rotular como “taxa de processamento (Stripe/operacional)”.
+  - Você poderá ajustar depois sem mexer no front (guardado em tabela de config).
 
-O que você pediu
-- “Nosso tradutor ser o do google ou outro, que ao trocar de idioma já trocar o da plataforma inteira”
-- Preferência: Automática (Google/AI) e prioridade “Rápido”.
+### C) Financeiro Admin
+- Criar um novo “Financeiro” dentro do `/admin`:
+  - Cards: **Bruto**, **Taxas**, **Líquido**, **Pendente a liberar**, **Solicitado para saque**, **A pagar (saques aprovados)**, **A receber (pendências)**.
+  - Tabelas: transações TorneCoins, pedidos de saque, pedidos de antecipação.
+  - Relatórios:
+    - Organizadores com treinos/torneios **FINALIZADO há +30 dias** e que ainda têm saldo pendente/frozen relevante.
+    - Organizadores com **pedido de antecipação** (fila).
 
-Solução recomendada para ficar pronto rápido (Google Translate Website)
-- Implementar o Google Website Translator (não precisa API key).
-- Ele traduz o DOM inteiro (inclusive textos que hoje estão hardcoded).
-- Integrar o seletor (PT-BR/EN/ES) para “forçar” a troca de idioma da página toda.
+---
 
-Como vamos implementar (passo a passo)
-A) Adicionar o carregamento do Google Translate
-- Incluir o script do Google Translate no `index.html` e inicializar o widget.
-- Criar um “loader” React (ex.: `GoogleTranslateLoader`) para garantir:
-  - o script carrega 1 vez
-  - existe um container “oculto” para o widget (para não poluir o layout)
-  - a função global de init fica consistente
+## Implementação (por fases, com entregas claras)
 
-B) Fazer o LanguageSelector controlar o idioma global
-- Quando o usuário escolher EN/ES/PT-BR:
-  - setar o cookie `googtrans` para o par correto (ex.: `/pt/pt`, `/pt/en`, `/pt/es`)
-  - recarregar a página (ou disparar refresh do translate) para aplicar em tudo
-- Manter `localStorage` (o que você já tem) como “idioma preferido”.
-- Manter também o `document.documentElement.lang`.
+### Fase 1 — Vitrine de planos no perfil do organizador (rápida e desbloqueia conversão)
+**Objetivo:** quando alguém entra no `/profile/:id` de um organizador, vê os planos e pode assinar.
 
-C) Decidir convivência com o i18n atual
-Como fica mais rápido:
-- Continuar com o i18n atual para nav/footer/algumas labels (ok).
-- E deixar o Google Translate cuidar do resto (o “inteiro” da plataforma).
-Observação importante:
-- Pode acontecer “dupla tradução” em alguns trechos (raramente) dependendo de como o texto é renderizado. Vamos testar e, se necessário, desativar o `t()` em partes específicas ou ajustar o init para minimizar isso.
+1) Atualizar `src/pages/UserProfile.tsx`:
+- Detectar organizador (já existe).
+- Buscar planos ativos do organizador:
+  - `organizer_subscription_plans` (id, name, description, benefits_text, monthly_fee_coins, period_days, max_subscribers, active)
+- Buscar contagem de assinantes ativos por plano:
+  - `organizer_plan_memberships` com `status='active'` e `current_period_end > now()`
+- Renderizar seção “Planos de assinatura” com cards:
+  - Valor (TC), duração (dias), benefícios, limite/contador, e resumo “Taxa Tornefy + Líquido” por pagamento.
+  - Botão “Assinar”:
+    - se deslogado: CTA → /auth (com redirect de volta)
+    - se logado: chama `subscribe_to_plan(planId)` e trata erros (`plan_full`, `already_active`, `insufficient_funds` etc)
 
-D) Persistência por usuário (já existe)
-- Hoje você já salva `preferred_language` no `profiles` e o app hidrata isso no login.
-- A gente só adapta para o novo mecanismo: ao entrar/logar, aplicar automaticamente o idioma do perfil via cookie do Google Translate.
+**Por que primeiro:** resolve “NO PERFIL DO ORGANIZADOR NÃO APARECE OS PLANOS” e melhora conversão.
 
-3) Testes que vamos fazer (para garantir que não quebra nada)
-- Trocar idioma pelo selector e validar que:
-  - Home, Scrims, Profile, Dashboard, Organizer, FAQ, Notificações mudam o texto.
-- Testar rotas críticas:
-  - /auth, /profile/edit, /training/:id, /organizer, /notificacoes, /anti-hack
-- Testar no mobile (menu Sheet) e desktop (header normal).
-- Conferir se inputs/formulários continuam utilizáveis (translate às vezes tenta mexer em placeholders).
+---
 
-4) Limitações (pra você estar ciente)
-- Google Website Translate não é perfeito:
-  - qualidade varia, pode traduzir termos de esports de forma estranha
-  - pode impactar levemente performance
-  - não é o melhor para SEO (a tradução é client-side)
-- Como você disse que quer “rápido”, ele é o caminho mais direto para “traduzir tudo” agora.
-- Se depois você quiser “qualidade máxima”, a evolução natural é:
-  - migrar telas para chaves de i18n (manual) e/ou
-  - usar tradução automática (AI) só para preencher chaves faltantes no backoffice.
+### Fase 2 — Recarga de TorneCoins nas Configurações do perfil (Stripe Checkout)
+**Objetivo:** em `/profile/edit` permitir comprar TorneCoins com R$.
 
-5) Escopo de implementação no código (resumo técnico)
-Arquivos que provavelmente serão alterados
-- `index.html` (script do Google Translate)
-- `src/components/LanguageSelector.tsx` (acionar idioma global)
-- `src/i18n/index.tsx` (ajuste para não conflitar e para aplicar cookie quando logar)
-- Possível: `src/App.tsx` ou `src/main.tsx` (inserir loader/initializer global)
+2) UI: criar/atualizar painel em `ProfileEdit`:
+- Em “Resumo” (ou novo item “Adicionar TorneCoins” dentro do grupo TorneCoins) incluir:
+  - Texto: “TorneCoins são vinculadas ao Real Brasileiro: **1 TC = R$ 1,00**”
+  - Input valor (R$) com mínimo 5
+  - Botão “Adicionar TorneCoins”
+  - Mensagens:
+    - “Sem taxa Tornefy na recarga.”
+    - “Pagamento via Stripe.”
 
-O que não vai ser necessário (nesta fase rápida)
-- Traduzir manualmente todas as páginas uma a uma
-- Criar banco de traduções
-- Configurar API key do Google Cloud Translation
+3) Stripe: criar Edge Functions (sem webhooks, com verificação no retorno)
+- `supabase/functions/tornecoins-topup-create`:
+  - autentica usuário
+  - cria uma Checkout Session `mode: "payment"` em BRL
+  - line item com amount custom (ou usar um Price fixo com quantity variável; como é valor livre, normalmente será `price_data`)
+  - metadata: `user_id`, `coins_amount`, `kind='tornecoins_topup'`
+  - success_url: `/profile/edit?topup=success&session_id={CHECKOUT_SESSION_ID}`
+  - cancel_url: `/profile/edit?topup=cancel`
+  - retorna `{ url }` para redirecionar
 
-Critérios de pronto
-- Trocar para EN/ES/PT-BR e ver a maior parte dos textos da plataforma mudando imediatamente, sem precisar reescrever as páginas.
-- Preferência salva (local + perfil) funcionando: o usuário volta e já abre no idioma escolhido.
+- `supabase/functions/tornecoins-topup-verify`:
+  - recebe `session_id`
+  - busca a sessão no Stripe e valida `payment_status='paid'`
+  - garante idempotência:
+    - criar tabela `tornecoin_stripe_events` (ou `tornecoin_topups`) com `stripe_session_id unique`
+    - se já creditado, retorna ok sem duplicar
+  - credita TorneCoins:
+    - chamar SQL `public.tornecoin_credit_user(user_id, coins, 'stripe_topup', session_id, meta)`
+  - registra transação com `reference_type='stripe_topup'` e `reference_id=session_id`
+
+4) Fluxo do front:
+- Ao voltar do Stripe com `?topup=success&session_id=...`, chamar verify e atualizar cards/saldo.
+
+---
+
+### Fase 3 — Extrato real de transações e “Minhas retiradas”
+**Objetivo:** sair do placeholder e virar histórico real.
+
+5) Substituir `src/components/profile-edit/TransactionsPanel.tsx` (hoje placeholder) por lista real:
+- Filtrar por “Hoje/Ontem/Semana/Mês”
+- Ler `tornecoin_transactions` vinculadas à conta do usuário (RLS já permite)
+- Mostrar: data, tipo, status, valor, referência (plan, topup, entry_fee), etc.
+
+6) Criar “Minhas retiradas”:
+- Implementar componente (hoje só existe item no sidebar, mas não vi painel pronto).
+- Listar `tornecoin_withdrawal_requests` do usuário.
+
+---
+
+### Fase 4 — Saques via Pix (manual) + pedidos de antecipação
+**Objetivo:** fluxo financeiro real para organizadores e usuários.
+
+7) Banco: novas tabelas
+- `tornecoin_withdrawal_requests`:
+  - id, user_id, account_id, amount_coins, fee_coins (calculado), net_coins, pix_key, pix_key_type, status (`requested|approved|paid|rejected|cancelled`), created_at, updated_at, processed_at, admin_notes
+- `tornecoin_anticipation_requests` (para organizadores):
+  - id, organizer_id, account_id, amount_coins, reason, status, created_at, processed_at, admin_notes
+
+8) RPCs/SQL functions (SECURITY DEFINER)
+- `request_withdrawal(amount, pix...)`:
+  - valida saldo disponível
+  - aplica taxa de processamento (configurável)
+  - move saldo `available -> frozen` (ou `available -> pending` dependendo do modelo) para “reservar”
+  - cria tx `withdrawal` (e `fee` se houver)
+  - cria request
+
+- `request_anticipation(amount, reason)`:
+  - valida se organizer tem `pending` suficiente
+  - cria request (não libera automaticamente; admin decide)
+
+9) UI: ProfileEdit (organizador e usuário)
+- “Minhas retiradas”: criar pedido + listar status + avisos de prazo (“alguns dias úteis”).
+
+---
+
+### Fase 5 — Admin Financeiro completo (cards + tabelas + relatórios)
+**Objetivo:** você ter um “painel financeiro” de verdade dentro do `/admin`.
+
+10) Edge Function `admin-api` (já existe) — adicionar endpoints:
+- `GET /finance/summary`:
+  - bruto (topups e entradas), taxas, líquido, saldos agregados (pending/available/frozen), saques em aberto etc.
+- `GET /finance/transactions` (paginado + filtros por tipo/status/data/owner)
+- `GET /finance/withdrawals` (paginado + filtros por status)
+- `PATCH /finance/withdrawals/:id` para aprovar/pagar/rejeitar
+- `GET /finance/anticipations` + `PATCH` para processar
+- `GET /finance/organizers/stale`:
+  - organizadores com treino/torneio FINALIZADO há +30 dias
+  - mostrar: qtd eventos, pendente total, frozen total, último evento, etc
+
+11) Front `/admin`:
+- Novo Tab “Financeiro” com:
+  - Cards (bruto/líquido/taxas/pendente/solicitado/etc)
+  - Tabela de transações
+  - Tabela de saques
+  - Tabela de antecipações
+  - Relatório “+30 dias finalizado”
+
+---
+
+## Arquivos e áreas que serão mexidos (visão técnica)
+Frontend:
+- `src/pages/UserProfile.tsx` (vitrine de planos)
+- `src/pages/ProfileEdit.tsx` (entrada do painel de recarga/saque)
+- `src/components/profile-edit/TransactionsPanel.tsx` (extrato real)
+- Novo painel “Minhas retiradas” (provavelmente em `src/components/profile-edit/` e integrar no switch de seção do `ProfileEdit`)
+- `src/pages/AdminDashboard.tsx` (nova aba Financeiro)
+- `src/lib/admin-api.ts` (novas rotas)
+
+Backend (Supabase):
+- Migrações SQL (novas tabelas + RPCs)
+- Edge functions:
+  - `supabase/functions/tornecoins-topup-create/index.ts`
+  - `supabase/functions/tornecoins-topup-verify/index.ts`
+  - Expandir `supabase/functions/admin-api/index.ts`
+
+---
+
+## Regras de segurança/anti-fraude (importante)
+- Crédito de TorneCoins só acontece após `verify` confirmar pagamento `paid` no Stripe.
+- Idempotência por `stripe_session_id unique` para não duplicar crédito.
+- Saque “manual Pix” sempre reserva saldo (congela) no pedido, evitando duplo gasto.
+- Endpoints admin sempre via service role (já é o padrão do `admin-api`).
+
+---
+
+## Testes end-to-end (o que você deve validar no preview)
+1) Abrir perfil de um organizador `/profile/:id` e confirmar que:
+   - Planos aparecem
+   - Assinar funciona (ou redireciona pra login)
+2) Em `/profile/edit`:
+   - Recarga mínimo R$ 5
+   - Checkout abre e, ao voltar, saldo aumenta corretamente
+   - Não duplica crédito ao atualizar a página de sucesso
+3) Saque Pix:
+   - Criar pedido, saldo fica reservado
+   - Admin aprova/paga e o status muda
+4) Admin Financeiro:
+   - Cards batem com os valores das tabelas
+   - Filtros/paginação funcionam
+   - Relatório “finalizado há +30d” lista resultados coerentes
+
+---
+
+## Observações importantes (para alinhar expectativa)
+- Como “Pix manual” não usa Stripe para o saque, a “taxa Stripe no saque” vira “taxa de processamento” configurável. Vamos deixar isso bem organizado para você decidir o percentual exato.
+- Para “saque automático via Stripe” no Brasil geralmente exigiria Stripe Connect e regras extras; como você escolheu Pix manual, vamos no caminho mais simples e controlável.
+

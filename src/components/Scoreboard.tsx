@@ -26,6 +26,7 @@ interface Team {
   name: string;
   tag: string;
   logo_url?: string;
+  is_external?: boolean;
 }
 
 interface TeamStanding {
@@ -57,7 +58,8 @@ export type ScoreboardHandle = {
 };
 
 export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function Scoreboard(
-  { trainingId, teams, primaryColor = "#9146FF", selectedRoundId, onSelectedRoundChange },
+  // `primaryColor` pode vir em HEX (legacy). Se não vier, usamos o token do tema.
+  { trainingId, teams, primaryColor = "hsl(var(--primary))", selectedRoundId, onSelectedRoundChange },
   ref
 ) {
   const [standings, setStandings] = useState<TeamStanding[]>([]);
@@ -75,6 +77,8 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
 
   const matchIdsRef = useRef<Set<string>>(new Set());
   const refetchTimeoutRef = useRef<number | null>(null);
+  const didInitRef = useRef(false);
+  const fetchSeqRef = useRef(0);
 
   const scheduleRefetch = () => {
     if (refetchTimeoutRef.current) window.clearTimeout(refetchTimeoutRef.current);
@@ -94,7 +98,10 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
 
   useEffect(() => {
     fetchRounds();
-    fetchMatchIds().then(() => fetchStandings());
+    fetchMatchIds().then(async () => {
+      await fetchStandings();
+      didInitRef.current = true;
+    });
 
     // Realtime: update ranking when matches/scores change
     const matchesChannel = supabase
@@ -141,6 +148,8 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
   }, [trainingId]);
 
   useEffect(() => {
+    // Evita duplicar fetch no mount (reduz flicker).
+    if (!didInitRef.current) return;
     fetchStandings();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRound]);
@@ -170,6 +179,7 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
   };
 
   const fetchStandings = async () => {
+    const seq = ++fetchSeqRef.current;
     const hasPrevious = standings.length > 0;
     if (!hasPrevious) setLoading(true);
     else setRefreshing(true);
@@ -254,7 +264,8 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
           })
           .sort((a, b) => b.totalPoints - a.totalPoints);
 
-        setStandings(standingsArray);
+        // Só aplica se for a resposta mais recente.
+        if (seq === fetchSeqRef.current) setStandings(standingsArray);
       } else {
         // Avoid wiping UI during the brief delete+insert window when saving scores.
         // We'll keep the last standings and try again shortly.
@@ -285,11 +296,11 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
   const getRowStyle = (position: number) => {
     switch (position) {
       case 1:
-        return "bg-primary/10 border-l-4 border-l-primary";
+        return "bg-primary/12 border-l-4 border-l-primary";
+      // Sem realce de linha para 2º/3º (só o ícone já destaca bem e evita poluição visual).
       case 2:
-        return "bg-muted/40 border-l-4 border-l-muted";
       case 3:
-        return "bg-accent/20 border-l-4 border-l-accent";
+        return "";
       default:
         return "";
     }
@@ -324,7 +335,7 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Filtrar:</span>
           <Select value={selectedRound} onValueChange={setSelectedRound}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-44 bg-background/40">
               <SelectValue placeholder="Todas as rodadas" />
             </SelectTrigger>
             <SelectContent>
@@ -339,70 +350,100 @@ export const Scoreboard = forwardRef<ScoreboardHandle, ScoreboardProps>(function
         </div>
       </div>
 
-      {refreshing && (
-        <div className="mb-4 text-xs text-muted-foreground">Atualizando…</div>
-      )}
+      {refreshing && <div className="mb-4 text-xs text-muted-foreground">Atualizando…</div>}
 
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">P</TableHead>
-              <TableHead>Equipe</TableHead>
-              <TableHead className="text-center">J</TableHead>
-              <TableHead className="text-center">
+            <TableRow className="border-border/40">
+              <TableHead className="w-14 text-xs uppercase tracking-[0.18em] opacity-80">P</TableHead>
+              <TableHead className="text-xs uppercase tracking-[0.18em] opacity-80">Equipe</TableHead>
+              <TableHead className="text-center text-xs uppercase tracking-[0.18em] opacity-80">J</TableHead>
+              <TableHead className="text-center text-xs uppercase tracking-[0.18em] opacity-80">
                 <div className="flex items-center justify-center gap-1">
                   <Target className="w-4 h-4" />
                   K
                 </div>
               </TableHead>
-              <TableHead className="text-center font-bold" style={{ color: primaryColor }}>Pts</TableHead>
+              <TableHead
+                className="text-center text-xs uppercase tracking-[0.18em] font-extrabold"
+                style={{ color: primaryColor }}
+              >
+                Pts
+              </TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
-            {standings.map((standing, index) => (
-              <TableRow
-                key={standing.team.id}
-                className={getRowStyle(index + 1) + " cursor-pointer hover:bg-muted/30"}
-                onClick={() => navigate(`/team/${standing.team.id}`)}
-              >
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {getPositionIcon(index + 1)}
-                    <span className="font-bold">{index + 1}</span>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    {standing.team.logo_url ? (
-                      <img
-                        src={standing.team.logo_url}
-                        alt={standing.team.name}
-                        className="w-10 h-10 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                        <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    )}
-                    <div>
-                      <p className="font-semibold">{standing.team.name.toUpperCase()}</p>
-                      <p className="text-xs text-muted-foreground">[{standing.team.tag.toUpperCase()}]</p>
+            {standings.map((standing, index) => {
+              const name = String(standing.team.name ?? "Equipe").toUpperCase();
+              const tag = String(standing.team.tag ?? "").toUpperCase();
+
+              return (
+                <TableRow
+                  key={standing.team.id}
+                  className={
+                    getRowStyle(index + 1) +
+                    " cursor-pointer transition-colors hover:bg-muted/20 border-border/40"
+                  }
+                  onClick={() => navigate(`/team/${standing.team.id}`)}
+                >
+                  <TableCell className="py-4">
+                    <div className="flex items-center gap-2">
+                      {getPositionIcon(index + 1)}
+                      <span className="font-extrabold tabular-nums">{index + 1}</span>
                     </div>
-                  </div>
-                </TableCell>
-                <TableCell className="text-center">{standing.matchesPlayed}</TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="secondary" className="gap-1">
-                    <Target className="w-3 h-3" />
-                    {standing.totalKills}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-center">
-                  <span className="text-lg font-bold" style={{ color: primaryColor }}>{standing.totalPoints}</span>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+
+                  <TableCell className="py-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {standing.team.logo_url ? (
+                        <img
+                          src={standing.team.logo_url}
+                          alt={name}
+                          className="w-10 h-10 rounded-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full bg-muted/30 flex items-center justify-center">
+                          <DefaultAvatarMark className="h-5 w-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold truncate">{name}</p>
+                          {standing.team.is_external && (
+                            <Badge variant="secondary" className="text-[8px] h-3 px-1 bg-muted/50 text-muted-foreground border-border/40 uppercase">
+                              Convidada
+                            </Badge>
+                          )}
+                        </div>
+                        {tag ? (
+                          <p className="text-xs text-muted-foreground truncate">[{tag}]</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-center py-4 tabular-nums font-semibold">
+                    {standing.matchesPlayed}
+                  </TableCell>
+
+                  <TableCell className="text-center py-4">
+                    <Badge className="gap-1 bg-primary/15 text-primary border border-primary/20" variant="secondary">
+                      <Target className="w-3 h-3" />
+                      <span className="tabular-nums">{standing.totalKills}</span>
+                    </Badge>
+                  </TableCell>
+
+                  <TableCell className="text-center py-4">
+                    <span className="text-lg font-black tabular-nums" style={{ color: primaryColor }}>
+                      {standing.totalPoints}
+                    </span>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

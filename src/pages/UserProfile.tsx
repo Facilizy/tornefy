@@ -10,6 +10,7 @@ import { OrganizerBadge } from "@/components/OrganizerBadge";
 import TrainingStatusBadge from "@/components/training/TrainingStatusBadge";
 import TeamTagBadge from "@/components/TeamTagBadge";
 import LiveNowSection from "@/components/twitch/LiveNowSection";
+import { PaymentComingSoon } from "@/components/payments/PaymentComingSoon";
 import { useOrganizerFollow } from "@/hooks/useOrganizerFollow";
 import {
   Award,
@@ -114,7 +115,7 @@ const GAME_LABELS: Record<string, string> = {
   blood_strike: "Blood Strike",
   farlight_84: "Farlight 84",
   prime_rush: "Prime Rush",
-  battlefield_6: "Battlefield 6",
+  pubg_mobile: "PUBG Mobile",
 };
 
 const UserProfile = () => {
@@ -129,6 +130,11 @@ const UserProfile = () => {
   const [isOrganizer, setIsOrganizer] = useState(false);
   const [organizerVerified, setOrganizerVerified] = useState(false);
   const [organizerTrainings, setOrganizerTrainings] = useState<any[]>([]);
+
+  const [organizerPlans, setOrganizerPlans] = useState<any[]>([]);
+  const [organizerPlanCounts, setOrganizerPlanCounts] = useState<Record<string, number>>({});
+  const [loadingPlans, setLoadingPlans] = useState(false);
+  const [subscribingPlanId, setSubscribingPlanId] = useState<string | null>(null);
 
   const [selfTwitchConnected, setSelfTwitchConnected] = useState(false);
 
@@ -183,20 +189,20 @@ const UserProfile = () => {
 
   const [mainTeam, setMainTeam] = useState<
     | {
-        id: string;
-        tag: string | null;
-        name: string | null;
-        primary_color: string | null;
-        logo_url?: string | null;
-        banner_url?: string | null;
-        bio?: string | null;
-        region?: string | null;
-        discord_url?: string | null;
-        twitter_url?: string | null;
-        instagram_url?: string | null;
-        youtube_url?: string | null;
-        integrated_games?: unknown;
-      }
+      id: string;
+      tag: string | null;
+      name: string | null;
+      primary_color: string | null;
+      logo_url?: string | null;
+      banner_url?: string | null;
+      bio?: string | null;
+      region?: string | null;
+      discord_url?: string | null;
+      twitter_url?: string | null;
+      instagram_url?: string | null;
+      youtube_url?: string | null;
+      integrated_games?: unknown;
+    }
     | null
   >(null);
 
@@ -364,7 +370,10 @@ const UserProfile = () => {
       setIsOrganizer(organizer);
 
       if (organizer) {
-        const trainings = await fetchOrganizerTrainings(targetUserId);
+        const [trainings] = await Promise.all([
+          fetchOrganizerTrainings(targetUserId),
+          fetchOrganizerPlans(targetUserId),
+        ]);
         setOrganizerTrainings(trainings);
         // Verificado por RPC (fallback se RLS bloqueou)
         const verifiedByMilestone = trainings.length >= 10;
@@ -423,6 +432,47 @@ const UserProfile = () => {
     }));
   };
 
+  const fetchOrganizerPlans = async (uid: string) => {
+    try {
+      setLoadingPlans(true);
+
+      const [{ data: plans, error: plansErr }, { data: memberships, error: memErr }] = await Promise.all([
+        supabase
+          .from("organizer_subscription_plans")
+          .select("id,name,description,benefits_text,monthly_fee_coins,period_days,max_subscribers,active")
+          .eq("organizer_id", uid)
+          .eq("active", true)
+          .order("monthly_fee_coins", { ascending: true }),
+        supabase
+          .from("organizer_plan_memberships")
+          .select("plan_id,current_period_end,status")
+          .eq("organizer_id", uid)
+          .eq("status", "active"),
+      ]);
+
+      if (plansErr) throw plansErr;
+      if (memErr) throw memErr;
+
+      const counts: Record<string, number> = {};
+      (memberships || []).forEach((m: any) => {
+        const end = m?.current_period_end ? new Date(String(m.current_period_end)).getTime() : 0;
+        if (end && end > Date.now()) {
+          const pid = String(m.plan_id || "");
+          if (!pid) return;
+          counts[pid] = (counts[pid] || 0) + 1;
+        }
+      });
+
+      setOrganizerPlans(plans || []);
+      setOrganizerPlanCounts(counts);
+    } catch {
+      setOrganizerPlans([]);
+      setOrganizerPlanCounts({});
+    } finally {
+      setLoadingPlans(false);
+    }
+  };
+
   const fetchPlayerStats = async (uid: string) => {
     setStatsLoading(true);
     setStatsError(null);
@@ -465,288 +515,288 @@ const UserProfile = () => {
         return;
       }
 
-    // Buscar times em que o jogador está cadastrado
-    const { data: teamMembers, error: tmError } = await supabase
-      .from("team_members")
-      .select("id, team_id, game_id, line_id, created_at")
-      .eq("user_id", uid)
-      .order("created_at", { ascending: true });
+      // Buscar times em que o jogador está cadastrado
+      const { data: teamMembers, error: tmError } = await supabase
+        .from("team_members")
+        .select("id, team_id, game_id, line_id, created_at")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: true });
 
-    if (tmError) throw tmError;
+      if (tmError) throw tmError;
 
-    const memberIds = (teamMembers || []).map((m: any) => m.id).filter(Boolean);
-    const lineIds = (teamMembers || [])
-      .map((m: any) => m?.line_id)
-      .filter(Boolean)
-      .map(String);
-    const memberGameById = new Map<string, string>();
-    (teamMembers || []).forEach((m: any) => {
-      if (m?.id && m?.game_id) memberGameById.set(String(m.id), String(m.game_id));
-    });
-    const teamIds = Array.from(
-      new Set((teamMembers || []).map((m: any) => m.team_id).filter(Boolean))
-    );
+      const memberIds = (teamMembers || []).map((m: any) => m.id).filter(Boolean);
+      const lineIds = (teamMembers || [])
+        .map((m: any) => m?.line_id)
+        .filter(Boolean)
+        .map(String);
+      const memberGameById = new Map<string, string>();
+      (teamMembers || []).forEach((m: any) => {
+        if (m?.id && m?.game_id) memberGameById.set(String(m.id), String(m.game_id));
+      });
+      const teamIds = Array.from(
+        new Set((teamMembers || []).map((m: any) => m.team_id).filter(Boolean))
+      );
 
-    // Main team = oldest membership (first row due to ordering)
-    const mainTeamId = (teamMembers || [])?.[0]?.team_id as string | undefined;
-    if (mainTeamId) {
-      // NOTE: `youtube_url` is a recently added column; we query via `any` to avoid stale generated types.
-      const { data: t, error: tErr } = await (supabase as any)
-        .from("teams")
-        .select(
-          "id, tag, name, primary_color, logo_url, banner_url, bio, region, discord_url, twitter_url, instagram_url, youtube_url, integrated_games"
-        )
-        .eq("id", mainTeamId)
-        .maybeSingle();
-      if (!tErr && t?.id) {
-        setMainTeam({
-          id: t.id,
-          tag: t.tag ?? null,
-          name: t.name ?? null,
-          primary_color: t.primary_color ?? null,
-          logo_url: t.logo_url ?? null,
-          banner_url: t.banner_url ?? null,
-          bio: t.bio ?? null,
-          region: t.region ?? null,
-          discord_url: t.discord_url ?? null,
-          twitter_url: t.twitter_url ?? null,
-          instagram_url: t.instagram_url ?? null,
-          youtube_url: t.youtube_url ?? null,
-          integrated_games: t.integrated_games ?? null,
-        });
+      // Main team = oldest membership (first row due to ordering)
+      const mainTeamId = (teamMembers || [])?.[0]?.team_id as string | undefined;
+      if (mainTeamId) {
+        // NOTE: `youtube_url` is a recently added column; we query via `any` to avoid stale generated types.
+        const { data: t, error: tErr } = await (supabase as any)
+          .from("teams")
+          .select(
+            "id, tag, name, primary_color, logo_url, banner_url, bio, region, discord_url, twitter_url, instagram_url, youtube_url, integrated_games"
+          )
+          .eq("id", mainTeamId)
+          .maybeSingle();
+        if (!tErr && t?.id) {
+          setMainTeam({
+            id: t.id,
+            tag: t.tag ?? null,
+            name: t.name ?? null,
+            primary_color: t.primary_color ?? null,
+            logo_url: t.logo_url ?? null,
+            banner_url: t.banner_url ?? null,
+            bio: t.bio ?? null,
+            region: t.region ?? null,
+            discord_url: t.discord_url ?? null,
+            twitter_url: t.twitter_url ?? null,
+            instagram_url: t.instagram_url ?? null,
+            youtube_url: t.youtube_url ?? null,
+            integrated_games: t.integrated_games ?? null,
+          });
+        } else {
+          setMainTeam(null);
+        }
       } else {
         setMainTeam(null);
       }
-    } else {
-      setMainTeam(null);
-    }
 
-    // Season window (opcional): filtra por data de criação do match
-    let seasonStart: number | null = null;
-    let seasonEnd: number | null = null;
-    if (selectedSeasonId) {
-      const { data: sRow } = await supabase
-        .from("ranking_seasons")
-        .select("start_at, end_at")
-        .eq("id", selectedSeasonId)
-        .maybeSingle();
-      if (sRow?.start_at) seasonStart = new Date(sRow.start_at).getTime();
-      if (sRow?.end_at) seasonEnd = new Date(sRow.end_at).getTime();
-    }
+      // Season window (opcional): filtra por data de criação do match
+      let seasonStart: number | null = null;
+      let seasonEnd: number | null = null;
+      if (selectedSeasonId) {
+        const { data: sRow } = await supabase
+          .from("ranking_seasons")
+          .select("start_at, end_at")
+          .eq("id", selectedSeasonId)
+          .maybeSingle();
+        if (sRow?.start_at) seasonStart = new Date(sRow.start_at).getTime();
+        if (sRow?.end_at) seasonEnd = new Date(sRow.end_at).getTime();
+      }
 
-    // Stats reais via training_player_stats (jogador) + training_match_scores (#1 do time nos matches que ele jogou)
-    let totalScrims = 0;
-    let totalKills = 0;
-    let mvps = 0;
-    let firstPlaces = 0;
+      // Stats reais via training_player_stats (jogador) + training_match_scores (#1 do time nos matches que ele jogou)
+      let totalScrims = 0;
+      let totalKills = 0;
+      let mvps = 0;
+      let firstPlaces = 0;
 
-    const matchesPlayed = new Set<string>();
-    const killsByMatch = new Map<string, { kills: number; mvps: number }>();
+      const matchesPlayed = new Set<string>();
+      const killsByMatch = new Map<string, { kills: number; mvps: number }>();
 
-    const byGameAgg = new Map<string, { kills: number; mvps: number; matches: Set<string> }>();
+      const byGameAgg = new Map<string, { kills: number; mvps: number; matches: Set<string> }>();
 
-    if (memberIds.length > 0) {
-      const { data: playerStats, error: psError } = await supabase
-        .from("training_player_stats")
-        .select("kills, is_mvp, match_id, team_member_id")
-        .in("team_member_id", memberIds);
+      if (memberIds.length > 0) {
+        const { data: playerStats, error: psError } = await supabase
+          .from("training_player_stats")
+          .select("kills, is_mvp, match_id, team_member_id")
+          .in("team_member_id", memberIds);
 
-      if (psError) throw psError;
+        if (psError) throw psError;
 
-      const allMatchIds = Array.from(
-        new Set((playerStats || []).map((s: any) => s.match_id).filter(Boolean).map(String))
-      );
+        const allMatchIds = Array.from(
+          new Set((playerStats || []).map((s: any) => s.match_id).filter(Boolean).map(String))
+        );
 
-      const matchMeta = new Map<string, { createdAtMs: number | null; matchNumber: number | null }>();
-      if (allMatchIds.length) {
-        const { data: matchRows, error: mErr2 } = await supabase
-          .from("training_matches")
-          .select("id, created_at, match_number")
-          .in("id", allMatchIds);
-        if (mErr2) throw mErr2;
-        (matchRows || []).forEach((m: any) => {
-          matchMeta.set(String(m.id), {
-            createdAtMs: m?.created_at ? new Date(m.created_at).getTime() : null,
-            matchNumber: m?.match_number != null ? Number(m.match_number) : null,
+        const matchMeta = new Map<string, { createdAtMs: number | null; matchNumber: number | null }>();
+        if (allMatchIds.length) {
+          const { data: matchRows, error: mErr2 } = await supabase
+            .from("training_matches")
+            .select("id, created_at, match_number")
+            .in("id", allMatchIds);
+          if (mErr2) throw mErr2;
+          (matchRows || []).forEach((m: any) => {
+            matchMeta.set(String(m.id), {
+              createdAtMs: m?.created_at ? new Date(m.created_at).getTime() : null,
+              matchNumber: m?.match_number != null ? Number(m.match_number) : null,
+            });
           });
+        }
+
+        const isMatchInSeason = (matchId: string) => {
+          if (!seasonStart) return true;
+          const meta = matchMeta.get(matchId);
+          const t = meta?.createdAtMs;
+          if (!t) return true;
+          const end = seasonEnd ?? Number.POSITIVE_INFINITY;
+          return t >= seasonStart && t < end;
+        };
+
+        (playerStats || []).forEach((s: any) => {
+          const matchId = s.match_id ? String(s.match_id) : null;
+          if (!matchId) return;
+          if (!isMatchInSeason(matchId)) return;
+
+          const kills = Number(s.kills ?? 0);
+          const isMvp = !!s.is_mvp;
+          const memberId = s.team_member_id ? String(s.team_member_id) : null;
+          const g = memberId ? memberGameById.get(memberId) : null;
+
+          // Per-game aggregates (para cards por jogo)
+          if (g) {
+            const cur = byGameAgg.get(g) || { kills: 0, mvps: 0, matches: new Set<string>() };
+            cur.kills += Number.isFinite(kills) ? kills : 0;
+            if (isMvp) cur.mvps += 1;
+            cur.matches.add(matchId);
+            byGameAgg.set(g, cur);
+          }
+
+          // Selected game aggregates (números grandes + chart)
+          if (!g || g === selectedGame) {
+            totalKills += Number.isFinite(kills) ? kills : 0;
+            if (isMvp) mvps += 1;
+            matchesPlayed.add(matchId);
+
+            const prev = killsByMatch.get(matchId) || { kills: 0, mvps: 0 };
+            prev.kills += Number.isFinite(kills) ? kills : 0;
+            if (isMvp) prev.mvps += 1;
+            killsByMatch.set(matchId, prev);
+          }
+        });
+
+        totalScrims = matchesPlayed.size;
+      }
+
+      if (mainTeamId && matchesPlayed.size > 0) {
+        const matchIds = Array.from(matchesPlayed);
+        const { data: scoreRows, error: msError } = await supabase
+          .from("training_match_scores")
+          .select("match_id, position")
+          .eq("team_id", mainTeamId)
+          .in("match_id", matchIds);
+
+        if (msError) throw msError;
+        (scoreRows || []).forEach((r: any) => {
+          if (Number(r.position) === 1) firstPlaces += 1;
         });
       }
 
-      const isMatchInSeason = (matchId: string) => {
-        if (!seasonStart) return true;
-        const meta = matchMeta.get(matchId);
-        const t = meta?.createdAtMs;
-        if (!t) return true;
-        const end = seasonEnd ?? Number.POSITIVE_INFINITY;
-        return t >= seasonStart && t < end;
-      };
+      // Build last 10 scrims chart (por ordem de criação do match)
+      let killsByMatchSeries: Array<{ label: string; kills: number; mvps: number }> = [];
+      if (matchesPlayed.size > 0) {
+        const matchIds = Array.from(matchesPlayed);
+        const { data: matchRows, error: mErr } = await supabase
+          .from("training_matches")
+          .select("id, created_at, match_number")
+          .in("id", matchIds);
+        if (mErr) throw mErr;
 
-      (playerStats || []).forEach((s: any) => {
-        const matchId = s.match_id ? String(s.match_id) : null;
-        if (!matchId) return;
-        if (!isMatchInSeason(matchId)) return;
+        const sorted = (matchRows || [])
+          .slice()
+          .sort((a: any, b: any) =>
+            String(a.created_at || "").localeCompare(String(b.created_at || ""))
+          )
+          .slice(-10);
 
-        const kills = Number(s.kills ?? 0);
-        const isMvp = !!s.is_mvp;
-        const memberId = s.team_member_id ? String(s.team_member_id) : null;
-        const g = memberId ? memberGameById.get(memberId) : null;
+        killsByMatchSeries = sorted.map((m: any, idx: number) => {
+          const agg = killsByMatch.get(String(m.id)) || { kills: 0, mvps: 0 };
+          const label = m.match_number ? `M${m.match_number}` : `#${idx + 1}`;
+          return { label, kills: agg.kills, mvps: agg.mvps };
+        });
+      }
 
-        // Per-game aggregates (para cards por jogo)
-        if (g) {
-          const cur = byGameAgg.get(g) || { kills: 0, mvps: 0, matches: new Set<string>() };
-          cur.kills += Number.isFinite(kills) ? kills : 0;
-          if (isMvp) cur.mvps += 1;
-          cur.matches.add(matchId);
-          byGameAgg.set(g, cur);
-        }
+      const kd = totalScrims ? totalKills / totalScrims : 0;
 
-        // Selected game aggregates (números grandes + chart)
-        if (!g || g === selectedGame) {
-          totalKills += Number.isFinite(kills) ? kills : 0;
-          if (isMvp) mvps += 1;
-          matchesPlayed.add(matchId);
-
-          const prev = killsByMatch.get(matchId) || { kills: 0, mvps: 0 };
-          prev.kills += Number.isFinite(kills) ? kills : 0;
-          if (isMvp) prev.mvps += 1;
-          killsByMatch.set(matchId, prev);
-        }
+      const byGame: Record<string, { scrims: number; kills: number; mvps: number; kd: number }> = {};
+      byGameAgg.forEach((v, g) => {
+        const scrims = v.matches.size;
+        const kd = scrims ? v.kills / scrims : 0;
+        byGame[g] = { scrims, kills: v.kills, mvps: v.mvps, kd };
       });
 
-      totalScrims = matchesPlayed.size;
-    }
+      // Carregar conquistas do jogador
+      const { data: userAchievements, error: uaError } = await (supabase as any)
+        .from("user_achievements")
+        .select("id, achievement_id, progress, unlocked_at, claimed_at")
+        .eq("user_id", uid);
 
-    if (mainTeamId && matchesPlayed.size > 0) {
-      const matchIds = Array.from(matchesPlayed);
-      const { data: scoreRows, error: msError } = await supabase
-        .from("training_match_scores")
-        .select("match_id, position")
-        .eq("team_id", mainTeamId)
-        .in("match_id", matchIds);
+      if (uaError) throw uaError;
 
-      if (msError) throw msError;
-      (scoreRows || []).forEach((r: any) => {
-        if (Number(r.position) === 1) firstPlaces += 1;
+      const { data: achievementsDefs, error: achError } = await (supabase as any)
+        .from("achievements")
+        .select("id, name, description, target_value, audience")
+        .eq("audience", "player");
+      if (achError) throw achError;
+
+      const uaByAchievementId = new Map<string, any>((userAchievements || []).map((ua: any) => [ua.achievement_id, ua]));
+
+      const achievements = (achievementsDefs || []).map((def: any) => {
+        const ua = uaByAchievementId.get(def.id);
+        const target = def?.target_value ?? 1;
+        const progress = ua?.progress ?? 0;
+        const unlockedAt = (ua?.unlocked_at as string | null) ?? null;
+        const claimedAt = (ua?.claimed_at as string | null) ?? null;
+        const unlocked = !!unlockedAt || progress >= target;
+        return {
+          id: (ua?.id as string) ?? crypto.randomUUID(),
+          achievementId: String(def.id),
+          name: String(def?.name || "Missão"),
+          description: (def?.description as string | null) ?? null,
+          progress: Number(progress) || 0,
+          targetValue: Number(target) || 1,
+          unlocked,
+          unlockedAt,
+          claimedAt,
+        };
       });
-    }
 
-    // Build last 10 scrims chart (por ordem de criação do match)
-    let killsByMatchSeries: Array<{ label: string; kills: number; mvps: number }> = [];
-    if (matchesPlayed.size > 0) {
-      const matchIds = Array.from(matchesPlayed);
-      const { data: matchRows, error: mErr } = await supabase
-        .from("training_matches")
-        .select("id, created_at, match_number")
-        .in("id", matchIds);
-      if (mErr) throw mErr;
+      const totalBadges = achievements.length;
+      const unlockedBadges = achievements.filter((a) => a.unlocked).length;
 
-      const sorted = (matchRows || [])
-        .slice()
-        .sort((a: any, b: any) =>
-          String(a.created_at || "").localeCompare(String(b.created_at || ""))
-        )
-        .slice(-10);
+      // Histórico real de scrims (baseado em inscrições do jogador via line_id)
+      // Obs: isso independe de training_player_stats ter team_member_id preenchido.
+      try {
+        if (lineIds.length > 0) {
+          const { data: regRows, error: regErr } = await (supabase as any)
+            .from("training_registrations")
+            .select("id, registered_at, slot_number, trainings ( id, name, datetime, game, status )")
+            .in("line_id", lineIds)
+            .order("registered_at", { ascending: false })
+            .limit(30);
+          if (regErr) throw regErr;
 
-      killsByMatchSeries = sorted.map((m: any, idx: number) => {
-        const agg = killsByMatch.get(String(m.id)) || { kills: 0, mvps: 0 };
-        const label = m.match_number ? `M${m.match_number}` : `#${idx + 1}`;
-        return { label, kills: agg.kills, mvps: agg.mvps };
-      });
-    }
-
-    const kd = totalScrims ? totalKills / totalScrims : 0;
-
-    const byGame: Record<string, { scrims: number; kills: number; mvps: number; kd: number }> = {};
-    byGameAgg.forEach((v, g) => {
-      const scrims = v.matches.size;
-      const kd = scrims ? v.kills / scrims : 0;
-      byGame[g] = { scrims, kills: v.kills, mvps: v.mvps, kd };
-    });
-
-    // Carregar conquistas do jogador
-    const { data: userAchievements, error: uaError } = await (supabase as any)
-      .from("user_achievements")
-      .select("id, achievement_id, progress, unlocked_at, claimed_at")
-      .eq("user_id", uid);
-
-    if (uaError) throw uaError;
-
-    const { data: achievementsDefs, error: achError } = await (supabase as any)
-      .from("achievements")
-      .select("id, name, description, target_value, audience")
-      .eq("audience", "player");
-    if (achError) throw achError;
-
-    const uaByAchievementId = new Map<string, any>((userAchievements || []).map((ua: any) => [ua.achievement_id, ua]));
-
-    const achievements = (achievementsDefs || []).map((def: any) => {
-      const ua = uaByAchievementId.get(def.id);
-      const target = def?.target_value ?? 1;
-      const progress = ua?.progress ?? 0;
-      const unlockedAt = (ua?.unlocked_at as string | null) ?? null;
-      const claimedAt = (ua?.claimed_at as string | null) ?? null;
-      const unlocked = !!unlockedAt || progress >= target;
-      return {
-        id: (ua?.id as string) ?? crypto.randomUUID(),
-        achievementId: String(def.id),
-        name: String(def?.name || "Missão"),
-        description: (def?.description as string | null) ?? null,
-        progress: Number(progress) || 0,
-        targetValue: Number(target) || 1,
-        unlocked,
-        unlockedAt,
-        claimedAt,
-      };
-    });
-
-    const totalBadges = achievements.length;
-    const unlockedBadges = achievements.filter((a) => a.unlocked).length;
-
-    // Histórico real de scrims (baseado em inscrições do jogador via line_id)
-    // Obs: isso independe de training_player_stats ter team_member_id preenchido.
-    try {
-      if (lineIds.length > 0) {
-        const { data: regRows, error: regErr } = await (supabase as any)
-          .from("training_registrations")
-          .select("id, registered_at, slot_number, trainings ( id, name, datetime, game, status )")
-          .in("line_id", lineIds)
-          .order("registered_at", { ascending: false })
-          .limit(30);
-        if (regErr) throw regErr;
-
-        const mapped = (regRows || []).map((r: any) => ({
-          id: String(r.id),
-          registered_at: String(r.registered_at),
-          slot_number: r.slot_number != null ? Number(r.slot_number) : null,
-          training: r.trainings
-            ? {
+          const mapped = (regRows || []).map((r: any) => ({
+            id: String(r.id),
+            registered_at: String(r.registered_at),
+            slot_number: r.slot_number != null ? Number(r.slot_number) : null,
+            training: r.trainings
+              ? {
                 id: String(r.trainings.id),
                 name: (r.trainings.name as string | null) ?? null,
                 datetime: (r.trainings.datetime as string | null) ?? null,
                 game: (r.trainings.game as string | null) ?? null,
                 status: (r.trainings.status as string | null) ?? null,
               }
-            : null,
-        }));
+              : null,
+          }));
 
-        // Filtro por season (opcional) usando datetime do treino
-        const filtered = !seasonStart
-          ? mapped
-          : mapped.filter((row) => {
+          // Filtro por season (opcional) usando datetime do treino
+          const filtered = !seasonStart
+            ? mapped
+            : mapped.filter((row) => {
               const dt = row.training?.datetime ? new Date(row.training.datetime).getTime() : null;
               if (!dt) return true;
               const end = seasonEnd ?? Number.POSITIVE_INFINITY;
               return dt >= seasonStart && dt < end;
             });
 
-        setScrimHistory(filtered);
-      } else {
+          setScrimHistory(filtered);
+        } else {
+          setScrimHistory([]);
+        }
+      } catch {
+        // não bloqueia o perfil; apenas não mostra histórico
         setScrimHistory([]);
       }
-    } catch {
-      // não bloqueia o perfil; apenas não mostra histórico
-      setScrimHistory([]);
-    }
 
       setStats({
         totalScrims,
@@ -1016,11 +1066,11 @@ const UserProfile = () => {
                 ) : null}
                 {isOwnProfile ? (
                   <>
-                    <Button variant="outline" onClick={() => navigate("/invites")}> 
+                    <Button variant="outline" onClick={() => navigate("/invites")}>
                       <UserPlus className="w-4 h-4 mr-2" />
                       Convites
                     </Button>
-                    <Button variant="outline" onClick={() => navigate("/profile/edit")}> 
+                    <Button variant="outline" onClick={() => navigate("/profile/edit")}>
                       <Edit className="w-4 h-4 mr-2" />
                       Editar
                     </Button>
@@ -1111,6 +1161,12 @@ const UserProfile = () => {
               </Card>
             </div>
 
+            <PaymentComingSoon
+              className="w-full"
+              title="Planos de Assinatura"
+              description="Os planos de assinatura e pagamentos em TorneCoins estarão disponíveis em breve."
+            />
+
             <Card className="p-6 bg-card/50 border-border">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                 <div>
@@ -1136,7 +1192,7 @@ const UserProfile = () => {
                     <button
                       key={t.id}
                       type="button"
-                      onClick={() => navigate(`/training/${t.id}`)}
+                      onClick={() => navigate(`/scrim/${t.id}`)}
                       className="text-left"
                     >
                       <Card className="p-4 bg-background/50 border-border hover:border-primary/50 transition-colors">
@@ -1178,7 +1234,7 @@ const UserProfile = () => {
                 <AlertDescription>{statsError}</AlertDescription>
               </Alert>
             ) : null}
-              <Tabs defaultValue="overview" className="mb-12">
+            <Tabs defaultValue="overview" className="mb-12">
               <TabsList
                 className={
                   "grid w-full max-w-2xl mb-8 " +
@@ -1340,7 +1396,7 @@ const UserProfile = () => {
                           <button
                             key={row.id}
                             className="text-left"
-                            onClick={() => (t?.id ? navigate(`/training/${t.id}`) : null)}
+                            onClick={() => (t?.id ? navigate(`/scrim/${t.id}`) : null)}
                             disabled={!t?.id}
                           >
                             <Card className="p-5 bg-background/45 border-border hover:bg-background/55 transition-colors">
@@ -1535,79 +1591,79 @@ const UserProfile = () => {
                       <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
                         {statsLoading
                           ? Array.from({ length: 3 }).map((_, i) => (
-                              <ProfileGameStatCardSkeleton key={i} />
-                            ))
+                            <ProfileGameStatCardSkeleton key={i} />
+                          ))
                           : Object.entries(stats.byGame)
-                              .slice()
-                              .sort(([, a], [, b]) => (b?.scrims || 0) - (a?.scrims || 0))
-                              .map(([gameId, s]) => {
-                                const logo = getGameLogo(gameId as any);
-                                const label = getGameLabel(gameId as any);
-                                const kdValue = Number.isFinite(s.kd) ? s.kd : 0;
+                            .slice()
+                            .sort(([, a], [, b]) => (b?.scrims || 0) - (a?.scrims || 0))
+                            .map(([gameId, s]) => {
+                              const logo = getGameLogo(gameId as any);
+                              const label = getGameLabel(gameId as any);
+                              const kdValue = Number.isFinite(s.kd) ? s.kd : 0;
 
-                                return (
-                                  <Card
-                                    key={gameId}
-                                    className="overflow-hidden bg-background/45 border-border p-4"
-                                  >
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0">
-                                        <p className="font-extrabold uppercase tracking-tight truncate">
-                                          {label}
-                                        </p>
-                                        <p className="mt-1 text-xs text-muted-foreground">
-                                          {s.scrims ? `${s.scrims} scrims` : "Sem scrims"}
-                                        </p>
-                                      </div>
-                                      <div className="h-10 w-10 rounded-xl border border-border bg-card/40 overflow-hidden shrink-0">
-                                        {logo ? (
-                                          <img
-                                            src={logo}
-                                            alt={`Logo do jogo ${label}`}
-                                            className="h-full w-full object-cover"
-                                            loading="lazy"
-                                          />
-                                        ) : null}
-                                      </div>
+                              return (
+                                <Card
+                                  key={gameId}
+                                  className="overflow-hidden bg-background/45 border-border p-4"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="font-extrabold uppercase tracking-tight truncate">
+                                        {label}
+                                      </p>
+                                      <p className="mt-1 text-xs text-muted-foreground">
+                                        {s.scrims ? `${s.scrims} scrims` : "Sem scrims"}
+                                      </p>
                                     </div>
+                                    <div className="h-10 w-10 rounded-xl border border-border bg-card/40 overflow-hidden shrink-0">
+                                      {logo ? (
+                                        <img
+                                          src={logo}
+                                          alt={`Logo do jogo ${label}`}
+                                          className="h-full w-full object-cover"
+                                          loading="lazy"
+                                        />
+                                      ) : null}
+                                    </div>
+                                  </div>
 
-                                    <div className="mt-4 grid grid-cols-2 gap-2">
-                                      <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
-                                        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                                          Kills
-                                        </p>
-                                        <p className="mt-1 text-sm font-bold tabular-nums">
-                                          {s.kills}
-                                        </p>
-                                      </div>
-                                      <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
-                                        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                                          MVPs
-                                        </p>
-                                        <p className="mt-1 text-sm font-bold tabular-nums">
-                                          {s.mvps}
-                                        </p>
-                                      </div>
-                                      <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
-                                        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                                          K/D
-                                        </p>
-                                        <p className="mt-1 text-sm font-bold tabular-nums">
-                                          {kdValue ? kdValue.toFixed(2) : "—"}
-                                        </p>
-                                      </div>
-                                      <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
-                                        <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
-                                          K/Scrim
-                                        </p>
-                                        <p className="mt-1 text-sm font-bold tabular-nums">
-                                          {s.scrims ? (s.kills / s.scrims).toFixed(1) : "—"}
-                                        </p>
-                                      </div>
+                                  <div className="mt-4 grid grid-cols-2 gap-2">
+                                    <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
+                                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                                        Kills
+                                      </p>
+                                      <p className="mt-1 text-sm font-bold tabular-nums">
+                                        {s.kills}
+                                      </p>
                                     </div>
-                                  </Card>
-                                );
-                              })}
+                                    <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
+                                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                                        MVPs
+                                      </p>
+                                      <p className="mt-1 text-sm font-bold tabular-nums">
+                                        {s.mvps}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
+                                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                                        K/D
+                                      </p>
+                                      <p className="mt-1 text-sm font-bold tabular-nums">
+                                        {kdValue ? kdValue.toFixed(2) : "—"}
+                                      </p>
+                                    </div>
+                                    <div className="rounded-xl border border-border bg-card/40 px-3 py-2">
+                                      <p className="text-[11px] text-muted-foreground uppercase tracking-wide">
+                                        K/Scrim
+                                      </p>
+                                      <p className="mt-1 text-sm font-bold tabular-nums">
+                                        {s.scrims ? (s.kills / s.scrims).toFixed(1) : "—"}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </Card>
+                              );
+                            })}
 
                         {!statsLoading && Object.keys(stats.byGame).length === 0 ? (
                           <Card className="p-4 bg-background/40 border-border">

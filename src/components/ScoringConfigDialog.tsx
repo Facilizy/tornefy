@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Award, Plus, Trash2, Loader2, Settings } from "lucide-react";
+import { ActionTile } from "@/components/ActionTile";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -23,6 +24,7 @@ interface ScoringConfigDialogProps {
   currentPointsPerKill: number;
   currentPointsPerPosition: any[];
   onConfigUpdated: () => void;
+  triggerVariant?: "button" | "tile";
 }
 
 export function ScoringConfigDialog({
@@ -30,6 +32,7 @@ export function ScoringConfigDialog({
   currentPointsPerKill,
   currentPointsPerPosition,
   onConfigUpdated,
+  triggerVariant = "button",
 }: ScoringConfigDialogProps) {
   const [open, setOpen] = useState(false);
   const [pointsPerKill, setPointsPerKill] = useState(currentPointsPerKill);
@@ -108,114 +111,141 @@ export function ScoringConfigDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="xs" variant="outline" className="w-full justify-center gap-2">
-          <Award className="w-4 h-4" />
-          Editar Pontuação
-        </Button>
+        {triggerVariant === "tile" ? (
+          <ActionTile
+            title="Configurar Pontuação"
+            description="Defina pontos por abate e por colocação."
+            icon={Settings}
+          />
+        ) : (
+          <Button size="xs" variant="outline" className="w-full justify-center gap-2">
+            <Award className="w-4 h-4" />
+            Editar Pontuação
+          </Button>
+        )}
       </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Sistema de Pontuação
-          </DialogTitle>
-        </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Points per Kill */}
-          <div>
-            <Label htmlFor="pointsPerKill">Pontos por Abate</Label>
-            <Input
-              id="pointsPerKill"
-              type="number"
-              min="0"
-              value={pointsPerKill}
-              onChange={(e) => setPointsPerKill(parseInt(e.target.value) || 0)}
-              className="mt-1"
-            />
+      <DialogContent className="max-w-2xl w-[95vw] sm:w-full p-0">
+        <div className="flex max-h-[90vh] flex-col">
+          <div className="border-b border-border p-5">
+            <DialogHeader className="space-y-2">
+              <DialogTitle className="flex items-center gap-2 text-xl font-black uppercase tracking-tight">
+                <Settings className="h-5 w-5" />
+                Sistema de Pontuação
+              </DialogTitle>
+              <p className="text-sm text-muted-foreground">
+                Defina o valor por abate e a tabela de pontos por colocação.
+              </p>
+            </DialogHeader>
           </div>
 
-          {/* Points per Position */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>Pontos por Posição</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleAddPosition}
-                className="gap-1"
-              >
-                <Plus className="w-4 h-4" />
-                Adicionar Posição
-              </Button>
-            </div>
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="space-y-6">
+              <section className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-black uppercase tracking-wide text-muted-foreground">Abates</h3>
+                  <div className="ml-3 flex-1 border-b border-border" />
+                </div>
 
-            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2">
-              {positionPoints.map((pp, index) => (
-                <div
-                  key={index}
-                  className="flex items-end gap-3 p-3 rounded-lg bg-background/50 border border-border"
-                >
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground">Posição</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={pp.position}
-                      onChange={(e) =>
-                        handlePositionChange(index, "position", parseInt(e.target.value) || 1)
-                      }
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground">Pontos</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={pp.points}
-                      onChange={(e) =>
-                        handlePositionChange(index, "points", parseInt(e.target.value) || 0)
-                      }
-                      className="h-9"
-                    />
+                <div>
+                  <Label htmlFor="pointsPerKill">Pontos por Abate</Label>
+                  <Input
+                    id="pointsPerKill"
+                    type="number"
+                    min="0"
+                    value={pointsPerKill}
+                    onChange={(e) => setPointsPerKill(parseInt(e.target.value) || 0)}
+                    className="mt-1"
+                  />
+                </div>
+              </section>
+
+              <section className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center justify-between w-full">
+                    <h3 className="text-sm font-black uppercase tracking-wide text-muted-foreground">Posições</h3>
+                    <div className="ml-3 flex-1 border-b border-border" />
                   </div>
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleRemovePosition(index)}
-                    className="h-9 w-9 text-muted-foreground hover:text-destructive"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddPosition}
+                    className="gap-2 whitespace-nowrap"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Plus className="h-4 w-4" />
+                    Adicionar
                   </Button>
                 </div>
-              ))}
 
-              {positionPoints.length === 0 && (
-                <p className="text-center text-muted-foreground text-sm py-4">
-                  Nenhuma posição configurada. Clique em "Adicionar Posição" para começar.
-                </p>
-              )}
+                <div className="space-y-3">
+                  {positionPoints.map((pp, index) => (
+                    <div
+                      key={`${pp.position}-${index}`}
+                      className="flex flex-col gap-3 rounded-xl border border-border bg-background/30 p-4 sm:flex-row sm:items-end"
+                    >
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground">Posição</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={pp.position}
+                          onChange={(e) => handlePositionChange(index, "position", parseInt(e.target.value) || 1)}
+                          className="mt-1 h-9"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label className="text-xs text-muted-foreground">Pontos</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={pp.points}
+                          onChange={(e) => handlePositionChange(index, "points", parseInt(e.target.value) || 0)}
+                          className="mt-1 h-9"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemovePosition(index)}
+                        className="h-9 gap-2 sm:mb-[2px]"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remover
+                      </Button>
+                    </div>
+                  ))}
+
+                  {positionPoints.length === 0 && (
+                    <div className="rounded-xl border border-border bg-background/30 p-6 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        Nenhuma posição configurada. Clique em “Adicionar” para começar.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </section>
             </div>
           </div>
 
-          {/* Save Button */}
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="w-full"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                Salvando...
-              </>
-            ) : (
-              "Salvar Configuração"
-            )}
-          </Button>
+          <div className="border-t border-border p-5">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)} disabled={saving}>
+                Cancelar
+              </Button>
+              <Button onClick={handleSave} disabled={saving} className="bg-gradient-primary">
+                {saving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  "Salvar Configuração"
+                )}
+              </Button>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

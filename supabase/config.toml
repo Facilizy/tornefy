@@ -20,3 +20,21 @@ verify_jwt = false
 
 [functions.admin-api]
 verify_jwt = false
+
+[functions.auto-score-ff]
+verify_jwt = false
+
+[functions.process-scoreboard]
+verify_jwt = false
+
+[functions.me]
+verify_jwt = false
+
+[functions.external-teams-create]
+verify_jwt = false
+
+[functions.tornecoins-topup-create]
+verify_jwt = false
+
+[functions.tornecoins-topup-verify]
+verify_jwt = false
