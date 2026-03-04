@@ -22,7 +22,7 @@ export function detectSiteUrl(req: Request) {
   const proto = forwardedProto?.split(",")[0]?.trim() || "https";
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   if (host) return `${proto}://${host}`;
-  return "https://blank-canvas-magic-743.lovable.app";
+  return "https://tornefy.com.br";
 }
 
 export function xmlResponse(xml: string) {

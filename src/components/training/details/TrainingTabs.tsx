@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Info, Swords, Users, Trophy, MessageCircle, Settings } from "lucide-react";
+import { Info, Swords, Users, Trophy, MessageCircle, Settings, Video } from "lucide-react";
 import { Training } from "@/types/domain";
 
 interface TrainingTabsProps {
@@ -76,6 +76,20 @@ export function TrainingTabs({
                 >
                     <Trophy className="w-4 h-4" />
                     Ranking
+                </TabsTrigger>
+
+                <TabsTrigger
+                    value="lives"
+                    className="gap-2 px-6 py-2.5 rounded-lg border border-transparent transition-all
+                               data-[state=active]:text-black
+                               hover:bg-muted/50 data-[state=active]:hover:bg-transparent"
+                    style={{
+                        backgroundColor: activeTab === "lives" ? training.primary_color || "hsl(var(--primary))" : undefined,
+                        borderColor: activeTab === "lives" ? training.primary_color || "hsl(var(--primary))" : undefined
+                    }}
+                >
+                    <Video className="w-4 h-4" />
+                    Transmissões
                 </TabsTrigger>
 
                 {showChat && (

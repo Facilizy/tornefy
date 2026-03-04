@@ -38,6 +38,7 @@ import { TrainingTabs } from "@/components/training/details/TrainingTabs";
 import { OverviewTab } from "@/components/training/details/OverviewTab";
 import { TeamsTab } from "@/components/training/details/TeamsTab";
 import { MatchesTab } from "@/components/MatchesTab";
+import { LiveStreamsTab } from "@/components/training/details/LiveStreamsTab";
 import { Scoreboard } from "@/components/Scoreboard";
 import { FloatingChat } from "@/components/FloatingChat";
 import { TrainingDetailsSkeleton } from "@/components/skeletons/TrainingDetailsSkeleton";
@@ -600,6 +601,15 @@ const TrainingDetails = () => {
               </div>
             </div>
 
+            <div className={activeTab === "lives" ? "block" : "hidden"}>
+              <LiveStreamsTab
+                training={training}
+                isOrganizer={isOrganizer}
+                primaryColor={training.primary_color || undefined}
+                onUpdate={refetch}
+              />
+            </div>
+
             <div className={activeTab === "matches" ? "block" : "hidden"}>
               <MatchesTab
                 trainingId={training.id}
@@ -644,12 +654,29 @@ const TrainingDetails = () => {
             </div>
 
             <div className={activeTab === "chat" ? "block" : "hidden"}>
-              <TrainingChat
-                trainingId={training.id}
-                isOrganizer={isOrganizer}
-                organizerName={organizerProfile?.full_name}
-                organizerAvatarUrl={organizerProfile?.avatar_url}
-              />
+              {(isRegistered || isOrganizer) ? (
+                <TrainingChat
+                  trainingId={training.id}
+                  isOrganizer={isOrganizer}
+                  organizerName={organizerProfile?.full_name}
+                  organizerAvatarUrl={organizerProfile?.avatar_url}
+                />
+              ) : (
+                <div className="p-12 text-center max-w-md mx-auto mt-10 space-y-4 bg-card/40 backdrop-blur-sm border border-border/40 rounded-3xl">
+                  <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <MessageCircle className="w-8 h-8 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-black uppercase tracking-tight">Chat Restrito</h2>
+                  <p className="text-muted-foreground text-sm leading-relaxed">
+                    Apenas equipes inscritas e confirmadas podem participar do chat oficial deste treino.
+                  </p>
+                  {!user && (
+                    <Button onClick={() => navigate("/auth")} className="mt-4 w-full rounded-xl font-bold">
+                      Entrar para se inscrever
+                    </Button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className={activeTab === "settings" ? "block" : "hidden"}>
@@ -675,9 +702,11 @@ const TrainingDetails = () => {
             </div>
           </TrainingTabs>
         </div>
-      </main>
+      </main >
 
-      <FloatingChat trainingId={training.id} isOrganizer={isOrganizer} />
+      {(isRegistered || isOrganizer) && (
+        <FloatingChat trainingId={training.id} isOrganizer={isOrganizer} />
+      )}
 
       <RegistrationConfirmDialog
         open={registration.showConfirmDialog}
@@ -857,7 +886,7 @@ const TrainingDetails = () => {
           </div>
         </DialogContent>
       </Dialog>
-    </MainLayout>
+    </MainLayout >
   );
 };
 

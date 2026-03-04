@@ -8,7 +8,7 @@ export type SeoOptions = {
 
 // Prefer the published URL for canonical when the app is being viewed on preview/staging.
 // This avoids duplicate content between preview and published.
-const PUBLISHED_ORIGIN = "https://blank-canvas-magic-743.lovable.app";
+const PUBLISHED_ORIGIN = "https://tornefy.com.br";
 
 export const getCanonicalOrigin = () => {
   try {

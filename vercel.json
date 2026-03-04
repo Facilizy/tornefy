@@ -1,11 +1,11 @@
 {
   "routes": [
-    { "src": "/sitemap.xml", "dest": "https://nulmcireyubejpxiozhj.supabase.co/functions/v1/sitemap" },
-    { "src": "/sitemap-index.xml", "dest": "https://nulmcireyubejpxiozhj.supabase.co/functions/v1/sitemap-index" },
-    { "src": "/sitemap-static.xml", "dest": "https://nulmcireyubejpxiozhj.supabase.co/functions/v1/sitemap-static" },
-    { "src": "/sitemap-trainings.xml", "dest": "https://nulmcireyubejpxiozhj.supabase.co/functions/v1/sitemap-trainings" },
-    { "src": "/sitemap-profiles.xml", "dest": "https://nulmcireyubejpxiozhj.supabase.co/functions/v1/sitemap-profiles" },
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/index.html" }
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
   ]
 }

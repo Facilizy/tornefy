@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { AlertCircle, Camera, FileImage, Info, Loader2, Upload, XCircle } from "lucide-react";
+import { AlertCircle, Camera, FileImage, Info, Loader2, Upload, Users, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { UnresolvedPlayersPanel } from "./UnresolvedPlayersPanel";
@@ -314,61 +314,43 @@ export function ProcessScoreboardDialog({
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-0 h-[calc(85vh-73px)]">
-          {/* Coluna esquerda: upload + ações */}
-          <ScrollArea className="h-full">
-            <div className="p-4 sm:p-6 space-y-4">
-              {error && (
-                <Alert>
-                  <AlertTitle>Erro</AlertTitle>
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor="process-scoreboard-file">Imagens</Label>
-                  {files.length > 0 ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="gap-2"
-                      onClick={() => {
-                        setFiles([]);
-                        setPreview(null);
-                        setError(null);
-                      }}
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Limpar
-                    </Button>
-                  ) : null}
+        <div className="flex flex-col h-[calc(85vh-73px)] bg-card/10">
+          {!preview ? (
+            <ScrollArea className="flex-1 px-4 sm:px-6 py-8">
+              <div className="max-w-2xl mx-auto space-y-8 mt-4 sm:mt-10">
+                <div className="text-center space-y-2">
+                  <div className="mx-auto w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
+                    <Camera className="h-8 w-8 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-semibold">Envio de Prints</h3>
+                  <p className="text-muted-foreground"> Selecione até {maxPrintsForGame} imagens do resultado da partida para leitura automática via IA.</p>
                 </div>
 
-                <div className="rounded-lg border border-border bg-card/30 p-3">
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Erro na leitura</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-4">
                   <label
                     htmlFor="process-scoreboard-file"
-                    className="group flex cursor-pointer items-center justify-between gap-3 rounded-md border border-dashed border-border bg-background/20 p-3 transition-colors hover:bg-background/40"
+                    className="group flex flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border/60 bg-background/50 p-10 transition-all hover:bg-muted/50 hover:border-primary/50 cursor-pointer"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="rounded-md border border-border bg-card p-2">
-                        <Upload className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">
-                          {files.length > 0 ? `${files.length} arquivo(s)` : "Selecionar prints"}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {files.length > 0
-                            ? files.map((f) => f.name).join(" • ")
-                            : "Dica: recorte só a tabela do resultado"}
-                        </p>
-                      </div>
+                    <div className="rounded-full bg-card p-4 shadow-sm border border-border group-hover:scale-105 transition-transform">
+                      <Upload className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors" />
                     </div>
-                    <div className="shrink-0 rounded-md border border-border bg-card px-2 py-1 text-xs text-muted-foreground group-hover:text-foreground">
-                      <FileImage className="inline h-4 w-4 mr-1 align-[-2px]" />
-                      Selecionar
+                    <div className="text-center">
+                      <p className="text-base font-medium">
+                        {files.length > 0 ? `${files.length} arquivo(s) selecionado(s)` : "Clique aqui para selecionar os prints"}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {files.length > 0
+                          ? files.map((f) => f.name).join(" • ")
+                          : "Recorte bem apenas a tabela central de resultados."}
+                      </p>
                     </div>
                   </label>
                   <input
@@ -380,160 +362,87 @@ export function ProcessScoreboardDialog({
                     onChange={(e) => {
                       const next = Array.from(e.target.files ?? []);
                       setFiles(next);
-                      setPreview(null);
                       setError(null);
                     }}
                   />
 
-                  {imageUrls.length > 0 ? (
-                    <div className="mt-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs text-muted-foreground">Pré‑visualização</p>
-                          <p className="text-sm font-medium">{imageUrls.length} imagem(ns)</p>
-                        </div>
-
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button type="button" size="sm" variant="outline">Ampliar</Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-3xl">
-                            <DialogHeader>
-                              <DialogTitle>Imagens enviadas</DialogTitle>
-                            </DialogHeader>
-
-                            <div className="space-y-3">
-                              <div className="rounded-lg border border-border bg-card/40 p-3">
-                                <div className="flex items-center justify-between gap-3">
-                                  <p className="text-sm font-medium">Zoom</p>
-                                  <span className="text-xs text-muted-foreground">{Math.round(zoom * 100)}%</span>
-                                </div>
-                                <div className="mt-2">
-                                  <Slider
-                                    value={[zoom]}
-                                    min={0.5}
-                                    max={2}
-                                    step={0.05}
-                                    onValueChange={(v) => setZoom(v?.[0] ?? 1)}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="rounded-lg border border-border bg-background/20 overflow-auto max-h-[70vh]">
-                                <div className="p-4 space-y-6">
-                                  {imageUrls.map((src, idx) => (
-                                    <div key={src} className="space-y-2">
-                                      <div className="text-xs text-muted-foreground">Print {idx + 1}</div>
-                                      <img
-                                        src={src}
-                                        alt={`Print ${idx + 1} enviado para o Auto‑Placar`}
-                                        className="max-w-full h-auto origin-top-left"
-                                        style={{ transform: `scale(${zoom})` }}
-                                      />
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            </div>
-                          </DialogContent>
-                        </Dialog>
-                      </div>
-
-                      <div className="mt-3 grid grid-cols-3 gap-2">
-                        {imageUrls.map((src) => (
-                          <div key={src} className="rounded-md border border-border bg-background/20 overflow-hidden">
-                            <img
-                              src={src}
-                              alt="Miniatura do print enviado"
-                              className="h-20 w-full object-cover"
-                              loading="lazy"
-                            />
+                  {imageUrls.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {imageUrls.map((src, i) => (
+                        <div key={src} className="relative aspect-video rounded-lg border border-border bg-background/20 overflow-hidden group">
+                          <img src={src} alt={`Print ${i + 1}`} className="w-full h-full object-cover" loading="lazy" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="text-xs text-white font-medium">Print {i + 1}</span>
                           </div>
-                        ))}
-                      </div>
+                        </div>
+                      ))}
                     </div>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+                  <Button
+                    type="button"
+                    onClick={() => run(true)}
+                    disabled={processing || files.length === 0}
+                    className="w-full sm:flex-1 h-12 text-base gap-2"
+                  >
+                    {processing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Camera className="h-5 w-5" />}
+                    Fazer Leitura das Imagens
+                  </Button>
+                  <Button type="button" variant="outline" onClick={goManual} className="w-full sm:w-auto h-12 gap-2">
+                    Preencher Manualmente
+                  </Button>
+                </div>
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="flex flex-col h-full overflow-hidden">
+              <div className="flex-none p-4 border-b border-border bg-muted/30 flex flex-wrap items-center justify-between gap-4">
+                <Button variant="ghost" size="sm" onClick={() => setPreview(null)} disabled={applying} className="gap-2">
+                  <XCircle className="w-4 h-4" /> Descartar e Voltar
+                </Button>
+
+                <div className="flex items-center gap-3">
+                  <Button type="button" variant="outline" onClick={goManual} className="gap-2 shadow-sm" size="sm">
+                    Ajustar Manualmente
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => run(false)}
+                    disabled={applying || processing}
+                    className="gap-2 bg-green-600 hover:bg-green-700 text-white shadow-sm"
+                  >
+                    {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileImage className="w-4 h-4" />}
+                    Confirmar e Salvar Placar
+                  </Button>
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1 p-4 sm:p-6">
+                <div className="max-w-4xl mx-auto space-y-6">
+                  {linkingTag ? (
+                    <LinkTagInlinePanel
+                      trainingId={trainingId}
+                      roundId={roundId}
+                      tag={linkingTag}
+                      onClose={() => setLinkingTag("")}
+                      onLinked={() => setPreview(null)}
+                    />
                   ) : null}
-                </div>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Button
-                  type="button"
-                  onClick={() => run(true)}
-                  disabled={processing || applying || files.length === 0}
-                  className="gap-2"
-                >
-                  {processing ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Gerar prévia
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => run(false)}
-                  disabled={processing || applying || !preview}
-                  className="gap-2"
-                >
-                  {applying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                  Aplicar
-                </Button>
-                <Button type="button" variant="ghost" onClick={goManual} className="gap-2">
-                  Ir para manual
-                </Button>
-              </div>
-
-              <div className="text-xs text-muted-foreground">
-                Se algo vier errado, use os avisos à direita para vincular TAGs e gerar a prévia novamente.
-              </div>
-            </div>
-          </ScrollArea>
-
-          {/* Coluna direita: preview + vínculos */}
-          <ScrollArea className="h-full border-t lg:border-t-0 lg:border-l border-border">
-            <div className="p-4 sm:p-6 space-y-4">
-              {linkingTag ? (
-                <LinkTagInlinePanel
-                  trainingId={trainingId}
-                  roundId={roundId}
-                  tag={linkingTag}
-                  onClose={() => setLinkingTag("")}
-                  onLinked={() => {
-                    // Mantém a imagem selecionada; apenas limpa a prévia para o usuário gerar novamente
-                    setPreview(null);
-                  }}
-                />
-              ) : null}
-
-              {!preview ? (
-                <div className="rounded-lg border border-border bg-card/20 p-4">
-                  <p className="text-sm font-medium">Sem prévia ainda</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Envie as imagens e clique em <span className="font-medium">Gerar prévia</span>.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
                   {(hasWarnings || unresolvedCount > 0) && (
-                    <Alert>
-                      <AlertTitle>Avisos</AlertTitle>
+                    <Alert variant="destructive" className="bg-destructive/5 text-destructive border-destructive/20">
+                      <AlertTitle>Atenção necessária antes de salvar</AlertTitle>
                       <AlertDescription>
-                        <div className="flex flex-wrap items-center gap-2">
-                          {hasWarnings ? (
-                            <Badge variant="secondary" className="text-[11px]">Total: {warningGroups.total}</Badge>
-                          ) : null}
-                          {warningGroups.error.length > 0 ? (
-                            <Badge variant="secondary" className="text-[11px]">Erros: {warningGroups.error.length}</Badge>
-                          ) : null}
-                          {warningGroups.warn.length > 0 ? (
-                            <Badge variant="secondary" className="text-[11px]">Atenções: {warningGroups.warn.length}</Badge>
-                          ) : null}
-                          {unresolvedCount > 0 ? (
-                            <Badge variant="secondary" className="text-[11px]">Não vinculados: {unresolvedCount}</Badge>
-                          ) : null}
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          {unresolvedCount > 0 && <Badge variant="destructive" className="text-[11px]">Equipes não vinculadas: {unresolvedCount}</Badge>}
+                          {warningGroups.error.length > 0 && <Badge variant="destructive" className="text-[11px]">Erros: {warningGroups.error.length}</Badge>}
                         </div>
 
-                        {warningGroups.unmatchedTags.length > 0 ? (
+                        {warningGroups.unmatchedTags.length > 0 && (
                           <div className="mt-3">
-                            <p className="text-xs text-muted-foreground">Toque numa TAG para vincular:</p>
+                            <p className="text-sm font-medium">Toque numa TAG abaixo para vinculá-la a uma de suas equipes:</p>
                             <div className="mt-2 flex flex-wrap gap-2">
                               {warningGroups.unmatchedTags.slice(0, 24).map((tag, i) => (
                                 <Button
@@ -541,98 +450,35 @@ export function ProcessScoreboardDialog({
                                   type="button"
                                   variant="secondary"
                                   size="sm"
-                                  className="h-7 rounded-full px-3 text-[11px]"
+                                  className="h-8 rounded-full px-4 border border-destructive/30 hover:bg-destructive/10"
                                   onClick={() => setLinkingTag(tag)}
                                 >
                                   {tag}
                                 </Button>
                               ))}
-                              {warningGroups.unmatchedTags.length > 24 ? (
-                                <Badge variant="secondary" className="text-[11px]">
-                                  +{warningGroups.unmatchedTags.length - 24}
-                                </Badge>
-                              ) : null}
                             </div>
                           </div>
-                        ) : null}
-
-                        {hasWarnings && (
-                          <div className="mt-3">
-                            <Accordion type="multiple" className="w-full">
-                              {warningGroups.error.length > 0 ? (
-                                <AccordionItem value="sev-error">
-                                  <AccordionTrigger>
-                                    <span className="inline-flex items-center gap-2">
-                                      <XCircle className="h-4 w-4" />
-                                      Erros ({warningGroups.error.length})
-                                    </span>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <ul className="space-y-2 text-sm">
-                                      {warningGroups.error.slice(0, 10).map((w, i) => (
-                                        <li key={`${w.raw}:${i}`} className="rounded-md border border-border bg-background/20 p-2">
-                                          <p className="font-medium">{w.title}</p>
-                                          {w.detail ? (
-                                            <p className="text-xs text-muted-foreground mt-0.5">{w.detail}</p>
-                                          ) : null}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ) : null}
-
-                              {warningGroups.warn.length > 0 ? (
-                                <AccordionItem value="sev-warn">
-                                  <AccordionTrigger>
-                                    <span className="inline-flex items-center gap-2">
-                                      <AlertCircle className="h-4 w-4" />
-                                      Atenções ({warningGroups.warn.length})
-                                    </span>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <ul className="space-y-2 text-sm">
-                                      {warningGroups.warn
-                                        .filter((w) => !w.tag)
-                                        .slice(0, 10)
-                                        .map((w, i) => (
-                                          <li key={`${w.raw}:${i}`} className="rounded-md border border-border bg-background/20 p-2">
-                                            <p className="font-medium">{w.title}</p>
-                                            {w.detail ? (
-                                              <p className="text-xs text-muted-foreground mt-0.5">{w.detail}</p>
-                                            ) : null}
-                                          </li>
-                                        ))}
-                                    </ul>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ) : null}
-
-                              {warningGroups.info.length > 0 ? (
-                                <AccordionItem value="sev-info">
-                                  <AccordionTrigger>
-                                    <span className="inline-flex items-center gap-2">
-                                      <Info className="h-4 w-4" />
-                                      Info ({warningGroups.info.length})
-                                    </span>
-                                  </AccordionTrigger>
-                                  <AccordionContent>
-                                    <ul className="space-y-2 text-sm">
-                                      {warningGroups.info.slice(0, 10).map((w, i) => (
-                                        <li key={`${w.raw}:${i}`} className="rounded-md border border-border bg-background/20 p-2">
-                                          <p className="font-medium">{w.title}</p>
-                                          {w.detail ? (
-                                            <p className="text-xs text-muted-foreground mt-0.5">{w.detail}</p>
-                                          ) : null}
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  </AccordionContent>
-                                </AccordionItem>
-                              ) : null}
-                            </Accordion>
-                          </div>
                         )}
+
+                        <div className="mt-4">
+                          <Accordion type="multiple" className="w-full">
+                            {warningGroups.error.length > 0 && (
+                              <AccordionItem value="sev-error">
+                                <AccordionTrigger>Erros de Leitura ({warningGroups.error.length})</AccordionTrigger>
+                                <AccordionContent>
+                                  <ul className="space-y-2 text-sm text-foreground">
+                                    {warningGroups.error.map((w, i) => (
+                                      <li key={`err:${i}`} className="p-2 border border-border rounded-md bg-background/30">
+                                        <p className="font-medium text-destructive">{w.title}</p>
+                                        {w.detail && <p className="text-xs text-muted-foreground mt-1">{w.detail}</p>}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </AccordionContent>
+                              </AccordionItem>
+                            )}
+                          </Accordion>
+                        </div>
                       </AlertDescription>
                     </Alert>
                   )}
@@ -641,72 +487,139 @@ export function ProcessScoreboardDialog({
 
                   <Separator />
 
-                  <div className="rounded-lg border border-border bg-card/20 p-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium">Prévia do placar</p>
-                      <p className="text-xs text-muted-foreground">{preview.resolved?.length ?? 0} equipes</p>
+                  <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
+                    <div className="p-4 border-b border-border bg-muted/20 flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <h4 className="font-semibold">Posições Encontradas</h4>
+                        <p className="text-xs text-muted-foreground">Confira os pontos, kills e posições antes de confirmar.</p>
+                      </div>
+                      <Badge variant="outline">{preview.resolved?.length ?? 0} equipes</Badge>
                     </div>
-
-                    <div className="mt-3 space-y-2">
+                    <div className="p-4 space-y-3">
                       {preview.resolved?.map((r, idx) => {
                         const score = preview.preview_inserts?.match_scores?.find((s) => s.team_id === r.team?.id);
                         const isMissingTeam = !r.team;
                         return (
                           <div
                             key={`${r.posicao}:${r.dominant_tag}:${idx}`}
-                            className={
-                              isMissingTeam
-                                ? "rounded-md border border-destructive/50 bg-destructive/10 p-3"
-                                : "rounded-md border border-border bg-background/20 p-3"
-                            }
+                            className={`flex flex-col gap-4 p-5 rounded-2xl border-2 transition-all duration-200 shadow-sm ${isMissingTeam
+                              ? 'border-destructive/30 bg-destructive/5'
+                              : 'border-border bg-card/40 hover:bg-muted/10 hover:border-primary/20'
+                              }`}
                           >
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-sm font-medium truncate">
-                                  {r.posicao}º —{" "}
-                                  {r.team ? `[${r.team.tag}] ${r.team.name ?? ""}` : `TAG não vinculada: ${r.dominant_tag || "—"}`}
-                                </p>
-                                {score ? (
-                                  <p className="text-[11px] text-muted-foreground">
-                                    K {score.kills} • PP {score.position_points} • KP {score.kill_points} • T {score.total_points}
-                                  </p>
-                                ) : null}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className={`flex items-center justify-center w-12 h-12 rounded-xl border-2 font-black text-2xl shrink-0 ${isMissingTeam ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-primary/20 bg-primary/5 text-primary'
+                                  }`}>
+                                  {r.posicao}º
+                                </div>
+                                <div className="min-w-0">
+                                  {isMissingTeam ? (
+                                    <div className="space-y-1">
+                                      <p className="text-[10px] font-bold text-destructive uppercase tracking-widest flex items-center gap-1.5 opacity-80">
+                                        <AlertCircle className="w-3 h-3" /> Pendente de Vínculo
+                                      </p>
+                                      <p className="font-bold text-lg leading-none truncate text-muted-foreground/60 italic">
+                                        TAG "{r.dominant_tag || "???"}" Desconhecida
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-1">
+                                      <p className="text-[10px] font-bold text-muted-foreground uppercase opacity-70 tracking-widest">
+                                        Equipe Identificada
+                                      </p>
+                                      <p className="font-black text-xl leading-none text-foreground truncate">
+                                        [{r.team.tag}] {r.team.name ?? ""}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
 
-                              <div className="shrink-0 flex items-center gap-2">
-                                {!isMissingTeam && r.resolution === "round_link" ? (
-                                  <Badge variant="secondary" className="text-[11px]">vínculo</Badge>
-                                ) : null}
+                              <div className="w-full sm:w-auto flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0">
+                                {score && (
+                                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary text-primary-foreground font-black text-lg shadow-md border border-primary/20">
+                                    <span className="text-[10px] font-bold opacity-70 uppercase tracking-tighter">TOTAL</span>
+                                    {score.total_points}
+                                  </div>
+                                )}
                                 {isMissingTeam ? (
                                   <Button
                                     type="button"
-                                    variant="secondary"
+                                    variant="destructive"
                                     size="sm"
-                                    className="h-7 rounded-full px-3 text-[11px]"
+                                    className="h-9 px-4 font-black text-[10px] uppercase tracking-wider shadow-sm hover:scale-105 transition-transform"
                                     onClick={() => setLinkingTag(String(r.dominant_tag || ""))}
                                   >
-                                    Vincular
+                                    Resolver Agora
                                   </Button>
-                                ) : null}
+                                ) : r.resolution === "round_link" && (
+                                  <Badge variant="outline" className="text-[9px] uppercase font-black py-0.5 bg-background/50 border-primary/20 text-primary">
+                                    Vínculo Manual
+                                  </Badge>
+                                )}
                               </div>
                             </div>
 
-                            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
-                              {(r.jogadores ?? []).map((p, pIdx) => (
-                                <p key={`${p.nick_normalizado}:${pIdx}`} className="text-[11px] text-muted-foreground">
-                                  {p.nick_normalizado || "(vazio)"}: <span className="text-foreground">{p.abates}</span>
-                                </p>
-                              ))}
-                            </div>
+                            {score && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                <div className="bg-background/60 border border-border/40 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-inner">
+                                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1.5">Abates</span>
+                                  <span className="text-xl font-black text-primary leading-none">{score.kills}</span>
+                                </div>
+                                <div className="bg-background/60 border border-border/40 rounded-xl p-3 flex flex-col items-center justify-center text-center shadow-inner">
+                                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1.5">Pts Abate</span>
+                                  <span className="text-xl font-black text-foreground/80 leading-none">{score.kill_points}</span>
+                                </div>
+                                <div className="hidden sm:flex bg-background/60 border border-border/40 rounded-xl p-3 flex-col items-center justify-center text-center shadow-inner">
+                                  <span className="text-[9px] font-black text-muted-foreground uppercase tracking-widest leading-none mb-1.5">Pts Pos.</span>
+                                  <span className="text-xl font-black text-foreground/80 leading-none">{score.position_points}</span>
+                                </div>
+                              </div>
+                            )}
+
+                            {(r.jogadores?.length > 0) && (
+                              <div className="w-full pt-4 mt-1 border-t border-dashed border-border/60">
+                                <div className="flex items-center justify-between mb-3">
+                                  <p className="text-[10px] font-black tracking-[0.15em] text-muted-foreground uppercase flex items-center gap-2">
+                                    <Users className="w-3.5 h-3.5" /> Performance dos Jogadores
+                                  </p>
+                                  <Badge variant="secondary" className="text-[9px] font-bold py-0 h-4 bg-muted/40">
+                                    {r.jogadores.length} Players
+                                  </Badge>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-2.5">
+                                  {r.jogadores.map((p, pIdx) => (
+                                    <div key={pIdx} className="group bg-muted/20 hover:bg-primary/5 border border-border/40 hover:border-primary/20 rounded-xl p-3 flex items-center justify-between transition-all duration-200">
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <div className="w-8 h-8 rounded-lg bg-background border border-border/60 flex items-center justify-center text-xs font-black text-muted-foreground group-hover:text-primary group-hover:border-primary/20 transition-all shadow-sm">
+                                          {pIdx + 1}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <p className="font-bold text-xs truncate text-foreground/90 group-hover:text-foreground">
+                                            {p.nick_normalizado || "???"}
+                                          </p>
+                                          <p className="text-[9px] text-muted-foreground font-medium">Jogador Encontrado</p>
+                                        </div>
+                                      </div>
+                                      <div className="shrink-0 flex items-center gap-1.5 bg-background px-2.5 py-1.5 rounded-lg border border-border/60 shadow-sm group-hover:border-primary/20 transition-all">
+                                        <span className="text-lg font-black text-primary leading-none">{p.abates}</span>
+                                        <span className="text-[10px] font-black text-muted-foreground/60 uppercase group-hover:text-primary/60">K</span>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
                     </div>
                   </div>
                 </div>
-              )}
+              </ScrollArea>
             </div>
-          </ScrollArea>
+          )}
         </div>
       </DialogContent>
     </Dialog>

@@ -1,4 +1,8 @@
+// @ts-ignore: Deno import via URL
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.91.0";
+
+// Declare Deno to prevent TS errors in non-Deno workspace
+declare const Deno: any;
 
 function escapeXml(value: string) {
   return value
@@ -14,7 +18,7 @@ function detectSiteUrl(req: Request) {
   const proto = forwardedProto?.split(",")[0]?.trim() || "https";
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
   if (host) return `${proto}://${host}`;
-  return "https://blank-canvas-magic-743.lovable.app";
+  return "https://tornefy.com.br";
 }
 
 function xmlResponse(xml: string) {
@@ -60,7 +64,7 @@ function buildSitemap(urls: UrlEntry[]) {
     `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${rows}\n</urlset>`;
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
     return new Response("Method not allowed", { status: 405 });
   }

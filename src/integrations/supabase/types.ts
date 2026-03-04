@@ -2336,6 +2336,7 @@ export type Database = {
           is_private: boolean | null
           kind: string
           live_link: string | null
+          live_streams: Json | null
           max_slots: number | null
           mode: string | null
           name: string | null
@@ -2374,6 +2375,7 @@ export type Database = {
           is_private?: boolean | null
           kind?: string
           live_link?: string | null
+          live_streams?: Json | null
           max_slots?: number | null
           mode?: string | null
           name?: string | null
@@ -2412,6 +2414,7 @@ export type Database = {
           is_private?: boolean | null
           kind?: string
           live_link?: string | null
+          live_streams?: Json | null
           max_slots?: number | null
           mode?: string | null
           name?: string | null
